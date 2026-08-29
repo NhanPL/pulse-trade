@@ -7,12 +7,12 @@ export type MarketTableProps = {
 
 export function MarketTable({ markets }: MarketTableProps) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[920px] border-collapse text-left">
+    <div className="md:overflow-x-auto">
+      <table className="block w-full border-collapse text-left md:table md:min-w-[920px]">
         <caption className="sr-only">
           Supported crypto markets with static price and 24-hour statistics
         </caption>
-        <thead>
+        <thead className="hidden md:table-header-group">
           <tr className="border-b border-border-subtle bg-surface/75 text-xs uppercase tracking-wide text-foreground-muted">
             <th className="px-5 py-3.5 font-medium" scope="col">
               Market
@@ -37,7 +37,7 @@ export function MarketTable({ markets }: MarketTableProps) {
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="grid gap-3 bg-canvas/20 p-3 sm:p-4 md:table-row-group md:bg-transparent md:p-0">
           {markets.map((market) => (
             <MarketRow key={market.symbol} market={market} />
           ))}
