@@ -35,7 +35,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 ## Epic D — Trading screen static UI
 
 - [x] D01 Build trading route and symbol validation.
-- [ ] D02 Build market header/ticker layout.
+- [x] D02 Build market header/ticker layout.
 - [ ] D03 Build ChartPanel shell.
 - [ ] D04 Build OrderBook static UI.
 - [ ] D05 Build RecentTrades static UI.

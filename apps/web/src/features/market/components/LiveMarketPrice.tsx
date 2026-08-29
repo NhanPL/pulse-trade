@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 
-import { formatMarketPrice } from "../utils/format-market-value";
+import { formatMarketPrice } from "@/lib/format/market-value";
 
 export type LiveMarketPriceProps = {
   price: string;
