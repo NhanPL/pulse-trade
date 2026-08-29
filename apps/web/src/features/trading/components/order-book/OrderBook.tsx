@@ -17,9 +17,9 @@ export function OrderBook({ baseAsset, midPrice, quoteAsset, symbol }: OrderBook
   return (
     <section
       aria-labelledby="order-book-title"
-      className="overflow-hidden rounded-xl border border-border-subtle bg-surface-elevated shadow-panel"
+      className="flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-elevated shadow-panel"
     >
-      <header className="flex min-h-14 items-center justify-between gap-4 border-b border-border-subtle px-4 py-3 sm:px-5">
+      <header className="flex min-h-14 items-center justify-between gap-4 border-b border-border-subtle px-4 py-3 sm:px-5 lg:min-h-12 lg:py-2">
         <div>
           <h2 id="order-book-title" className="text-sm font-semibold text-foreground">
             Order book
@@ -29,7 +29,7 @@ export function OrderBook({ baseAsset, midPrice, quoteAsset, symbol }: OrderBook
         <Badge variant="neutral">Snapshot</Badge>
       </header>
 
-      <div className="max-h-[32rem] overflow-y-auto">
+      <div className="max-h-[32rem] overflow-y-auto lg:min-h-0 lg:flex-1">
         <table className="w-full table-fixed border-collapse">
           <caption className="sr-only">
             Static {symbol} order-book preview with asks sorted ascending and bids sorted descending
@@ -47,16 +47,7 @@ export function OrderBook({ baseAsset, midPrice, quoteAsset, symbol }: OrderBook
               </th>
             </tr>
           </thead>
-          <tbody>
-            <tr className="h-8 border-b border-border-subtle bg-negative-subtle/25">
-              <th
-                className="px-4 text-left text-[0.6875rem] font-semibold uppercase tracking-wide text-negative"
-                colSpan={3}
-                scope="rowgroup"
-              >
-                Asks · Sell orders
-              </th>
-            </tr>
+          <tbody aria-label="Asks, sell orders">
             {preview.asks.map((level) => (
               <OrderBookLevelRow key={level.price} level={level} side="ask" />
             ))}
@@ -71,16 +62,7 @@ export function OrderBook({ baseAsset, midPrice, quoteAsset, symbol }: OrderBook
               </th>
             </tr>
           </tbody>
-          <tbody>
-            <tr className="h-8 border-b border-border-subtle bg-positive-subtle/25">
-              <th
-                className="px-4 text-left text-[0.6875rem] font-semibold uppercase tracking-wide text-positive"
-                colSpan={3}
-                scope="rowgroup"
-              >
-                Bids · Buy orders
-              </th>
-            </tr>
+          <tbody aria-label="Bids, buy orders">
             {preview.bids.map((level) => (
               <OrderBookLevelRow key={level.price} level={level} side="bid" />
             ))}

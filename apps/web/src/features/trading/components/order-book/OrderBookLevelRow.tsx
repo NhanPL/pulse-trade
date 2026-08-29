@@ -24,7 +24,7 @@ export const OrderBookLevelRow = memo(function OrderBookLevelRow({
 
   return (
     <tr
-      className="h-8 transition-colors hover:bg-surface-hover/60"
+      className="h-8 transition-colors hover:bg-surface-hover/60 lg:h-6"
       style={{
         backgroundImage: `linear-gradient(${depthColor}, ${depthColor})`,
         backgroundPosition: "right",

@@ -12,7 +12,7 @@ export type OrderBookPreview = {
   bids: readonly OrderBookPreviewLevel[];
 };
 
-const LEVEL_COUNT = 10;
+const LEVEL_COUNT = 5;
 const TARGET_NOTIONALS = [840, 510, 1260, 690, 980, 430, 1120, 760, 570, 1350] as const;
 const DEPTH_PERCENTAGES = [24, 31, 43, 49, 58, 66, 73, 81, 89, 96] as const;
 

@@ -16,9 +16,9 @@ export function RecentTrades({ baseAsset, midPrice, quoteAsset, symbol }: Recent
   return (
     <section
       aria-labelledby="recent-trades-title"
-      className="overflow-hidden rounded-xl border border-border-subtle bg-surface-elevated shadow-panel"
+      className="flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-elevated shadow-panel"
     >
-      <header className="flex min-h-14 items-center justify-between gap-4 border-b border-border-subtle px-4 py-3 sm:px-5">
+      <header className="flex min-h-14 items-center justify-between gap-4 border-b border-border-subtle px-4 py-3 sm:px-5 lg:min-h-12 lg:py-2">
         <div>
           <h2 id="recent-trades-title" className="text-sm font-semibold text-foreground">
             Recent trades
@@ -28,7 +28,7 @@ export function RecentTrades({ baseAsset, midPrice, quoteAsset, symbol }: Recent
         <Badge variant="neutral">Snapshot</Badge>
       </header>
 
-      <div className="max-h-96 overflow-auto">
+      <div className="max-h-96 overflow-auto lg:min-h-0 lg:flex-1">
         <table className="w-full min-w-[28rem] table-fixed border-collapse">
           <caption className="sr-only">
             Static {symbol} recent trades preview, newest first; times shown in UTC
