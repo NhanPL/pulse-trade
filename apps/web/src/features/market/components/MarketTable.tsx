@@ -2,11 +2,10 @@ import type { MarketTableItem } from "../model/market-table";
 import { MarketRow } from "./MarketRow";
 
 export type MarketTableProps = {
-  emptyMessage?: string;
   markets: readonly MarketTableItem[];
 };
 
-export function MarketTable({ emptyMessage = "No markets available.", markets }: MarketTableProps) {
+export function MarketTable({ markets }: MarketTableProps) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[920px] border-collapse text-left">
@@ -39,13 +38,6 @@ export function MarketTable({ emptyMessage = "No markets available.", markets }:
           </tr>
         </thead>
         <tbody>
-          {markets.length === 0 ? (
-            <tr>
-              <td className="px-5 py-12 text-center text-sm text-foreground-muted" colSpan={7}>
-                {emptyMessage}
-              </td>
-            </tr>
-          ) : null}
           {markets.map((market) => (
             <MarketRow key={market.symbol} market={market} />
           ))}
