@@ -26,7 +26,7 @@ export const RecentTradeRow = memo(function RecentTradeRow({ trade }: RecentTrad
   const isBuy = trade.side === "BUY";
 
   return (
-    <tr className="h-10 border-b border-border-subtle last:border-b-0 hover:bg-surface-hover/60">
+    <tr className="h-10 border-b border-border-subtle last:border-b-0 hover:bg-surface-hover/60 lg:h-7">
       <td
         className={classNames(
           "px-4 font-mono text-xs font-medium tabular-nums",

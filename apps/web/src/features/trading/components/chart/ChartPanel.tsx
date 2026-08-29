@@ -41,9 +41,9 @@ export function ChartPanel({ children, symbol, timeframe = "1m" }: ChartPanelPro
   return (
     <section
       aria-labelledby="chart-panel-title"
-      className="overflow-hidden rounded-xl border border-border-subtle bg-surface-elevated shadow-panel"
+      className="flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-elevated shadow-panel"
     >
-      <header className="flex min-h-14 items-center justify-between gap-4 border-b border-border-subtle px-4 py-3 sm:px-5">
+      <header className="flex min-h-14 items-center justify-between gap-4 border-b border-border-subtle px-4 py-3 sm:px-5 lg:min-h-12 lg:py-2">
         <div className="min-w-0">
           <h2 id="chart-panel-title" className="text-sm font-semibold text-foreground">
             Candlestick chart
@@ -56,7 +56,7 @@ export function ChartPanel({ children, symbol, timeframe = "1m" }: ChartPanelPro
       </header>
 
       <div
-        className="relative h-80 min-w-0 overflow-hidden sm:h-[26rem] lg:h-[30rem]"
+        className="relative h-80 min-w-0 overflow-hidden sm:h-[26rem] lg:h-auto lg:min-h-0 lg:flex-1"
         data-chart-container={symbol}
         style={{
           backgroundImage:

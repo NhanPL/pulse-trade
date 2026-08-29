@@ -27,7 +27,7 @@ export function TradingMarketHeader(props: TradingMarketHeaderProps) {
       aria-labelledby="trading-market-title"
       className="rounded-xl border border-border-subtle bg-surface-elevated shadow-panel"
     >
-      <div className="grid gap-5 p-4 sm:p-5 lg:grid-cols-[minmax(14rem,0.9fr)_minmax(16rem,1.1fr)_minmax(22rem,1.4fr)_auto] lg:items-center lg:gap-7 lg:px-6">
+      <div className="grid gap-5 p-4 sm:p-5 lg:grid-cols-[minmax(14rem,0.9fr)_minmax(16rem,1.1fr)_minmax(22rem,1.4fr)_auto] lg:items-center lg:gap-7 lg:px-6 lg:py-[15px]">
         <div className="flex items-center gap-3">
           <span
             aria-hidden="true"

@@ -24,7 +24,7 @@ export const OrderBookLevelRow = memo(function OrderBookLevelRow({
 
   return (
     <tr
-      className="h-8 transition-colors hover:bg-surface-hover/60"
+      className="h-8 transition-colors hover:bg-surface-hover/60 lg:h-6"
       style={{
         backgroundImage: `linear-gradient(${depthColor}, ${depthColor})`,
         backgroundPosition: "right",
@@ -44,7 +44,7 @@ export const OrderBookLevelRow = memo(function OrderBookLevelRow({
         {quantityFormatter.format(Number(level.amount))}
       </td>
       <td className="px-4 text-right font-mono text-xs tabular-nums text-foreground-muted">
-        {formatMarketPrice(level.total)}
+        {quantityFormatter.format(Number(level.total))}
       </td>
     </tr>
   );
