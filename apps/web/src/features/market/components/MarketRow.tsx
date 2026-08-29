@@ -2,13 +2,13 @@ import Link from "next/link";
 import { memo } from "react";
 
 import { classNames } from "@/components/ui/class-names";
-
-import type { MarketTableItem } from "../model/market-table";
 import {
   formatMarketPrice,
   formatMarketVolume,
   formatPercentChange,
-} from "../utils/format-market-value";
+} from "@/lib/format/market-value";
+
+import type { MarketTableItem } from "../model/market-table";
 import { LiveMarketPrice } from "./LiveMarketPrice";
 
 export type MarketRowProps = {
