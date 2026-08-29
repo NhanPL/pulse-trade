@@ -47,7 +47,12 @@ export default async function TradingPage({ params }: TradingPageProps) {
   }
 
   return (
-    <PageContainer className="space-y-3" data-market-symbol={market.symbol} spacing="compact">
+    <PageContainer
+      className="space-y-2.5 px-4 pb-4 pt-[18px] sm:px-6"
+      data-market-symbol={market.symbol}
+      spacing="none"
+      width="full"
+    >
       <TradingMarketHeader {...snapshot} />
       <TradingGrid
         chart={<ChartPanel symbol={market.symbol} />}

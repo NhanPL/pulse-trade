@@ -41,7 +41,7 @@ function SegmentedControl<TValue extends string>({
   return (
     <fieldset>
       <legend className="sr-only">{label}</legend>
-      <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-surface p-1">
+      <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-surface p-1 lg:max-w-56">
         {options.map((option) => {
           const selected = option.value === value;
 
@@ -110,8 +110,8 @@ const SIDE_OPTIONS = [
 ] as const;
 
 const TYPE_OPTIONS = [
-  { label: "MARKET", value: "MARKET" },
   { label: "LIMIT", value: "LIMIT" },
+  { label: "MARKET", value: "MARKET" },
 ] as const;
 
 type BuySellTabsProps = {
@@ -123,7 +123,7 @@ type BuySellTabsProps = {
 
 function BuySellTabs({ controlsId, idPrefix, onChange, side }: BuySellTabsProps) {
   return (
-    <div aria-label="Order side" className="grid min-w-48 grid-cols-2 self-stretch" role="tablist">
+    <div aria-label="Order side" className="grid min-w-60 grid-cols-2 self-stretch" role="tablist">
       {SIDE_OPTIONS.map((option) => {
         const selected = option.value === side;
 
@@ -159,7 +159,7 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
   const router = useRouter();
   const formId = useId();
   const [side, setSide] = useState<OrderSide>("BUY");
-  const [type, setType] = useState<OrderType>("MARKET");
+  const [type, setType] = useState<OrderType>("LIMIT");
   const [quantity, setQuantity] = useState("");
   const [limitPrice, setLimitPrice] = useState(currentPrice);
   const estimatePrice = type === "MARKET" ? currentPrice : limitPrice;
@@ -186,14 +186,14 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
         </h2>
         <BuySellTabs controlsId={orderFieldsId} idPrefix={formId} onChange={setSide} side={side} />
         <p className="hidden self-center text-right text-xs text-foreground-muted sm:block">
-          Available balance
+          Available / locked
           <span className="block font-medium text-foreground-secondary">Sign in to view</span>
         </p>
       </header>
 
       <form
         aria-labelledby={`${formId}-${side.toLowerCase()}-tab`}
-        className="grid gap-5 p-4 sm:p-5 lg:flex-1 lg:content-start lg:gap-3 lg:p-4"
+        className="grid min-h-0 gap-5 p-4 sm:p-5 lg:flex-1 lg:content-start lg:gap-3 lg:overflow-y-auto lg:p-4"
         id={orderFieldsId}
         onSubmit={handleSubmit}
         role="tabpanel"
@@ -205,15 +205,6 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
           options={TYPE_OPTIONS}
           value={type}
         />
-
-        {type === "LIMIT" ? (
-          <dl className="rounded-lg border border-border-subtle bg-surface/65 p-3 text-xs lg:p-2">
-            <div className="flex items-center justify-between gap-4">
-              <dt className="text-foreground-muted">Locked balance</dt>
-              <dd className="font-medium text-foreground-secondary">Sign in to view</dd>
-            </div>
-          </dl>
-        ) : null}
 
         <div className="grid gap-3 lg:grid-cols-2">
           {type === "LIMIT" ? (
@@ -263,7 +254,7 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
         </div>
 
         <Button
-          className="w-full"
+          className="w-full lg:sticky lg:bottom-0 lg:z-10"
           size="lg"
           type="submit"
           variant={side === "BUY" ? "positive" : "destructive"}

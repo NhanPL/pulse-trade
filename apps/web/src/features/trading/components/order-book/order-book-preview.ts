@@ -25,19 +25,22 @@ function pricePrecision(price: number): number {
 function buildLevels(midPrice: number, side: OrderBookSide): OrderBookPreviewLevel[] {
   const precision = pricePrecision(midPrice);
   const minimumTick = 10 ** -precision;
-  const step = Math.max(midPrice * 0.0001, minimumTick);
+  const step = Math.max(midPrice * 0.0000075, minimumTick);
   const direction = side === "ask" ? 1 : -1;
+
+  let cumulativeAmount = 0;
 
   return Array.from({ length: LEVEL_COUNT }, (_, index) => {
     // These values only populate the static preview; provider decimals remain strings end to end.
     const price = midPrice + direction * step * (index + 1);
     const amount = TARGET_NOTIONALS[index] / price;
+    cumulativeAmount += amount;
 
     return {
       amount: amount.toFixed(8),
       depthPercent: DEPTH_PERCENTAGES[index],
       price: price.toFixed(precision),
-      total: (price * amount).toFixed(2),
+      total: cumulativeAmount.toFixed(8),
     };
   });
 }

@@ -44,7 +44,7 @@ export const OrderBookLevelRow = memo(function OrderBookLevelRow({
         {quantityFormatter.format(Number(level.amount))}
       </td>
       <td className="px-4 text-right font-mono text-xs tabular-nums text-foreground-muted">
-        {formatMarketPrice(level.total)}
+        {quantityFormatter.format(Number(level.total))}
       </td>
     </tr>
   );

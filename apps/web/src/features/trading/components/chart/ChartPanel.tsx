@@ -43,7 +43,7 @@ export function ChartPanel({ children, symbol, timeframe = "1m" }: ChartPanelPro
       aria-labelledby="chart-panel-title"
       className="flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-elevated shadow-panel"
     >
-      <header className="flex min-h-14 items-center justify-between gap-4 border-b border-border-subtle px-4 py-3 sm:px-5">
+      <header className="flex min-h-14 items-center justify-between gap-4 border-b border-border-subtle px-4 py-3 sm:px-5 lg:min-h-12 lg:py-2">
         <div className="min-w-0">
           <h2 id="chart-panel-title" className="text-sm font-semibold text-foreground">
             Candlestick chart
