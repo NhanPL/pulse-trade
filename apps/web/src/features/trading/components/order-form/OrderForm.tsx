@@ -114,6 +114,47 @@ const TYPE_OPTIONS = [
   { label: "LIMIT", value: "LIMIT" },
 ] as const;
 
+type BuySellTabsProps = {
+  controlsId: string;
+  idPrefix: string;
+  onChange: (side: OrderSide) => void;
+  side: OrderSide;
+};
+
+function BuySellTabs({ controlsId, idPrefix, onChange, side }: BuySellTabsProps) {
+  return (
+    <div aria-label="Order side" className="grid min-w-48 grid-cols-2 self-stretch" role="tablist">
+      {SIDE_OPTIONS.map((option) => {
+        const selected = option.value === side;
+
+        return (
+          <button
+            key={option.value}
+            aria-controls={controlsId}
+            aria-selected={selected}
+            className={classNames(
+              "relative min-h-12 border-b-2 px-5 text-sm font-semibold transition-colors",
+              "focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus",
+              selected
+                ? option.value === "BUY"
+                  ? "border-positive bg-positive-subtle/35 text-positive"
+                  : "border-negative bg-negative-subtle/35 text-negative"
+                : "border-transparent text-foreground-muted hover:bg-surface-hover hover:text-foreground",
+            )}
+            id={`${idPrefix}-${option.value.toLowerCase()}-tab`}
+            onClick={() => onChange(option.value)}
+            role="tab"
+            tabIndex={0}
+            type="button"
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: OrderFormProps) {
   const router = useRouter();
   const formId = useId();
@@ -127,6 +168,7 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
   const estimate = reservesBaseAsset
     ? formatQuantityEstimate(quantity, baseAsset)
     : formatEstimate(quantity, estimatePrice, quoteAsset);
+  const orderFieldsId = `${formId}-order-fields`;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -138,24 +180,24 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
       aria-labelledby={`${formId}-title`}
       className="flex flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-elevated shadow-panel"
     >
-      <header className="border-b border-border-subtle px-4 py-3 sm:px-5 lg:py-2">
-        <h2 id={`${formId}-title`} className="text-sm font-semibold text-foreground">
-          Place paper order
+      <header className="flex min-h-12 items-stretch justify-between border-b border-border-subtle pr-4">
+        <h2 id={`${formId}-title`} className="sr-only">
+          Place {symbol} paper order
         </h2>
-        <p className="mt-0.5 font-mono text-xs text-foreground-muted">{symbol}</p>
+        <BuySellTabs controlsId={orderFieldsId} idPrefix={formId} onChange={setSide} side={side} />
+        <p className="hidden self-center text-right text-xs text-foreground-muted sm:block">
+          Available balance
+          <span className="block font-medium text-foreground-secondary">Sign in to view</span>
+        </p>
       </header>
 
       <form
+        aria-labelledby={`${formId}-${side.toLowerCase()}-tab`}
         className="grid gap-5 p-4 sm:p-5 lg:flex-1 lg:content-start lg:gap-3 lg:p-4"
+        id={orderFieldsId}
         onSubmit={handleSubmit}
+        role="tabpanel"
       >
-        <SegmentedControl
-          label="Order side"
-          name={`${formId}-side`}
-          onChange={setSide}
-          options={SIDE_OPTIONS}
-          value={side}
-        />
         <SegmentedControl
           label="Order type"
           name={`${formId}-type`}
@@ -164,18 +206,14 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
           value={type}
         />
 
-        <dl className="grid gap-2 rounded-lg border border-border-subtle bg-surface/65 p-3 text-xs lg:p-2">
-          <div className="flex items-center justify-between gap-4">
-            <dt className="text-foreground-muted">Available balance</dt>
-            <dd className="font-medium text-foreground-secondary">Sign in to view</dd>
-          </div>
-          {type === "LIMIT" ? (
+        {type === "LIMIT" ? (
+          <dl className="rounded-lg border border-border-subtle bg-surface/65 p-3 text-xs lg:p-2">
             <div className="flex items-center justify-between gap-4">
               <dt className="text-foreground-muted">Locked balance</dt>
               <dd className="font-medium text-foreground-secondary">Sign in to view</dd>
             </div>
-          ) : null}
-        </dl>
+          </dl>
+        ) : null}
 
         <div className="grid gap-3 lg:grid-cols-2">
           {type === "LIMIT" ? (
