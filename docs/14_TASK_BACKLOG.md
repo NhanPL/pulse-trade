@@ -37,8 +37,8 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] D01 Build trading route and symbol validation.
 - [x] D02 Build market header/ticker layout.
 - [x] D03 Build ChartPanel shell.
-- [ ] D04 Build OrderBook static UI.
-- [ ] D05 Build RecentTrades static UI.
+- [x] D04 Build OrderBook static UI.
+- [x] D05 Build RecentTrades static UI.
 - [ ] D06 Build OrderForm static UI.
 - [ ] D07 Build desktop trading grid.
 - [ ] D08 Build mobile tab/stack layout.

@@ -6,6 +6,8 @@ import { getSupportedMarket, SUPPORTED_MARKETS } from "@/features/market/model/s
 import { TradingMarketHeader } from "@/features/trading/components/TradingMarketHeader";
 import { UnsupportedMarketState } from "@/features/trading/components/UnsupportedMarketState";
 import { ChartPanel } from "@/features/trading/components/chart/ChartPanel";
+import { OrderBook } from "@/features/trading/components/order-book/OrderBook";
+import { RecentTrades } from "@/features/trading/components/recent-trades/RecentTrades";
 
 type TradingPageProps = {
   params: Promise<{ symbol: string }>;
@@ -46,6 +48,18 @@ export default async function TradingPage({ params }: TradingPageProps) {
     <PageContainer className="space-y-6" data-market-symbol={market.symbol}>
       <TradingMarketHeader {...snapshot} />
       <ChartPanel symbol={market.symbol} />
+      <OrderBook
+        baseAsset={market.baseAsset}
+        midPrice={snapshot.price}
+        quoteAsset={market.quoteAsset}
+        symbol={market.symbol}
+      />
+      <RecentTrades
+        baseAsset={market.baseAsset}
+        midPrice={snapshot.price}
+        quoteAsset={market.quoteAsset}
+        symbol={market.symbol}
+      />
     </PageContainer>
   );
 }
