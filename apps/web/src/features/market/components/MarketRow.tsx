@@ -21,8 +21,11 @@ export const MarketRow = memo(function MarketRow({ market }: MarketRowProps) {
   const isPositive = Number(market.change24hPercent) >= 0;
 
   return (
-    <tr className="border-b border-border-subtle transition-colors last:border-b-0 hover:bg-surface-hover/70">
-      <th className="px-5 py-4 font-normal" scope="row">
+    <tr className="relative grid grid-cols-2 overflow-hidden rounded-lg border border-border-subtle bg-surface transition-colors hover:bg-surface-hover/70 md:table-row md:rounded-none md:border-x-0 md:border-t-0 md:bg-transparent md:last:border-b-0">
+      <th
+        className="col-span-2 block px-4 py-4 pr-16 text-left font-normal md:table-cell md:px-5 md:py-4 md:pr-5"
+        scope="row"
+      >
         <div className="flex items-center gap-3">
           <span
             aria-hidden="true"
@@ -39,30 +42,45 @@ export const MarketRow = memo(function MarketRow({ market }: MarketRowProps) {
           </span>
         </div>
       </th>
-      <td className="px-4 py-4 text-right text-sm text-foreground">
+      <td className="block border-t border-border-subtle px-4 py-3 text-left text-sm text-foreground md:table-cell md:border-t-0 md:py-4 md:text-right">
+        <span className="mb-1 block text-xs font-normal text-foreground-muted md:hidden">
+          Price
+        </span>
         <LiveMarketPrice price={market.price} symbol={market.symbol} />
       </td>
       <td
         className={classNames(
-          "px-4 py-4 text-right font-mono text-sm font-semibold tabular-nums",
+          "block border-t border-border-subtle px-4 py-3 text-right font-mono text-sm font-semibold tabular-nums md:table-cell md:border-t-0 md:py-4",
           isPositive ? "text-positive" : "text-negative",
         )}
       >
+        <span className="mb-1 block font-sans text-xs font-normal text-foreground-muted md:hidden">
+          24h change
+        </span>
         {formatPercentChange(market.change24hPercent)}
       </td>
-      <td className="px-4 py-4 text-right font-mono text-sm tabular-nums text-foreground-secondary">
+      <td className="block border-t border-border-subtle bg-surface-elevated/45 px-4 py-3 text-left font-mono text-sm tabular-nums text-foreground-secondary md:table-cell md:border-t-0 md:bg-transparent md:py-4 md:text-right">
+        <span className="mb-1 block font-sans text-xs text-foreground-muted md:hidden">
+          24h high
+        </span>
         {formatMarketPrice(market.high24h)}
       </td>
-      <td className="px-4 py-4 text-right font-mono text-sm tabular-nums text-foreground-secondary">
+      <td className="block border-t border-border-subtle bg-surface-elevated/45 px-4 py-3 text-right font-mono text-sm tabular-nums text-foreground-secondary md:table-cell md:border-t-0 md:bg-transparent md:py-4">
+        <span className="mb-1 block font-sans text-xs text-foreground-muted md:hidden">
+          24h low
+        </span>
         {formatMarketPrice(market.low24h)}
       </td>
-      <td className="px-4 py-4 text-right font-mono text-sm tabular-nums text-foreground-secondary">
+      <td className="col-span-2 block border-t border-border-subtle bg-surface-elevated/45 px-4 py-3 text-left font-mono text-sm tabular-nums text-foreground-secondary md:table-cell md:border-t-0 md:bg-transparent md:py-4 md:text-right">
+        <span className="mb-1 block font-sans text-xs text-foreground-muted md:hidden">
+          24h volume
+        </span>
         {formatMarketVolume(market.volume24h)}
       </td>
-      <td className="px-5 py-4 text-center">
+      <td className="absolute right-3 top-3 block p-0 md:static md:table-cell md:px-5 md:py-4 md:text-center">
         <Link
           aria-label={`Sign in to add ${market.symbol} to watchlist`}
-          className="inline-grid size-9 place-items-center rounded-lg text-foreground-muted transition-colors hover:bg-surface-selected hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          className="inline-grid size-10 place-items-center rounded-lg text-foreground-muted transition-colors hover:bg-surface-selected hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus md:size-9"
           href="/login"
           title="Sign in to add to watchlist"
         >

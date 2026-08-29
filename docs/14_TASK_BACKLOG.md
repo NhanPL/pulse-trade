@@ -30,7 +30,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] C04 Add sorting.
 - [x] C05 Build market row live-price component boundary.
 - [x] C06 Add loading/empty/error states.
-- [ ] C07 Add responsive mobile market cards/table adaptation.
+- [x] C07 Add responsive mobile market cards/table adaptation.
 
 ## Epic D — Trading screen static UI
 
