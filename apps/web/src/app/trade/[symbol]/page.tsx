@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { MARKET_TABLE_MOCK } from "@/features/market/model/market-table.mock";
 import { getSupportedMarket, SUPPORTED_MARKETS } from "@/features/market/model/supported-markets";
+import { TradingGrid } from "@/features/trading/components/TradingGrid";
 import { TradingMarketHeader } from "@/features/trading/components/TradingMarketHeader";
 import { UnsupportedMarketState } from "@/features/trading/components/UnsupportedMarketState";
 import { ChartPanel } from "@/features/trading/components/chart/ChartPanel";
@@ -48,24 +49,32 @@ export default async function TradingPage({ params }: TradingPageProps) {
   return (
     <PageContainer className="space-y-6" data-market-symbol={market.symbol}>
       <TradingMarketHeader {...snapshot} />
-      <ChartPanel symbol={market.symbol} />
-      <OrderBook
-        baseAsset={market.baseAsset}
-        midPrice={snapshot.price}
-        quoteAsset={market.quoteAsset}
-        symbol={market.symbol}
-      />
-      <RecentTrades
-        baseAsset={market.baseAsset}
-        midPrice={snapshot.price}
-        quoteAsset={market.quoteAsset}
-        symbol={market.symbol}
-      />
-      <OrderForm
-        baseAsset={market.baseAsset}
-        currentPrice={snapshot.price}
-        quoteAsset={market.quoteAsset}
-        symbol={market.symbol}
+      <TradingGrid
+        chart={<ChartPanel symbol={market.symbol} />}
+        orderBook={
+          <OrderBook
+            baseAsset={market.baseAsset}
+            midPrice={snapshot.price}
+            quoteAsset={market.quoteAsset}
+            symbol={market.symbol}
+          />
+        }
+        orderForm={
+          <OrderForm
+            baseAsset={market.baseAsset}
+            currentPrice={snapshot.price}
+            quoteAsset={market.quoteAsset}
+            symbol={market.symbol}
+          />
+        }
+        recentTrades={
+          <RecentTrades
+            baseAsset={market.baseAsset}
+            midPrice={snapshot.price}
+            quoteAsset={market.quoteAsset}
+            symbol={market.symbol}
+          />
+        }
       />
     </PageContainer>
   );
