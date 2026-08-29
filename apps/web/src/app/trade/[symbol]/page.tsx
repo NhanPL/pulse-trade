@@ -7,6 +7,7 @@ import { TradingMarketHeader } from "@/features/trading/components/TradingMarket
 import { UnsupportedMarketState } from "@/features/trading/components/UnsupportedMarketState";
 import { ChartPanel } from "@/features/trading/components/chart/ChartPanel";
 import { OrderBook } from "@/features/trading/components/order-book/OrderBook";
+import { OrderForm } from "@/features/trading/components/order-form/OrderForm";
 import { RecentTrades } from "@/features/trading/components/recent-trades/RecentTrades";
 
 type TradingPageProps = {
@@ -57,6 +58,12 @@ export default async function TradingPage({ params }: TradingPageProps) {
       <RecentTrades
         baseAsset={market.baseAsset}
         midPrice={snapshot.price}
+        quoteAsset={market.quoteAsset}
+        symbol={market.symbol}
+      />
+      <OrderForm
+        baseAsset={market.baseAsset}
+        currentPrice={snapshot.price}
         quoteAsset={market.quoteAsset}
         symbol={market.symbol}
       />

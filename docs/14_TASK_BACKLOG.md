@@ -39,7 +39,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] D03 Build ChartPanel shell.
 - [x] D04 Build OrderBook static UI.
 - [x] D05 Build RecentTrades static UI.
-- [ ] D06 Build OrderForm static UI.
+- [x] D06 Build OrderForm static UI.
 - [ ] D07 Build desktop trading grid.
 - [ ] D08 Build mobile tab/stack layout.
 
