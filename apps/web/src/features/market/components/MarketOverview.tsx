@@ -12,11 +12,26 @@ import {
   sortMarkets,
   type MarketSortOption,
 } from "../utils/sort-markets";
-import { MarketTable } from "./MarketTable";
+import { MarketListState } from "./MarketListState";
 
-export type MarketOverviewProps = {
+type ReadyMarketOverviewProps = {
   markets: readonly MarketTableItem[];
+  status?: "ready";
 };
+
+type LoadingMarketOverviewProps = {
+  status: "loading";
+};
+
+type ErrorMarketOverviewProps = {
+  errorMessage?: string;
+  isRetrying?: boolean;
+  onRetry: () => void;
+  status: "error";
+};
+
+export type MarketOverviewProps =
+  ReadyMarketOverviewProps | LoadingMarketOverviewProps | ErrorMarketOverviewProps;
 
 function SearchIcon() {
   return (
@@ -27,13 +42,20 @@ function SearchIcon() {
   );
 }
 
-export function MarketOverview({ markets }: MarketOverviewProps) {
+export function MarketOverview(props: MarketOverviewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOption, setSortOption] = useState<MarketSortOption>("symbol-asc");
+  const isReady = props.status === undefined || props.status === "ready";
+  const markets = isReady ? props.markets : [];
   const filteredMarkets = filterMarkets(markets, searchTerm);
   const sortedMarkets = sortMarkets(filteredMarkets, sortOption);
   const trimmedSearchTerm = searchTerm.trim();
-  const resultLabel = `${sortedMarkets.length} ${sortedMarkets.length === 1 ? "market" : "markets"}`;
+  const resultLabel =
+    props.status === "loading"
+      ? "Loading markets"
+      : props.status === "error"
+        ? "Markets unavailable"
+        : `${sortedMarkets.length} ${sortedMarkets.length === 1 ? "market" : "markets"}`;
 
   return (
     <>
@@ -43,6 +65,7 @@ export function MarketOverview({ markets }: MarketOverviewProps) {
             <Input
               autoComplete="off"
               className="[&::-webkit-search-cancel-button]:appearance-none"
+              disabled={!isReady}
               label="Search markets"
               leadingIcon={<SearchIcon />}
               onChange={(event) => setSearchTerm(event.target.value)}
@@ -50,7 +73,7 @@ export function MarketOverview({ markets }: MarketOverviewProps) {
               type="search"
               value={searchTerm}
               trailingElement={
-                searchTerm ? (
+                searchTerm && isReady ? (
                   <button
                     type="button"
                     aria-label="Clear market search"
@@ -74,7 +97,8 @@ export function MarketOverview({ markets }: MarketOverviewProps) {
             Sort by
             <span className="relative">
               <select
-                className="h-11 w-full appearance-none rounded-lg border border-border bg-surface-interactive px-3 pr-9 text-sm text-foreground outline-none transition-colors hover:border-border-strong focus:border-brand focus:ring-2 focus:ring-focus/25"
+                className="h-11 w-full appearance-none rounded-lg border border-border bg-surface-interactive px-3 pr-9 text-sm text-foreground outline-none transition-colors hover:border-border-strong focus:border-brand focus:ring-2 focus:ring-focus/25 disabled:cursor-not-allowed disabled:bg-surface disabled:text-foreground-disabled disabled:opacity-70"
+                disabled={!isReady}
                 onChange={(event) => {
                   if (isMarketSortOption(event.target.value)) {
                     setSortOption(event.target.value);
@@ -109,12 +133,18 @@ export function MarketOverview({ markets }: MarketOverviewProps) {
           {resultLabel}
         </p>
       </div>
-      <MarketTable
-        emptyMessage={
-          trimmedSearchTerm ? `No markets match “${trimmedSearchTerm}”.` : "No markets available."
-        }
-        markets={sortedMarkets}
-      />
+      {props.status === "loading" ? <MarketListState status="loading" /> : null}
+      {props.status === "error" ? (
+        <MarketListState
+          description={props.errorMessage}
+          isRetrying={props.isRetrying}
+          onRetry={props.onRetry}
+          status="error"
+        />
+      ) : null}
+      {isReady ? (
+        <MarketListState markets={sortedMarkets} searchTerm={trimmedSearchTerm} status="ready" />
+      ) : null}
     </>
   );
 }
