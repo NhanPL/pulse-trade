@@ -5,6 +5,7 @@ import { MARKET_TABLE_MOCK } from "@/features/market/model/market-table.mock";
 import { getSupportedMarket, SUPPORTED_MARKETS } from "@/features/market/model/supported-markets";
 import { TradingMarketHeader } from "@/features/trading/components/TradingMarketHeader";
 import { UnsupportedMarketState } from "@/features/trading/components/UnsupportedMarketState";
+import { ChartPanel } from "@/features/trading/components/chart/ChartPanel";
 
 type TradingPageProps = {
   params: Promise<{ symbol: string }>;
@@ -44,16 +45,7 @@ export default async function TradingPage({ params }: TradingPageProps) {
   return (
     <PageContainer className="space-y-6" data-market-symbol={market.symbol}>
       <TradingMarketHeader {...snapshot} />
-
-      <section
-        aria-label="Trading workspace placeholder"
-        className="min-h-64 rounded-xl border border-dashed border-border bg-surface/50 p-6"
-      >
-        <p className="max-w-lg text-sm leading-6 text-foreground-muted">
-          The market route is ready. Trading widgets will be added in the following trading-screen
-          tasks.
-        </p>
-      </section>
+      <ChartPanel symbol={market.symbol} />
     </PageContainer>
   );
 }
