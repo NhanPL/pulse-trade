@@ -9,6 +9,7 @@ import type {
 
 export const COINBASE_MARKET_DATA_URL = "wss://advanced-trade-ws.coinbase.com";
 export const COINBASE_PROVIDER_OPTIONS = Symbol("COINBASE_PROVIDER_OPTIONS");
+export const COINBASE_HEARTBEATS_CHANNEL = "heartbeats";
 
 const COINBASE_CHANNEL_BY_PROVIDER_CHANNEL: Readonly<Record<ProviderChannel, string>> = {
   candles: "candles",
@@ -28,6 +29,11 @@ type CoinbaseSubscriptionCommand = Readonly<{
   channel: string;
   product_ids: readonly string[];
   type: "subscribe" | "unsubscribe";
+}>;
+
+type CoinbaseHeartbeatSubscriptionCommand = Readonly<{
+  channel: typeof COINBASE_HEARTBEATS_CHANNEL;
+  type: "subscribe";
 }>;
 
 @Injectable()
@@ -67,6 +73,18 @@ export class CoinbaseProvider implements MarketDataProvider {
         socket.off("open", handleOpen);
       };
       const handleOpen = (): void => {
+        try {
+          this.subscribeToHeartbeats(socket);
+        } catch (error) {
+          cleanup();
+          if (this.socket === socket) this.socket = undefined;
+          socket.terminate();
+          reject(
+            new Error("Failed to subscribe to Coinbase provider heartbeats", { cause: error }),
+          );
+          return;
+        }
+
         cleanup();
         this.logger.log("Connected to Coinbase market data WebSocket");
         resolve();
@@ -133,6 +151,16 @@ export class CoinbaseProvider implements MarketDataProvider {
     socket.on("error", (error) => {
       this.logger.error(`Coinbase market data WebSocket error: ${error.message}`);
     });
+  }
+
+  private subscribeToHeartbeats(socket: WebSocket): void {
+    const command: CoinbaseHeartbeatSubscriptionCommand = {
+      channel: COINBASE_HEARTBEATS_CHANNEL,
+      type: "subscribe",
+    };
+
+    // Coinbase closes otherwise quiet subscriptions after 60–90 seconds.
+    socket.send(JSON.stringify(command));
   }
 
   private sendSubscriptionCommands(
