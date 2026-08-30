@@ -41,7 +41,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] D05 Build RecentTrades static UI.
 - [x] D06 Build OrderForm static UI.
 - [x] D07 Build desktop trading grid.
-- [ ] D08 Build mobile tab/stack layout.
+- [x] D08 Build mobile tab/stack layout.
 
 ## Epic E — Market data backend
 
