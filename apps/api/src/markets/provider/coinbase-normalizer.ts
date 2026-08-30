@@ -3,6 +3,9 @@ import { z } from "zod";
 import type {
   ProviderCandle,
   ProviderCandleEvent,
+  ProviderOrderBookChange,
+  ProviderOrderBookEvent,
+  ProviderOrderBookLevel,
   ProviderTickerEvent,
 } from "./market-data-provider";
 
@@ -34,6 +37,31 @@ export const coinbaseCandlesEnvelopeSchema = z.object({
     z.object({
       candles: z.array(coinbaseCandleSchema),
       type: z.enum(["snapshot", "update"]),
+    }),
+  ),
+  sequence_num: z.number().int().nonnegative(),
+  timestamp: coinbaseTimestampSchema,
+});
+
+const coinbaseLevel2UpdateSchema = z.object({
+  event_time: coinbaseTimestampSchema,
+  new_quantity: unsignedDecimalStringSchema,
+  price_level: unsignedDecimalStringSchema.refine(
+    (value) => /[1-9]/.test(value),
+    "Expected a positive price level",
+  ),
+  side: z.enum(["bid", "offer"]),
+});
+
+type CoinbaseLevel2Update = z.infer<typeof coinbaseLevel2UpdateSchema>;
+
+export const coinbaseLevel2EnvelopeSchema = z.object({
+  channel: z.literal("l2_data"),
+  events: z.array(
+    z.object({
+      product_id: z.string().trim().min(1),
+      type: z.enum(["snapshot", "update"]),
+      updates: z.array(coinbaseLevel2UpdateSchema),
     }),
   ),
   sequence_num: z.number().int().nonnegative(),
@@ -139,4 +167,73 @@ function normalizeCoinbaseCandle(candle: CoinbaseCandle): ProviderCandle {
     time: Number(candle.start),
     volume: candle.volume,
   };
+}
+
+export function normalizeCoinbaseLevel2Message(
+  message: unknown,
+): readonly ProviderOrderBookEvent[] {
+  const envelope = coinbaseLevel2EnvelopeSchema.parse(message);
+  const envelopeMarketTs = Date.parse(envelope.timestamp);
+
+  return envelope.events.map((event) => {
+    const marketTs = getLatestLevel2MarketTs(event.updates, envelopeMarketTs);
+    const symbol = event.product_id.toUpperCase();
+
+    if (event.type === "snapshot") {
+      const asks: ProviderOrderBookLevel[] = [];
+      const bids: ProviderOrderBookLevel[] = [];
+
+      for (const update of event.updates) {
+        if (isZeroDecimal(update.new_quantity)) continue;
+
+        const level: ProviderOrderBookLevel = [update.price_level, update.new_quantity];
+        if (update.side === "bid") bids.push(level);
+        else asks.push(level);
+      }
+
+      return {
+        asks,
+        bids,
+        marketTs,
+        providerSequence: envelope.sequence_num,
+        symbol,
+        type: "orderbook.snapshot" as const,
+      };
+    }
+
+    return {
+      changes: event.updates.map(normalizeCoinbaseLevel2Change),
+      marketTs,
+      providerSequence: envelope.sequence_num,
+      symbol,
+      type: "orderbook.update" as const,
+    };
+  });
+}
+
+function normalizeCoinbaseLevel2Change(update: CoinbaseLevel2Update): ProviderOrderBookChange {
+  return {
+    price: update.price_level,
+    quantity: update.new_quantity,
+    side: update.side === "bid" ? "BID" : "ASK",
+  };
+}
+
+function getLatestLevel2MarketTs(
+  updates: readonly CoinbaseLevel2Update[],
+  fallbackMarketTs: number,
+): number {
+  let latestMarketTs: number | undefined;
+
+  for (const update of updates) {
+    const updateMarketTs = Date.parse(update.event_time);
+    latestMarketTs =
+      latestMarketTs === undefined ? updateMarketTs : Math.max(latestMarketTs, updateMarketTs);
+  }
+
+  return latestMarketTs ?? fallbackMarketTs;
+}
+
+function isZeroDecimal(value: string): boolean {
+  return /^0(?:\.0+)?$/.test(value);
 }
