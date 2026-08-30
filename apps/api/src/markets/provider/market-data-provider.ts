@@ -26,7 +26,36 @@ export type ProviderTickerEvent = Readonly<{
   volume24h: string;
 }>;
 
-export type ProviderMarketEvent = ProviderTickerEvent;
+export type ProviderCandle = Readonly<{
+  close: string;
+  high: string;
+  low: string;
+  open: string;
+  time: number;
+  volume: string;
+}>;
+
+export type ProviderCandleSnapshotEvent = Readonly<{
+  candles: readonly ProviderCandle[];
+  interval: ProviderCandleInterval;
+  marketTs: number;
+  providerSequence: number;
+  symbol: string;
+  type: "candle.snapshot";
+}>;
+
+export type ProviderCandleUpdateEvent = Readonly<{
+  candle: ProviderCandle;
+  interval: ProviderCandleInterval;
+  marketTs: number;
+  providerSequence: number;
+  symbol: string;
+  type: "candle.update";
+}>;
+
+export type ProviderCandleEvent = ProviderCandleSnapshotEvent | ProviderCandleUpdateEvent;
+
+export type ProviderMarketEvent = ProviderTickerEvent | ProviderCandleEvent;
 
 export type ProviderEventListener = (event: ProviderMarketEvent) => void;
 

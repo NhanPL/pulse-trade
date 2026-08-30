@@ -1,7 +1,10 @@
 import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import WebSocket, { type RawData } from "ws";
 
-import { normalizeCoinbaseTickerMessage } from "./coinbase-normalizer";
+import {
+  normalizeCoinbaseCandleMessage,
+  normalizeCoinbaseTickerMessage,
+} from "./coinbase-normalizer";
 import type {
   ProviderEventListener,
   MarketDataProvider,
@@ -52,10 +55,9 @@ function decodeCoinbaseMessage(data: RawData): string {
   return data.toString("utf8");
 }
 
-function isTickerEnvelopeCandidate(value: unknown): boolean {
-  return (
-    typeof value === "object" && value !== null && "channel" in value && value.channel === "ticker"
-  );
+function getCoinbaseMessageChannel(value: unknown): string | undefined {
+  if (typeof value !== "object" || value === null || !("channel" in value)) return undefined;
+  return typeof value.channel === "string" ? value.channel : undefined;
 }
 
 export function calculateReconnectDelayMs(
@@ -271,12 +273,18 @@ export class CoinbaseProvider implements MarketDataProvider {
       return;
     }
 
-    if (!isTickerEnvelopeCandidate(message)) return;
+    const channel = getCoinbaseMessageChannel(message);
+    if (channel !== "ticker" && channel !== "candles") return;
 
     try {
-      for (const event of normalizeCoinbaseTickerMessage(message)) this.emitEvent(event);
+      const events =
+        channel === "ticker"
+          ? normalizeCoinbaseTickerMessage(message)
+          : normalizeCoinbaseCandleMessage(message);
+
+      for (const event of events) this.emitEvent(event);
     } catch {
-      this.logger.warn("Ignored invalid Coinbase ticker message");
+      this.logger.warn(`Ignored invalid Coinbase ${channel} message`);
     }
   }
 
