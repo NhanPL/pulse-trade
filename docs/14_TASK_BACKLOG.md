@@ -54,7 +54,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] E07 Normalize order-book snapshot/deltas.
 - [x] E08 Normalize recent trades.
 - [x] E09 Implement latest market cache.
-- [ ] E10 Implement historical candles endpoint.
+- [x] E10 Implement historical candles endpoint.
 
 ## Epic F — Application WebSocket
 

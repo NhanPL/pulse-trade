@@ -14,6 +14,12 @@ export type ProviderSubscription = Readonly<{
   symbols: readonly string[];
 }>;
 
+export type ProviderHistoricalCandlesRequest = Readonly<{
+  interval: ProviderCandleInterval;
+  limit: number;
+  symbol: string;
+}>;
+
 export type ProviderTickerEvent = Readonly<{
   change24hPercent: string;
   high24h: string;
@@ -110,6 +116,9 @@ export type ProviderEventListener = (event: ProviderMarketEvent) => void;
 export interface MarketDataProvider {
   close(): Promise<void>;
   connect(): Promise<void>;
+  getHistoricalCandles(
+    request: ProviderHistoricalCandlesRequest,
+  ): Promise<readonly ProviderCandle[]>;
   onEvent(listener: ProviderEventListener): () => void;
   subscribe(request: ProviderSubscription): void;
   unsubscribe(request: ProviderSubscription): void;

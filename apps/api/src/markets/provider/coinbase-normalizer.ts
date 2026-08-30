@@ -45,6 +45,19 @@ export const coinbaseCandlesEnvelopeSchema = z.object({
   timestamp: coinbaseTimestampSchema,
 });
 
+const coinbaseHistoricalCandleSchema = z.object({
+  close: unsignedDecimalStringSchema,
+  high: unsignedDecimalStringSchema,
+  low: unsignedDecimalStringSchema,
+  open: unsignedDecimalStringSchema,
+  start: unixSecondsStringSchema,
+  volume: unsignedDecimalStringSchema,
+});
+
+export const coinbaseHistoricalCandlesResponseSchema = z.object({
+  candles: z.array(coinbaseHistoricalCandleSchema),
+});
+
 const coinbaseLevel2UpdateSchema = z.object({
   event_time: coinbaseTimestampSchema,
   new_quantity: unsignedDecimalStringSchema,
@@ -188,7 +201,17 @@ export function normalizeCoinbaseCandleMessage(message: unknown): readonly Provi
   return normalizedEvents;
 }
 
-function normalizeCoinbaseCandle(candle: CoinbaseCandle): ProviderCandle {
+export function normalizeCoinbaseHistoricalCandlesResponse(
+  response: unknown,
+): readonly ProviderCandle[] {
+  const parsed = coinbaseHistoricalCandlesResponseSchema.parse(response);
+
+  return parsed.candles.map(normalizeCoinbaseCandle).sort((left, right) => left.time - right.time);
+}
+
+function normalizeCoinbaseCandle(
+  candle: Pick<CoinbaseCandle, "close" | "high" | "low" | "open" | "start" | "volume">,
+): ProviderCandle {
   return {
     close: candle.close,
     high: candle.high,

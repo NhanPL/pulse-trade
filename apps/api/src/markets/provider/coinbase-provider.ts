@@ -3,6 +3,7 @@ import WebSocket, { type RawData } from "ws";
 
 import {
   normalizeCoinbaseCandleMessage,
+  normalizeCoinbaseHistoricalCandlesResponse,
   normalizeCoinbaseLevel2Message,
   normalizeCoinbaseMarketTradesMessage,
   normalizeCoinbaseTickerMessage,
@@ -10,12 +11,16 @@ import {
 import type {
   ProviderEventListener,
   MarketDataProvider,
+  ProviderCandle,
   ProviderChannel,
+  ProviderHistoricalCandlesRequest,
   ProviderMarketEvent,
   ProviderSubscription,
 } from "./market-data-provider";
 
 export const COINBASE_MARKET_DATA_URL = "wss://advanced-trade-ws.coinbase.com";
+export const COINBASE_MARKET_DATA_REST_URL = "https://api.coinbase.com/api/v3/brokerage/market";
+export const COINBASE_REST_REQUEST_TIMEOUT_MS = 10_000;
 export const COINBASE_PROVIDER_OPTIONS = Symbol("COINBASE_PROVIDER_OPTIONS");
 export const COINBASE_HEARTBEATS_CHANNEL = "heartbeats";
 export const COINBASE_RECONNECT_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 15_000, 30_000] as const;
@@ -31,13 +36,24 @@ const COINBASE_CHANNEL_BY_PROVIDER_CHANNEL: Readonly<Record<ProviderChannel, str
 
 export type CoinbaseSocketFactory = (url: string) => WebSocket;
 
+export type CoinbaseFetch = (
+  url: string,
+  init: Readonly<{
+    headers: Readonly<Record<string, string>>;
+    signal: AbortSignal;
+  }>,
+) => Promise<Readonly<{ json(): Promise<unknown>; ok: boolean; status: number }>>;
+
 export type CoinbaseProviderOptions = Readonly<{
   endpoint?: string;
+  fetch?: CoinbaseFetch;
+  now?: () => number;
   random?: () => number;
   reconnectDelaysMs?: readonly number[];
   reconnectJitterRatio?: number;
   socketFactory?: CoinbaseSocketFactory;
   stableConnectionMs?: number;
+  restEndpoint?: string;
 }>;
 
 type CoinbaseSubscriptionCommand = Readonly<{
@@ -52,6 +68,24 @@ type CoinbaseHeartbeatSubscriptionCommand = Readonly<{
 }>;
 
 type CoinbaseMarketChannel = "candles" | "l2_data" | "market_trades" | "ticker";
+
+const COINBASE_GRANULARITY_BY_INTERVAL: Readonly<
+  Record<ProviderHistoricalCandlesRequest["interval"], string>
+> = {
+  "1h": "ONE_HOUR",
+  "1m": "ONE_MINUTE",
+  "5m": "FIVE_MINUTE",
+  "15m": "FIFTEEN_MINUTE",
+};
+
+const SECONDS_BY_CANDLE_INTERVAL: Readonly<
+  Record<ProviderHistoricalCandlesRequest["interval"], number>
+> = {
+  "1h": 3_600,
+  "1m": 60,
+  "5m": 300,
+  "15m": 900,
+};
 
 function decodeCoinbaseMessage(data: RawData): string {
   if (Array.isArray(data)) return Buffer.concat(data).toString("utf8");
@@ -120,10 +154,13 @@ export class CoinbaseProvider implements MarketDataProvider {
   private readonly activeSubscriptions = new Map<ProviderChannel, Set<string>>();
   private readonly endpoint: string;
   private readonly eventListeners = new Set<ProviderEventListener>();
+  private readonly fetch: CoinbaseFetch;
   private readonly logger = new Logger(CoinbaseProvider.name);
+  private readonly now: () => number;
   private readonly random: () => number;
   private readonly reconnectDelaysMs: readonly number[];
   private readonly reconnectJitterRatio: number;
+  private readonly restEndpoint: string;
   private readonly socketFactory: CoinbaseSocketFactory;
   private readonly stableConnectionMs: number;
   private connectionAttempt: Promise<void> | undefined;
@@ -139,9 +176,12 @@ export class CoinbaseProvider implements MarketDataProvider {
     options: CoinbaseProviderOptions = {},
   ) {
     this.endpoint = options.endpoint ?? COINBASE_MARKET_DATA_URL;
+    this.fetch = options.fetch ?? fetch;
+    this.now = options.now ?? Date.now;
     this.random = options.random ?? Math.random;
     this.reconnectDelaysMs = options.reconnectDelaysMs ?? COINBASE_RECONNECT_DELAYS_MS;
     this.reconnectJitterRatio = options.reconnectJitterRatio ?? COINBASE_RECONNECT_JITTER_RATIO;
+    this.restEndpoint = options.restEndpoint ?? COINBASE_MARKET_DATA_REST_URL;
     this.socketFactory = options.socketFactory ?? ((url) => new WebSocket(url));
     this.stableConnectionMs = options.stableConnectionMs ?? COINBASE_STABLE_CONNECTION_MS;
 
@@ -195,6 +235,31 @@ export class CoinbaseProvider implements MarketDataProvider {
   onEvent(listener: ProviderEventListener): () => void {
     this.eventListeners.add(listener);
     return () => this.eventListeners.delete(listener);
+  }
+
+  async getHistoricalCandles(
+    request: ProviderHistoricalCandlesRequest,
+  ): Promise<readonly ProviderCandle[]> {
+    const end = Math.floor(this.now() / 1_000);
+    const start = end - SECONDS_BY_CANDLE_INTERVAL[request.interval] * request.limit;
+    const query = new URLSearchParams({
+      end: String(end),
+      granularity: COINBASE_GRANULARITY_BY_INTERVAL[request.interval],
+      limit: String(request.limit),
+      start: String(start),
+    });
+    const url = `${this.restEndpoint}/products/${encodeURIComponent(request.symbol)}/candles?${query}`;
+    const response = await this.fetch(url, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(COINBASE_REST_REQUEST_TIMEOUT_MS),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Coinbase historical candles request failed with status ${response.status}`);
+    }
+
+    const candles = normalizeCoinbaseHistoricalCandlesResponse(await response.json());
+    return candles.slice(-request.limit);
   }
 
   private openConnection(): Promise<void> {
