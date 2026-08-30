@@ -48,7 +48,7 @@ export default async function TradingPage({ params }: TradingPageProps) {
 
   return (
     <PageContainer
-      className="space-y-2.5 px-4 pb-4 pt-[18px] sm:px-6"
+      className="max-w-full space-y-2.5 overflow-x-hidden px-4 pb-4 pt-[18px] sm:px-6"
       data-market-symbol={market.symbol}
       spacing="none"
       width="full"

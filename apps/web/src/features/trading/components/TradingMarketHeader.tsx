@@ -25,17 +25,17 @@ export function TradingMarketHeader(props: TradingMarketHeaderProps) {
   return (
     <section
       aria-labelledby="trading-market-title"
-      className="rounded-xl border border-border-subtle bg-surface-elevated shadow-panel"
+      className="min-w-0 overflow-hidden rounded-xl border border-border-subtle bg-surface-elevated shadow-panel"
     >
-      <div className="grid gap-5 p-4 sm:p-5 lg:grid-cols-[minmax(14rem,0.9fr)_minmax(16rem,1.1fr)_minmax(22rem,1.4fr)_auto] lg:items-center lg:gap-7 lg:px-6 lg:py-[15px]">
-        <div className="flex items-center gap-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(14rem,0.9fr)_minmax(16rem,1.1fr)_minmax(22rem,1.4fr)_auto] lg:items-center lg:gap-7 lg:px-6 lg:py-[15px]">
+        <div className="order-1 flex min-w-0 items-center gap-3">
           <span
             aria-hidden="true"
             className="grid size-11 shrink-0 place-items-center rounded-full border border-brand/25 bg-brand-subtle text-sm font-bold text-brand"
           >
             {props.baseAsset.slice(0, 1)}
           </span>
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-brand">
               Trading workspace
             </p>
@@ -47,7 +47,7 @@ export function TradingMarketHeader(props: TradingMarketHeaderProps) {
           </div>
         </div>
 
-        <div className="border-t border-border-subtle pt-4 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0">
+        <div className="order-3 col-span-2 border-t border-border-subtle pt-4 lg:order-2 lg:col-span-1 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0">
           <p className="mb-1 text-xs text-foreground-muted">Current price</p>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <TradingHeaderPrice price={props.price} symbol={props.symbol} />
@@ -63,7 +63,7 @@ export function TradingMarketHeader(props: TradingMarketHeaderProps) {
           </div>
         </div>
 
-        <dl className="grid grid-cols-3 gap-3 border-t border-border-subtle pt-4 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0">
+        <dl className="order-4 col-span-2 grid min-w-0 grid-cols-3 gap-3 border-t border-border-subtle pt-4 lg:order-3 lg:col-span-1 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0">
           <div>
             <dt className="text-xs text-foreground-muted">24h high</dt>
             <dd className="mt-1 font-mono text-sm font-medium tabular-nums text-foreground-secondary">
@@ -84,7 +84,12 @@ export function TradingMarketHeader(props: TradingMarketHeaderProps) {
           </div>
         </dl>
 
-        <Badge aria-label="Market data status: Delayed" showDot variant="warning">
+        <Badge
+          aria-label="Market data status: Delayed"
+          className="order-2 justify-self-end lg:order-4"
+          showDot
+          variant="warning"
+        >
           Delayed
         </Badge>
       </div>
