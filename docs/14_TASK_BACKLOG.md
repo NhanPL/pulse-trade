@@ -51,7 +51,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] E04 Implement provider reconnect.
 - [x] E05 Normalize ticker messages.
 - [x] E06 Normalize candles.
-- [ ] E07 Normalize order-book snapshot/deltas.
+- [x] E07 Normalize order-book snapshot/deltas.
 - [ ] E08 Normalize recent trades.
 - [ ] E09 Implement latest market cache.
 - [ ] E10 Implement historical candles endpoint.

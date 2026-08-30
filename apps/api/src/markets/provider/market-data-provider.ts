@@ -55,7 +55,35 @@ export type ProviderCandleUpdateEvent = Readonly<{
 
 export type ProviderCandleEvent = ProviderCandleSnapshotEvent | ProviderCandleUpdateEvent;
 
-export type ProviderMarketEvent = ProviderTickerEvent | ProviderCandleEvent;
+export type ProviderOrderBookLevel = readonly [price: string, quantity: string];
+
+export type ProviderOrderBookChange = Readonly<{
+  price: string;
+  quantity: string;
+  side: "ASK" | "BID";
+}>;
+
+export type ProviderOrderBookSnapshotEvent = Readonly<{
+  asks: readonly ProviderOrderBookLevel[];
+  bids: readonly ProviderOrderBookLevel[];
+  marketTs: number;
+  providerSequence: number;
+  symbol: string;
+  type: "orderbook.snapshot";
+}>;
+
+export type ProviderOrderBookUpdateEvent = Readonly<{
+  changes: readonly ProviderOrderBookChange[];
+  marketTs: number;
+  providerSequence: number;
+  symbol: string;
+  type: "orderbook.update";
+}>;
+
+export type ProviderOrderBookEvent = ProviderOrderBookSnapshotEvent | ProviderOrderBookUpdateEvent;
+
+export type ProviderMarketEvent =
+  ProviderTickerEvent | ProviderCandleEvent | ProviderOrderBookEvent;
 
 export type ProviderEventListener = (event: ProviderMarketEvent) => void;
 

@@ -3,6 +3,7 @@ import WebSocket, { type RawData } from "ws";
 
 import {
   normalizeCoinbaseCandleMessage,
+  normalizeCoinbaseLevel2Message,
   normalizeCoinbaseTickerMessage,
 } from "./coinbase-normalizer";
 import type {
@@ -274,13 +275,15 @@ export class CoinbaseProvider implements MarketDataProvider {
     }
 
     const channel = getCoinbaseMessageChannel(message);
-    if (channel !== "ticker" && channel !== "candles") return;
+    if (channel !== "ticker" && channel !== "candles" && channel !== "l2_data") return;
 
     try {
       const events =
         channel === "ticker"
           ? normalizeCoinbaseTickerMessage(message)
-          : normalizeCoinbaseCandleMessage(message);
+          : channel === "candles"
+            ? normalizeCoinbaseCandleMessage(message)
+            : normalizeCoinbaseLevel2Message(message);
 
       for (const event of events) this.emitEvent(event);
     } catch {
