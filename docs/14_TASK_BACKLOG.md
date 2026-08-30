@@ -52,7 +52,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] E05 Normalize ticker messages.
 - [x] E06 Normalize candles.
 - [x] E07 Normalize order-book snapshot/deltas.
-- [ ] E08 Normalize recent trades.
+- [x] E08 Normalize recent trades.
 - [ ] E09 Implement latest market cache.
 - [ ] E10 Implement historical candles endpoint.
 

@@ -7,6 +7,8 @@ import type {
   ProviderOrderBookEvent,
   ProviderOrderBookLevel,
   ProviderTickerEvent,
+  ProviderTrade,
+  ProviderTradesBatchEvent,
 } from "./market-data-provider";
 
 const decimalStringSchema = z.string().regex(/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/);
@@ -82,6 +84,34 @@ export const coinbaseTickerEnvelopeSchema = z.object({
           volume_24_h: unsignedDecimalStringSchema,
         }),
       ),
+      type: z.enum(["snapshot", "update"]),
+    }),
+  ),
+  sequence_num: z.number().int().nonnegative(),
+  timestamp: coinbaseTimestampSchema,
+});
+
+const positiveDecimalStringSchema = unsignedDecimalStringSchema.refine(
+  (value) => /[1-9]/.test(value),
+  "Expected a positive decimal value",
+);
+
+const coinbaseMarketTradeSchema = z.object({
+  price: positiveDecimalStringSchema,
+  product_id: z.string().trim().min(1),
+  side: z.enum(["BUY", "SELL"]),
+  size: positiveDecimalStringSchema,
+  time: coinbaseTimestampSchema,
+  trade_id: z.string().trim().min(1),
+});
+
+type CoinbaseMarketTrade = z.infer<typeof coinbaseMarketTradeSchema>;
+
+export const coinbaseMarketTradesEnvelopeSchema = z.object({
+  channel: z.literal("market_trades"),
+  events: z.array(
+    z.object({
+      trades: z.array(coinbaseMarketTradeSchema),
       type: z.enum(["snapshot", "update"]),
     }),
   ),
@@ -209,6 +239,49 @@ export function normalizeCoinbaseLevel2Message(
       type: "orderbook.update" as const,
     };
   });
+}
+
+/**
+ * Coinbase already batches trades, but an envelope may contain multiple products.
+ * Keep one provider-neutral, newest-first batch per symbol for downstream routing.
+ */
+export function normalizeCoinbaseMarketTradesMessage(
+  message: unknown,
+): readonly ProviderTradesBatchEvent[] {
+  const envelope = coinbaseMarketTradesEnvelopeSchema.parse(message);
+  const tradesBySymbol = new Map<string, ProviderTrade[]>();
+
+  for (const event of envelope.events) {
+    for (const trade of event.trades) {
+      const symbol = trade.product_id.toUpperCase();
+      const trades = tradesBySymbol.get(symbol) ?? [];
+      trades.push(normalizeCoinbaseMarketTrade(trade));
+      tradesBySymbol.set(symbol, trades);
+    }
+  }
+
+  return [...tradesBySymbol].map(([symbol, trades]) => {
+    trades.sort((left, right) => right.marketTs - left.marketTs);
+
+    return {
+      marketTs: trades[0]!.marketTs,
+      providerSequence: envelope.sequence_num,
+      symbol,
+      trades,
+      type: "trades.batch",
+    };
+  });
+}
+
+function normalizeCoinbaseMarketTrade(trade: CoinbaseMarketTrade): ProviderTrade {
+  return {
+    id: trade.trade_id,
+    marketTs: Date.parse(trade.time),
+    price: trade.price,
+    quantity: trade.size,
+    // Coinbase reports maker side; the trade tape exposes the aggressor direction.
+    side: trade.side === "BUY" ? "SELL" : "BUY",
+  };
 }
 
 function normalizeCoinbaseLevel2Change(update: CoinbaseLevel2Update): ProviderOrderBookChange {
