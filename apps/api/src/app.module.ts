@@ -1,4 +1,6 @@
 import { Module } from "@nestjs/common";
 
-@Module({})
+import { MarketModule } from "./markets/market.module";
+
+@Module({ imports: [MarketModule] })
 export class AppModule {}
