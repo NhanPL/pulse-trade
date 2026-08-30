@@ -45,7 +45,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 
 ## Epic E — Market data backend
 
-- [ ] E01 Define MarketDataProvider interface.
+- [x] E01 Define MarketDataProvider interface.
 - [ ] E02 Implement Coinbase provider connection.
 - [ ] E03 Implement provider heartbeat.
 - [ ] E04 Implement provider reconnect.
