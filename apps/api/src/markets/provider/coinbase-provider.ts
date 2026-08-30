@@ -1,9 +1,12 @@
 import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
-import WebSocket from "ws";
+import WebSocket, { type RawData } from "ws";
 
+import { normalizeCoinbaseTickerMessage } from "./coinbase-normalizer";
 import type {
+  ProviderEventListener,
   MarketDataProvider,
   ProviderChannel,
+  ProviderMarketEvent,
   ProviderSubscription,
 } from "./market-data-provider";
 
@@ -43,6 +46,18 @@ type CoinbaseHeartbeatSubscriptionCommand = Readonly<{
   type: "subscribe";
 }>;
 
+function decodeCoinbaseMessage(data: RawData): string {
+  if (Array.isArray(data)) return Buffer.concat(data).toString("utf8");
+  if (data instanceof ArrayBuffer) return Buffer.from(data).toString("utf8");
+  return data.toString("utf8");
+}
+
+function isTickerEnvelopeCandidate(value: unknown): boolean {
+  return (
+    typeof value === "object" && value !== null && "channel" in value && value.channel === "ticker"
+  );
+}
+
 export function calculateReconnectDelayMs(
   attempt: number,
   delaysMs: readonly number[] = COINBASE_RECONNECT_DELAYS_MS,
@@ -73,6 +88,7 @@ export class CoinbaseProvider implements MarketDataProvider {
   // Desired subscriptions survive transient upstream disconnects and are replayed on open.
   private readonly activeSubscriptions = new Map<ProviderChannel, Set<string>>();
   private readonly endpoint: string;
+  private readonly eventListeners = new Set<ProviderEventListener>();
   private readonly logger = new Logger(CoinbaseProvider.name);
   private readonly random: () => number;
   private readonly reconnectDelaysMs: readonly number[];
@@ -145,6 +161,11 @@ export class CoinbaseProvider implements MarketDataProvider {
     this.updateActiveSubscriptions("unsubscribe", request);
   }
 
+  onEvent(listener: ProviderEventListener): () => void {
+    this.eventListeners.add(listener);
+    return () => this.eventListeners.delete(listener);
+  }
+
   private openConnection(): Promise<void> {
     if (this.socket?.readyState === WebSocket.OPEN) {
       return Promise.resolve();
@@ -157,6 +178,7 @@ export class CoinbaseProvider implements MarketDataProvider {
     const socket = this.socketFactory(this.endpoint);
     this.socket = socket;
     this.attachLifecycleLogging(socket);
+    this.attachMessageHandling(socket);
 
     const attempt = new Promise<void>((resolve, reject) => {
       const cleanup = (): void => {
@@ -227,6 +249,46 @@ export class CoinbaseProvider implements MarketDataProvider {
       this.logger.error(`Coinbase market data WebSocket error: ${error.message}`);
       if (this.socket === socket && socket.readyState === WebSocket.OPEN) socket.terminate();
     });
+  }
+
+  private attachMessageHandling(socket: WebSocket): void {
+    const handleMessage = (data: RawData): void => this.handleMessage(data);
+    const handleClose = (): void => {
+      socket.off("message", handleMessage);
+    };
+
+    socket.on("message", handleMessage);
+    socket.once("close", handleClose);
+  }
+
+  private handleMessage(data: RawData): void {
+    let message: unknown;
+
+    try {
+      message = JSON.parse(decodeCoinbaseMessage(data)) as unknown;
+    } catch {
+      this.logger.warn("Ignored malformed Coinbase WebSocket message");
+      return;
+    }
+
+    if (!isTickerEnvelopeCandidate(message)) return;
+
+    try {
+      for (const event of normalizeCoinbaseTickerMessage(message)) this.emitEvent(event);
+    } catch {
+      this.logger.warn("Ignored invalid Coinbase ticker message");
+    }
+  }
+
+  private emitEvent(event: ProviderMarketEvent): void {
+    for (const listener of this.eventListeners) {
+      try {
+        listener(event);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown listener error";
+        this.logger.error(`Market data provider listener failed: ${message}`);
+      }
+    }
   }
 
   private subscribeToHeartbeats(socket: WebSocket): void {

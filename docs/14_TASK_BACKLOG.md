@@ -49,7 +49,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] E02 Implement Coinbase provider connection.
 - [x] E03 Implement provider heartbeat.
 - [x] E04 Implement provider reconnect.
-- [ ] E05 Normalize ticker messages.
+- [x] E05 Normalize ticker messages.
 - [ ] E06 Normalize candles.
 - [ ] E07 Normalize order-book snapshot/deltas.
 - [ ] E08 Normalize recent trades.
