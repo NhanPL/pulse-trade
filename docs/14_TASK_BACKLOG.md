@@ -59,7 +59,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 ## Epic F — Application WebSocket
 
 - [x] F01 Define shared realtime schemas.
-- [ ] F02 Implement NestJS realtime gateway.
+- [x] F02 Implement NestJS realtime gateway.
 - [ ] F03 Implement client subscribe command.
 - [ ] F04 Implement unsubscribe command.
 - [ ] F05 Implement subscription registry.
