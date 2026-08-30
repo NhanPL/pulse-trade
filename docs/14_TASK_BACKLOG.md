@@ -48,7 +48,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] E01 Define MarketDataProvider interface.
 - [x] E02 Implement Coinbase provider connection.
 - [x] E03 Implement provider heartbeat.
-- [ ] E04 Implement provider reconnect.
+- [x] E04 Implement provider reconnect.
 - [ ] E05 Normalize ticker messages.
 - [ ] E06 Normalize candles.
 - [ ] E07 Normalize order-book snapshot/deltas.
