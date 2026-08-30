@@ -82,8 +82,24 @@ export type ProviderOrderBookUpdateEvent = Readonly<{
 
 export type ProviderOrderBookEvent = ProviderOrderBookSnapshotEvent | ProviderOrderBookUpdateEvent;
 
+export type ProviderTrade = Readonly<{
+  id: string;
+  marketTs: number;
+  price: string;
+  quantity: string;
+  side: "BUY" | "SELL";
+}>;
+
+export type ProviderTradesBatchEvent = Readonly<{
+  marketTs: number;
+  providerSequence: number;
+  symbol: string;
+  trades: readonly ProviderTrade[];
+  type: "trades.batch";
+}>;
+
 export type ProviderMarketEvent =
-  ProviderTickerEvent | ProviderCandleEvent | ProviderOrderBookEvent;
+  ProviderTickerEvent | ProviderCandleEvent | ProviderOrderBookEvent | ProviderTradesBatchEvent;
 
 export type ProviderEventListener = (event: ProviderMarketEvent) => void;
 

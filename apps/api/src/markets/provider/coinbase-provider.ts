@@ -4,6 +4,7 @@ import WebSocket, { type RawData } from "ws";
 import {
   normalizeCoinbaseCandleMessage,
   normalizeCoinbaseLevel2Message,
+  normalizeCoinbaseMarketTradesMessage,
   normalizeCoinbaseTickerMessage,
 } from "./coinbase-normalizer";
 import type {
@@ -50,6 +51,8 @@ type CoinbaseHeartbeatSubscriptionCommand = Readonly<{
   type: "subscribe";
 }>;
 
+type CoinbaseMarketChannel = "candles" | "l2_data" | "market_trades" | "ticker";
+
 function decodeCoinbaseMessage(data: RawData): string {
   if (Array.isArray(data)) return Buffer.concat(data).toString("utf8");
   if (data instanceof ArrayBuffer) return Buffer.from(data).toString("utf8");
@@ -59,6 +62,31 @@ function decodeCoinbaseMessage(data: RawData): string {
 function getCoinbaseMessageChannel(value: unknown): string | undefined {
   if (typeof value !== "object" || value === null || !("channel" in value)) return undefined;
   return typeof value.channel === "string" ? value.channel : undefined;
+}
+
+function isCoinbaseMarketChannel(channel: string | undefined): channel is CoinbaseMarketChannel {
+  return (
+    channel === "ticker" ||
+    channel === "candles" ||
+    channel === "l2_data" ||
+    channel === "market_trades"
+  );
+}
+
+function normalizeCoinbaseMarketMessage(
+  channel: CoinbaseMarketChannel,
+  message: unknown,
+): readonly ProviderMarketEvent[] {
+  switch (channel) {
+    case "ticker":
+      return normalizeCoinbaseTickerMessage(message);
+    case "candles":
+      return normalizeCoinbaseCandleMessage(message);
+    case "l2_data":
+      return normalizeCoinbaseLevel2Message(message);
+    case "market_trades":
+      return normalizeCoinbaseMarketTradesMessage(message);
+  }
 }
 
 export function calculateReconnectDelayMs(
@@ -275,15 +303,10 @@ export class CoinbaseProvider implements MarketDataProvider {
     }
 
     const channel = getCoinbaseMessageChannel(message);
-    if (channel !== "ticker" && channel !== "candles" && channel !== "l2_data") return;
+    if (!isCoinbaseMarketChannel(channel)) return;
 
     try {
-      const events =
-        channel === "ticker"
-          ? normalizeCoinbaseTickerMessage(message)
-          : channel === "candles"
-            ? normalizeCoinbaseCandleMessage(message)
-            : normalizeCoinbaseLevel2Message(message);
+      const events = normalizeCoinbaseMarketMessage(channel, message);
 
       for (const event of events) this.emitEvent(event);
     } catch {
