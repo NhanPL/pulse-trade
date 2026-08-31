@@ -128,6 +128,22 @@ export class SubscriptionRegistry {
     return [...subscribers];
   }
 
+  getSubscribersForSymbol(symbol: string): readonly WebSocket[] {
+    const subscribers: WebSocket[] = [];
+
+    for (const [client, subscriptions] of this.clientSubscriptions) {
+      if ([...subscriptions.values()].some((subscription) => subscription.symbol === symbol)) {
+        subscribers.push(client);
+      }
+    }
+
+    return subscribers;
+  }
+
+  getSubscribedSymbols(): readonly string[] {
+    return [...new Set([...this.upstreamReferences.values()].map(({ symbol }) => symbol))];
+  }
+
   get activeClientCount(): number {
     return this.clientSubscriptions.size;
   }

@@ -109,6 +109,15 @@ export type ProviderMarketEvent =
 
 export type ProviderEventListener = (event: ProviderMarketEvent) => void;
 
+export type ProviderConnectionState = "CONNECTED" | "DISCONNECTED";
+
+export type ProviderConnectionStateEvent = Readonly<{
+  state: ProviderConnectionState;
+  ts: number;
+}>;
+
+export type ProviderConnectionStateListener = (event: ProviderConnectionStateEvent) => void;
+
 /**
  * Provider-neutral lifecycle boundary for upstream market-data connections.
  * Exchange payload parsing and normalization stay inside the provider implementation.
@@ -119,6 +128,7 @@ export interface MarketDataProvider {
   getHistoricalCandles(
     request: ProviderHistoricalCandlesRequest,
   ): Promise<readonly ProviderCandle[]>;
+  onConnectionState(listener: ProviderConnectionStateListener): () => void;
   onEvent(listener: ProviderEventListener): () => void;
   subscribe(request: ProviderSubscription): void;
   unsubscribe(request: ProviderSubscription): void;
