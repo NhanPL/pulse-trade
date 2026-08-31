@@ -63,7 +63,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] F03 Implement client subscribe command.
 - [x] F04 Implement unsubscribe command.
 - [x] F05 Implement subscription registry.
-- [ ] F06 Broadcast normalized events.
+- [x] F06 Broadcast normalized events.
 - [ ] F07 Implement stale/live notifications.
 - [ ] F08 Add gateway tests.
 
