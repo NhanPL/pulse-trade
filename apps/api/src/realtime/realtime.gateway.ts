@@ -6,6 +6,7 @@ import {
   REALTIME_PROTOCOL_VERSION,
   subscribeCommandSchema,
   subscriptionAckEventSchema,
+  unsubscribeCommandSchema,
   type ConnectionReadyEvent,
   type ErrorEvent,
   type SubscriptionAckEvent,
@@ -24,6 +25,8 @@ import { isSupportedMarketSymbol } from "../markets/supported-markets";
 
 export const REALTIME_PATH = "/realtime";
 export const REALTIME_MAX_PAYLOAD_BYTES = 64 * 1_024;
+
+type SubscriptionCommandResponse = SubscriptionAckEvent | ErrorEvent;
 
 @WebSocketGateway({
   maxPayload: REALTIME_MAX_PAYLOAD_BYTES,
@@ -58,20 +61,37 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
   }
 
   @SubscribeMessage("subscribe")
-  handleSubscribe(@MessageBody() payload: unknown): SubscriptionAckEvent | ErrorEvent | undefined {
+  handleSubscribe(@MessageBody() payload: unknown): SubscriptionCommandResponse | undefined {
     const result = subscribeCommandSchema.safeParse(payload);
     if (!result.success) return undefined;
 
-    const unsupportedSymbol = result.data.symbols.find(
-      (symbol) => !isSupportedMarketSymbol(symbol),
-    );
+    return this.createSubscriptionResponse(result.data.requestId, result.data.symbols);
+  }
+
+  @SubscribeMessage("unsubscribe")
+  handleUnsubscribe(@MessageBody() payload: unknown): SubscriptionCommandResponse | undefined {
+    const result = unsubscribeCommandSchema.safeParse(payload);
+    if (!result.success) return undefined;
+
+    return this.createSubscriptionResponse(result.data.requestId, result.data.symbols);
+  }
+
+  get activeConnectionCount(): number {
+    return this.clients.size;
+  }
+
+  private createSubscriptionResponse(
+    requestId: string,
+    symbols: readonly string[],
+  ): SubscriptionCommandResponse {
+    const unsupportedSymbol = symbols.find((symbol) => !isSupportedMarketSymbol(symbol));
 
     if (unsupportedSymbol) {
       return errorEventSchema.parse({
         data: {
           code: "UNSUPPORTED_SYMBOL",
           message: `Unsupported market symbol: ${unsupportedSymbol}.`,
-          requestId: result.data.requestId,
+          requestId,
         },
         event: "error",
         ts: Date.now(),
@@ -82,15 +102,11 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     return subscriptionAckEventSchema.parse({
       data: {
         accepted: true,
-        requestId: result.data.requestId,
+        requestId,
       },
       event: "subscription.ack",
       ts: Date.now(),
       v: REALTIME_PROTOCOL_VERSION,
     });
-  }
-
-  get activeConnectionCount(): number {
-    return this.clients.size;
   }
 }
