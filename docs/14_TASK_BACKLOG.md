@@ -62,7 +62,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] F02 Implement NestJS realtime gateway.
 - [x] F03 Implement client subscribe command.
 - [x] F04 Implement unsubscribe command.
-- [ ] F05 Implement subscription registry.
+- [x] F05 Implement subscription registry.
 - [ ] F06 Broadcast normalized events.
 - [ ] F07 Implement stale/live notifications.
 - [ ] F08 Add gateway tests.
