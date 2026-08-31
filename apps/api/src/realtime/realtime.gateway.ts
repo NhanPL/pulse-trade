@@ -23,6 +23,7 @@ import {
 import WebSocket from "ws";
 
 import { isSupportedMarketSymbol } from "../markets/supported-markets";
+import { MarketEventBroadcaster } from "./market-event-broadcaster.service";
 import { SubscriptionRegistry } from "./subscription-registry.service";
 
 export const REALTIME_PATH = "/realtime";
@@ -38,7 +39,10 @@ type SubscriptionCommandResponse = SubscriptionAckEvent | ErrorEvent;
 export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(RealtimeGateway.name);
 
-  constructor(private readonly subscriptionRegistry: SubscriptionRegistry) {}
+  constructor(
+    private readonly marketEventBroadcaster: MarketEventBroadcaster,
+    private readonly subscriptionRegistry: SubscriptionRegistry,
+  ) {}
 
   handleConnection(client: WebSocket): void {
     this.subscriptionRegistry.registerClient(client);
@@ -83,6 +87,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
 
     try {
       this.subscriptionRegistry.subscribe(client, result.data);
+      this.marketEventBroadcaster.scheduleInitialState(client, result.data);
     } catch {
       this.logger.warn("Failed to register realtime subscription");
       return this.createErrorResponse(
