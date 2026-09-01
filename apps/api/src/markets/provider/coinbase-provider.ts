@@ -13,6 +13,9 @@ import type {
   MarketDataProvider,
   ProviderCandle,
   ProviderChannel,
+  ProviderConnectionState,
+  ProviderConnectionStateEvent,
+  ProviderConnectionStateListener,
   ProviderHistoricalCandlesRequest,
   ProviderMarketEvent,
   ProviderSubscription,
@@ -163,7 +166,9 @@ export class CoinbaseProvider implements MarketDataProvider {
   private readonly restEndpoint: string;
   private readonly socketFactory: CoinbaseSocketFactory;
   private readonly stableConnectionMs: number;
+  private readonly stateListeners = new Set<ProviderConnectionStateListener>();
   private connectionAttempt: Promise<void> | undefined;
+  private connectionState: ProviderConnectionState = "DISCONNECTED";
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   private shouldReconnect = false;
@@ -209,6 +214,7 @@ export class CoinbaseProvider implements MarketDataProvider {
 
     if (!socket || socket.readyState === WebSocket.CLOSED) {
       this.socket = undefined;
+      this.setConnectionState("DISCONNECTED");
       return;
     }
 
@@ -222,6 +228,7 @@ export class CoinbaseProvider implements MarketDataProvider {
 
     await closed;
     if (this.socket === socket) this.socket = undefined;
+    this.setConnectionState("DISCONNECTED");
   }
 
   subscribe(request: ProviderSubscription): void {
@@ -235,6 +242,15 @@ export class CoinbaseProvider implements MarketDataProvider {
   onEvent(listener: ProviderEventListener): () => void {
     this.eventListeners.add(listener);
     return () => this.eventListeners.delete(listener);
+  }
+
+  onConnectionState(listener: ProviderConnectionStateListener): () => void {
+    this.stateListeners.add(listener);
+    this.notifyStateListener(listener, {
+      state: this.connectionState,
+      ts: this.now(),
+    });
+    return () => this.stateListeners.delete(listener);
   }
 
   async getHistoricalCandles(
@@ -298,6 +314,7 @@ export class CoinbaseProvider implements MarketDataProvider {
 
         cleanup();
         this.startStableConnectionTimer(socket);
+        this.setConnectionState("CONNECTED");
         this.logger.log("Connected to Coinbase market data WebSocket");
         resolve();
       };
@@ -336,6 +353,7 @@ export class CoinbaseProvider implements MarketDataProvider {
       if (wasCurrentSocket) {
         this.socket = undefined;
         this.clearStableConnectionTimer();
+        this.setConnectionState("DISCONNECTED");
       }
 
       this.logger.warn(`Coinbase market data WebSocket closed (code ${code})`);
@@ -388,6 +406,26 @@ export class CoinbaseProvider implements MarketDataProvider {
         this.logger.error(`Market data provider listener failed: ${message}`);
       }
     }
+  }
+
+  private notifyStateListener(
+    listener: ProviderConnectionStateListener,
+    event: ProviderConnectionStateEvent,
+  ): void {
+    try {
+      listener(event);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown listener error";
+      this.logger.error(`Market data provider state listener failed: ${message}`);
+    }
+  }
+
+  private setConnectionState(state: ProviderConnectionState): void {
+    if (this.connectionState === state) return;
+
+    this.connectionState = state;
+    const event: ProviderConnectionStateEvent = { state, ts: this.now() };
+    for (const listener of this.stateListeners) this.notifyStateListener(listener, event);
   }
 
   private subscribeToHeartbeats(socket: WebSocket): void {

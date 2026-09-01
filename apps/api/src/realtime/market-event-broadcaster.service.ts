@@ -14,6 +14,7 @@ import {
   type ProviderMarketEvent,
 } from "../markets/provider/market-data-provider";
 import { MarketCacheService } from "./market-cache.service";
+import { MarketFreshnessService, type MarketFreshnessEvent } from "./freshness.service";
 import { mapProviderEvent, type MarketRealtimeEvent } from "./provider-event.mapper";
 import { SubscriptionRegistry, type SubscriptionQuery } from "./subscription-registry.service";
 
@@ -22,18 +23,23 @@ const CANDLE_INTERVALS: readonly CandleInterval[] = ["1m", "5m", "15m", "1h"];
 @Injectable()
 export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MarketEventBroadcaster.name);
+  private removeFreshnessListener: (() => void) | undefined;
   private removeProviderListener: (() => void) | undefined;
 
   constructor(
     @Inject(MARKET_DATA_PROVIDER)
     private readonly provider: MarketDataProvider,
     private readonly marketCache: MarketCacheService,
+    private readonly marketFreshness: MarketFreshnessService,
     private readonly subscriptionRegistry: SubscriptionRegistry,
   ) {}
 
   onModuleInit(): void {
     if (this.removeProviderListener) return;
 
+    this.removeFreshnessListener = this.marketFreshness.onFreshnessEvent((event) =>
+      this.broadcastFreshness(event),
+    );
     this.removeProviderListener = this.provider.onEvent((event) => this.handleProviderEvent(event));
     void this.provider.connect().catch(() => {
       this.logger.warn("Initial market data connection failed; provider reconnect remains active");
@@ -43,6 +49,8 @@ export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy(): Promise<void> {
     this.removeProviderListener?.();
     this.removeProviderListener = undefined;
+    this.removeFreshnessListener?.();
+    this.removeFreshnessListener = undefined;
 
     try {
       await this.provider.close();
@@ -53,10 +61,12 @@ export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
 
   broadcast(providerEvent: ProviderMarketEvent): void {
     const realtimeEvent = mapProviderEvent(providerEvent);
+    const liveEvent = this.marketFreshness.recordMarketEvent(providerEvent);
     const subscribers = this.subscriptionRegistry.getSubscribers(
       toSubscriptionQuery(providerEvent),
     );
     this.send(realtimeEvent, subscribers);
+    if (liveEvent) this.broadcastFreshness(liveEvent);
   }
 
   scheduleInitialState(client: WebSocket, command: SubscribeCommand): void {
@@ -71,7 +81,15 @@ export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private send(event: MarketRealtimeEvent, clients: readonly WebSocket[]): void {
+  private broadcastFreshness(event: MarketFreshnessEvent): void {
+    const subscribers = this.subscriptionRegistry.getSubscribersForSymbol(event.symbol);
+    this.send(event, subscribers);
+  }
+
+  private send(
+    event: MarketRealtimeEvent | MarketFreshnessEvent,
+    clients: readonly WebSocket[],
+  ): void {
     if (clients.length === 0) return;
     const payload = JSON.stringify(event);
 
@@ -92,6 +110,11 @@ export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
     for (const symbol of new Set(command.symbols)) {
       for (const channel of new Set(command.channels)) {
         this.sendCachedChannelState(client, symbol, channel, command.options?.candleInterval);
+      }
+
+      if (this.subscriptionRegistry.getSubscribersForSymbol(symbol).includes(client)) {
+        const freshnessEvent = this.marketFreshness.getCurrentEvent(symbol);
+        if (freshnessEvent) this.send(freshnessEvent, [client]);
       }
     }
   }
