@@ -65,7 +65,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] F05 Implement subscription registry.
 - [x] F06 Broadcast normalized events.
 - [x] F07 Implement stale/live notifications.
-- [ ] F08 Add gateway tests.
+- [x] F08 Add gateway tests.
 
 ## Epic G — Frontend realtime client
 
