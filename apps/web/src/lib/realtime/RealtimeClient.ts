@@ -4,7 +4,7 @@ export type RealtimeConnectionStateListener = (state: RealtimeConnectionState) =
 
 export type RealtimeSocket = Pick<
   WebSocket,
-  "addEventListener" | "close" | "readyState" | "removeEventListener"
+  "addEventListener" | "close" | "readyState" | "removeEventListener" | "send"
 >;
 
 export type RealtimeSocketFactory = (url: string) => RealtimeSocket;
@@ -25,6 +25,7 @@ type SocketListeners = Readonly<{
 }>;
 
 const SOCKET_CLOSING = 2;
+const SOCKET_OPEN = 1;
 const NORMAL_CLOSURE_CODE = 1_000;
 const NORMAL_CLOSURE_REASON = "Client disconnect";
 
@@ -142,6 +143,18 @@ export class RealtimeClient {
     this.notifyConnectionStateListener(listener, this.state);
 
     return () => this.connectionStateListeners.delete(listener);
+  }
+
+  send(payload: string): boolean {
+    const socket = this.socket;
+    if (!socket || socket.readyState !== SOCKET_OPEN) return false;
+
+    try {
+      socket.send(payload);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private attachSocketListeners(socket: RealtimeSocket): void {
