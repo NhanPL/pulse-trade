@@ -17,6 +17,7 @@ import type { Candle, CandleInterval } from "@pulse-trade/contracts";
 
 import { useHistoricalCandles } from "../../hooks/useHistoricalCandles";
 import { candleStore, selectCurrentCandle } from "../../../realtime/stores/candle-store";
+import { observeChartSize } from "./chart-resize";
 
 export type CandlestickChartProps = Readonly<{
   symbol: string;
@@ -85,8 +86,10 @@ export function CandlestickChart({ symbol, timeframe }: CandlestickChartProps) {
 
     chartRef.current = chart;
     seriesRef.current = series;
+    const stopObservingSize = observeChartSize(chart, container);
 
     return () => {
+      stopObservingSize();
       seriesRef.current = null;
       chartRef.current = null;
       chart.remove();

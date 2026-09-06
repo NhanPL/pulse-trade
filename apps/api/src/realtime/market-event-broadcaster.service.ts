@@ -13,6 +13,7 @@ import {
   type MarketDataProvider,
   type ProviderMarketEvent,
 } from "../markets/provider/market-data-provider";
+import { CandleAggregationService } from "./candle-aggregation.service";
 import { MarketCacheService } from "./market-cache.service";
 import { MarketFreshnessService, type MarketFreshnessEvent } from "./freshness.service";
 import { mapProviderEvent, type MarketRealtimeEvent } from "./provider-event.mapper";
@@ -22,6 +23,8 @@ const CANDLE_INTERVALS: readonly CandleInterval[] = ["1m", "5m", "15m", "1h"];
 
 @Injectable()
 export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
+  private readonly bootstrappedCandleKeys = new Set<string>();
+  private readonly candleBootstrapRequests = new Map<string, Promise<void>>();
   private readonly logger = new Logger(MarketEventBroadcaster.name);
   private removeFreshnessListener: (() => void) | undefined;
   private removeProviderListener: (() => void) | undefined;
@@ -30,6 +33,7 @@ export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
     @Inject(MARKET_DATA_PROVIDER)
     private readonly provider: MarketDataProvider,
     private readonly marketCache: MarketCacheService,
+    private readonly candleAggregation: CandleAggregationService,
     private readonly marketFreshness: MarketFreshnessService,
     private readonly subscriptionRegistry: SubscriptionRegistry,
   ) {}
@@ -70,12 +74,16 @@ export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
   }
 
   scheduleInitialState(client: WebSocket, command: SubscribeCommand): void {
-    setImmediate(() => this.sendInitialState(client, command));
+    setImmediate(() => void this.sendInitialState(client, command));
   }
 
   private handleProviderEvent(event: ProviderMarketEvent): void {
     try {
       this.broadcast(event);
+      for (const candleEvent of this.candleAggregation.apply(event)) {
+        this.marketCache.apply(candleEvent);
+        this.broadcast(candleEvent);
+      }
     } catch {
       this.logger.warn("Ignored invalid normalized market event during broadcast");
     }
@@ -104,11 +112,14 @@ export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private sendInitialState(client: WebSocket, command: SubscribeCommand): void {
+  private async sendInitialState(client: WebSocket, command: SubscribeCommand): Promise<void> {
     if (client.readyState !== WebSocket.OPEN) return;
 
     for (const symbol of new Set(command.symbols)) {
       for (const channel of new Set(command.channels)) {
+        if (channel === "candles") {
+          await this.bootstrapCandleIntervals(symbol, command.options?.candleInterval);
+        }
         this.sendCachedChannelState(client, symbol, channel, command.options?.candleInterval);
       }
 
@@ -152,6 +163,47 @@ export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
         break;
       }
     }
+  }
+
+  private async bootstrapCandleIntervals(
+    symbol: string,
+    candleInterval: CandleInterval | undefined,
+  ): Promise<void> {
+    const intervals = candleInterval ? [candleInterval] : CANDLE_INTERVALS;
+    await Promise.all(intervals.map((interval) => this.bootstrapCandle(symbol, interval)));
+  }
+
+  private async bootstrapCandle(symbol: string, interval: CandleInterval): Promise<void> {
+    const key = `${symbol}\u0000${interval}`;
+    if (this.bootstrappedCandleKeys.has(key)) return;
+
+    const existingRequest = this.candleBootstrapRequests.get(key);
+    if (existingRequest) return existingRequest;
+
+    const request = this.provider
+      .getHistoricalCandles({ interval, limit: 1, symbol })
+      .then((candles) => {
+        const currentCandle = candles.at(-1);
+        if (!currentCandle) return;
+
+        const event = this.candleAggregation.seed(
+          symbol,
+          interval,
+          currentCandle,
+          currentCandle.time * 1_000,
+        );
+        const cached = this.marketCache.getCandle(symbol, interval);
+        if (!cached || event.candle.time > cached.candle.time) this.marketCache.apply(event);
+        this.bootstrappedCandleKeys.add(key);
+      })
+      .catch(() => {
+        this.logger.warn(`Unable to bootstrap the ${interval} candle for ${symbol}`);
+      })
+      .finally(() => {
+        this.candleBootstrapRequests.delete(key);
+      });
+    this.candleBootstrapRequests.set(key, request);
+    return request;
   }
 
   private isStillSubscribed(client: WebSocket, query: SubscriptionQuery): boolean {

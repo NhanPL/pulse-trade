@@ -143,10 +143,10 @@ test("acknowledges subscribe and unsubscribe commands", () => {
   assert.equal(subscriptionAckEventSchema.parse(subscribeResponse).data.requestId, requestId);
   assert.deepEqual(provider.subscriptions, [
     {
-      channels: ["ticker", "candles"],
-      options: { candleInterval: "5m" },
+      channels: ["ticker"],
       symbols: ["BTC-USD"],
     },
+    { channels: ["trades"], symbols: ["BTC-USD"] },
   ]);
   assert.deepEqual(broadcaster.initialStates, [{ client, command: subscribe }]);
   assert.deepEqual(registry.getSubscribers({ channel: "ticker", symbol: "BTC-USD" }), [client]);
@@ -159,7 +159,7 @@ test("acknowledges subscribe and unsubscribe commands", () => {
   assert.equal(subscriptionAckEventSchema.parse(unsubscribeResponse).data.accepted, true);
   assert.deepEqual(provider.unsubscriptions, [
     { channels: ["ticker"], symbols: ["BTC-USD"] },
-    { channels: ["candles"], symbols: ["BTC-USD"] },
+    { channels: ["trades"], symbols: ["BTC-USD"] },
   ]);
   assert.deepEqual(registry.getSubscribers({ channel: "ticker", symbol: "BTC-USD" }), []);
 });

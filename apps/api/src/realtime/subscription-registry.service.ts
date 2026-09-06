@@ -10,7 +10,7 @@ import WebSocket from "ws";
 import {
   MARKET_DATA_PROVIDER,
   type MarketDataProvider,
-  type ProviderSubscription,
+  type ProviderChannel,
 } from "../markets/provider/market-data-provider";
 
 export type SubscriptionQuery = Readonly<{
@@ -22,7 +22,7 @@ export type SubscriptionQuery = Readonly<{
 type ClientSubscription = SubscriptionQuery;
 
 type UpstreamReference = Readonly<{
-  channel: RealtimeChannel;
+  channel: ProviderChannel;
   symbol: string;
 }> & {
   count: number;
@@ -72,7 +72,7 @@ export class SubscriptionRegistry {
     if (startedSubscriptions.length === 0) return;
 
     try {
-      this.provider.subscribe(toProviderSubscription(command));
+      this.notifyProvider("subscribe", startedSubscriptions);
     } catch (error) {
       for (const subscription of addedSubscriptions) {
         subscriptions.delete(createSubscriptionKey(subscription));
@@ -154,7 +154,8 @@ export class SubscriptionRegistry {
     const startedSubscriptions: UpstreamReference[] = [];
 
     for (const subscription of subscriptions) {
-      const key = createUpstreamKey(subscription);
+      const providerChannel = toProviderChannel(subscription.channel);
+      const key = createUpstreamKey({ channel: providerChannel, symbol: subscription.symbol });
       const reference = this.upstreamReferences.get(key);
 
       if (reference) {
@@ -163,7 +164,7 @@ export class SubscriptionRegistry {
       }
 
       const startedSubscription: UpstreamReference = {
-        channel: subscription.channel,
+        channel: providerChannel,
         count: 1,
         symbol: subscription.symbol,
       };
@@ -194,7 +195,7 @@ export class SubscriptionRegistry {
     action: "subscribe" | "unsubscribe",
     subscriptions: readonly UpstreamReference[],
   ): void {
-    const symbolsByChannel = new Map<RealtimeChannel, Set<string>>();
+    const symbolsByChannel = new Map<ProviderChannel, Set<string>>();
 
     for (const subscription of subscriptions) {
       const symbols = symbolsByChannel.get(subscription.channel) ?? new Set<string>();
@@ -222,7 +223,10 @@ export class SubscriptionRegistry {
     const stoppedSubscriptions: UpstreamReference[] = [];
 
     for (const subscription of subscriptions) {
-      const key = createUpstreamKey(subscription);
+      const key = createUpstreamKey({
+        channel: toProviderChannel(subscription.channel),
+        symbol: subscription.symbol,
+      });
       const reference = this.upstreamReferences.get(key);
       if (!reference) continue;
 
@@ -240,11 +244,21 @@ export class SubscriptionRegistry {
 function createSubscriptionKey(subscription: ClientSubscription): string {
   const candleInterval =
     subscription.channel === "candles" ? (subscription.candleInterval ?? "") : "";
-  return `${createUpstreamKey(subscription)}\u0000${candleInterval}`;
+  return `${createUpstreamKey({
+    channel: toProviderChannel(subscription.channel),
+    symbol: subscription.symbol,
+  })}\u0000${subscription.channel}\u0000${candleInterval}`;
 }
 
-function createUpstreamKey(subscription: Pick<ClientSubscription, "channel" | "symbol">): string {
+function createUpstreamKey(
+  subscription: Readonly<{ channel: ProviderChannel; symbol: string }>,
+): string {
   return `${subscription.symbol}\u0000${subscription.channel}`;
+}
+
+function toProviderChannel(channel: RealtimeChannel): ProviderChannel {
+  // Candle intervals are derived from the provider-neutral trades feed in the backend.
+  return channel === "candles" ? "trades" : channel;
 }
 
 function expandSubscribeCommand(command: SubscribeCommand): readonly ClientSubscription[] {
@@ -264,12 +278,4 @@ function expandSubscribeCommand(command: SubscribeCommand): readonly ClientSubsc
   }
 
   return [...subscriptions.values()];
-}
-
-function toProviderSubscription(command: SubscribeCommand): ProviderSubscription {
-  return {
-    channels: [...new Set(command.channels)],
-    symbols: [...new Set(command.symbols)],
-    ...(command.options ? { options: command.options } : {}),
-  };
 }
