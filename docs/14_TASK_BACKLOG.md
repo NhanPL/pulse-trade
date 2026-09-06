@@ -75,7 +75,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] G04 Re-subscribe after reconnect.
 - [x] G05 Implement event-router validation.
 - [x] G06 Build connection-state store.
-- [ ] G07 Build ticker store.
+- [x] G07 Build ticker store.
 - [ ] G08 Build order-book model/store.
 - [ ] G09 Build bounded recent-trades store.
 - [ ] G10 Integrate trading-page subscription hook.
