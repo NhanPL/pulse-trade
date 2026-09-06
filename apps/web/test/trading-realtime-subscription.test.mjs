@@ -4,6 +4,8 @@ import test from "node:test";
 
 const require = createRequire(import.meta.url);
 const {
+  subscribeToTradingCandles,
+  subscribeToTradingMarketData,
   subscribeToTradingMarket,
 } = require("../.next/realtime-test/features/trading/hooks/useTradingRealtimeSubscription.js");
 const {
@@ -88,7 +90,11 @@ test("subscribes to the trading channels and releases symbol state on cleanup", 
   const runtime = createRuntime();
   const release = subscribeToTradingMarket(runtime, "BTC-USD");
   assert.deepEqual(runtime.trackedSubscriptions[0]?.request, {
-    channels: ["ticker", "candles", "orderbook", "trades"],
+    channels: ["ticker", "orderbook", "trades"],
+    symbols: ["BTC-USD"],
+  });
+  assert.deepEqual(runtime.trackedSubscriptions[1]?.request, {
+    channels: ["candles"],
     options: { candleInterval: "1m" },
     symbols: ["BTC-USD"],
   });
@@ -98,6 +104,7 @@ test("subscribes to the trading channels and releases symbol state on cleanup", 
   release();
   release();
   assert.equal(runtime.trackedSubscriptions[0]?.released, true);
+  assert.equal(runtime.trackedSubscriptions[1]?.released, true);
   assert.equal(selectOrderBook("BTC-USD")(orderBookStore.getState()), undefined);
   assert.deepEqual(selectRecentTrades("BTC-USD")(recentTradesStore.getState()), []);
   assert.equal(runtime.client.listeners.size, 0);
@@ -110,17 +117,19 @@ test("keeps shared store bindings while symbol subscriptions overlap", () => {
   const releaseBtc = subscribeToTradingMarket(runtime, "BTC-USD");
   const releaseEth = subscribeToTradingMarket(runtime, "ETH-USD");
 
-  assert.equal(runtime.trackedSubscriptions.length, 2);
+  assert.equal(runtime.trackedSubscriptions.length, 4);
   assert.equal(runtime.client.listeners.size, 1);
   assert.equal(runtime.eventRouter.listeners.size, 3);
 
   releaseBtc();
   assert.equal(runtime.trackedSubscriptions[0]?.released, true);
+  assert.equal(runtime.trackedSubscriptions[1]?.released, true);
   assert.equal(runtime.client.listeners.size, 1);
   assert.equal(runtime.eventRouter.listeners.size, 3);
 
   releaseEth();
-  assert.equal(runtime.trackedSubscriptions[1]?.released, true);
+  assert.equal(runtime.trackedSubscriptions[2]?.released, true);
+  assert.equal(runtime.trackedSubscriptions[3]?.released, true);
   assert.equal(runtime.client.listeners.size, 0);
   assert.equal(runtime.eventRouter.listeners.size, 0);
 });
@@ -143,8 +152,44 @@ test("does not accumulate listeners when the trading route repeatedly changes sy
 
   releaseCurrentRoute?.();
 
-  assert.equal(runtime.trackedSubscriptions.length, symbols.length);
+  assert.equal(runtime.trackedSubscriptions.length, symbols.length * 2);
   assert.ok(runtime.trackedSubscriptions.every((subscription) => subscription.released));
+  assert.equal(runtime.client.listeners.size, 0);
+  assert.equal(runtime.eventRouter.listeners.size, 0);
+});
+
+test("replaces only the candle subscription when the timeframe changes", () => {
+  resetStores();
+  const runtime = createRuntime();
+  const releaseMarketData = subscribeToTradingMarketData(runtime, "BTC-USD");
+  const releaseOneMinuteCandles = subscribeToTradingCandles(runtime, "BTC-USD", "1m");
+
+  releaseOneMinuteCandles();
+  const releaseFiveMinuteCandles = subscribeToTradingCandles(runtime, "BTC-USD", "5m");
+
+  assert.deepEqual(runtime.trackedSubscriptions[0]?.request, {
+    channels: ["ticker", "orderbook", "trades"],
+    symbols: ["BTC-USD"],
+  });
+  assert.deepEqual(runtime.trackedSubscriptions[1]?.request, {
+    channels: ["candles"],
+    options: { candleInterval: "1m" },
+    symbols: ["BTC-USD"],
+  });
+  assert.deepEqual(runtime.trackedSubscriptions[2]?.request, {
+    channels: ["candles"],
+    options: { candleInterval: "5m" },
+    symbols: ["BTC-USD"],
+  });
+  assert.equal(runtime.trackedSubscriptions[0]?.released, false);
+  assert.equal(runtime.trackedSubscriptions[1]?.released, true);
+  assert.equal(runtime.trackedSubscriptions[2]?.released, false);
+  assert.equal(runtime.client.listeners.size, 1);
+  assert.equal(runtime.eventRouter.listeners.size, 3);
+
+  releaseFiveMinuteCandles();
+  releaseMarketData();
+
   assert.equal(runtime.client.listeners.size, 0);
   assert.equal(runtime.eventRouter.listeners.size, 0);
 });
