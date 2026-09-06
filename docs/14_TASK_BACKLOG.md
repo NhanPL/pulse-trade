@@ -89,7 +89,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] H04 Apply realtime current candle update.
 - [x] H05 Add ResizeObserver behavior.
 - [x] H06 Add chart loading/error/retry.
-- [ ] H07 Add chart integration tests where practical.
+- [x] H07 Add chart integration tests where practical.
 
 ## Epic I — Authentication
 
