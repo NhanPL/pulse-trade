@@ -78,8 +78,8 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] G07 Build ticker store.
 - [x] G08 Build order-book model/store.
 - [x] G09 Build bounded recent-trades store.
-- [ ] G10 Integrate trading-page subscription hook.
-- [ ] G11 Verify no listener leak on repeated route changes.
+- [x] G10 Integrate trading-page subscription hook.
+- [x] G11 Verify no listener leak on repeated route changes.
 
 ## Epic H — Chart
 

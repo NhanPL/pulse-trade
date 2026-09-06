@@ -3,8 +3,6 @@ import { memo } from "react";
 import { classNames } from "@/components/ui/class-names";
 import { formatMarketPrice } from "@/lib/format/market-value";
 
-import type { RecentTradePreview } from "./recent-trades-preview";
-
 const quantityFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 8,
 });
@@ -18,7 +16,13 @@ const timeFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 export type RecentTradeRowProps = {
-  trade: RecentTradePreview;
+  trade: Readonly<{
+    id: string;
+    marketTs: number;
+    price: string;
+    quantity: string;
+    side: "BUY" | "SELL";
+  }>;
 };
 
 // A normalized trade only updates its own row when the bounded realtime buffer replaces this preview.
