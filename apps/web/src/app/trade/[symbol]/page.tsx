@@ -5,9 +5,8 @@ import { MARKET_TABLE_MOCK } from "@/features/market/model/market-table.mock";
 import { getSupportedMarket, SUPPORTED_MARKETS } from "@/features/market/model/supported-markets";
 import { TradingGrid } from "@/features/trading/components/TradingGrid";
 import { TradingMarketHeader } from "@/features/trading/components/TradingMarketHeader";
-import { TradingRealtimeSubscription } from "@/features/trading/components/TradingRealtimeSubscription";
 import { UnsupportedMarketState } from "@/features/trading/components/UnsupportedMarketState";
-import { ChartPanel } from "@/features/trading/components/chart/ChartPanel";
+import { TradingChart } from "@/features/trading/components/chart/TradingChart";
 import { OrderBook } from "@/features/trading/components/order-book/OrderBook";
 import { OrderForm } from "@/features/trading/components/order-form/OrderForm";
 import { RecentTrades } from "@/features/trading/components/recent-trades/RecentTrades";
@@ -54,10 +53,9 @@ export default async function TradingPage({ params }: TradingPageProps) {
       spacing="none"
       width="full"
     >
-      <TradingRealtimeSubscription symbol={market.symbol} />
       <TradingMarketHeader {...snapshot} />
       <TradingGrid
-        chart={<ChartPanel symbol={market.symbol} />}
+        chart={<TradingChart symbol={market.symbol} />}
         orderBook={
           <OrderBook
             baseAsset={market.baseAsset}

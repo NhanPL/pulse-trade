@@ -1,18 +1,22 @@
+"use client";
+
 import type { ReactNode } from "react";
 
-import { Badge } from "@/components/ui/Badge";
+import type { CandleInterval } from "@pulse-trade/contracts";
 
 import { CandlestickChart } from "./CandlestickChart";
+import { ChartTimeframeTabs } from "./ChartTimeframeTabs";
 
-export type ChartTimeframe = "1m" | "5m" | "15m" | "1h";
+export type ChartTimeframe = CandleInterval;
 
 export type ChartPanelProps = {
   children?: ReactNode;
+  onTimeframeChange: (timeframe: ChartTimeframe) => void;
   symbol: string;
-  timeframe?: ChartTimeframe;
+  timeframe: ChartTimeframe;
 };
 
-export function ChartPanel({ children, symbol, timeframe = "1m" }: ChartPanelProps) {
+export function ChartPanel({ children, onTimeframeChange, symbol, timeframe }: ChartPanelProps) {
   return (
     <section
       aria-labelledby="chart-panel-title"
@@ -25,9 +29,7 @@ export function ChartPanel({ children, symbol, timeframe = "1m" }: ChartPanelPro
           </h2>
           <p className="mt-0.5 truncate font-mono text-xs text-foreground-muted">{symbol}</p>
         </div>
-        <Badge aria-label={`Current chart timeframe: ${timeframe}`} variant="neutral">
-          {timeframe}
-        </Badge>
+        <ChartTimeframeTabs onTimeframeChange={onTimeframeChange} timeframe={timeframe} />
       </header>
 
       <div
