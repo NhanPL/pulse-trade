@@ -7,6 +7,7 @@ import {
   acquireRealtimeStoreBindings,
   type RealtimeStoreBindingRuntime,
 } from "../../realtime/realtime-store-bindings";
+import { candleStore } from "../../realtime/stores/candle-store";
 import { orderBookStore } from "../../realtime/stores/order-book-store";
 import { recentTradesStore } from "../../realtime/stores/recent-trades-store";
 
@@ -85,6 +86,7 @@ export function subscribeToTradingMarketData(
     released = true;
 
     releaseSubscription();
+    candleStore.getState().clearCandles(symbol);
     orderBookStore.getState().clearOrderBook(symbol);
     recentTradesStore.getState().clearRecentTrades(symbol);
     releaseStoreBindings();

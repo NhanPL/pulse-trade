@@ -11,11 +11,13 @@ import {
   type Time,
   type UTCTimestamp,
 } from "lightweight-charts";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import type { Candle, CandleInterval } from "@pulse-trade/contracts";
 
 import { useHistoricalCandles } from "../../hooks/useHistoricalCandles";
+import { candleStore, selectCurrentCandle } from "../../../realtime/stores/candle-store";
+import { observeChartSize } from "./chart-resize";
 
 export type CandlestickChartProps = Readonly<{
   symbol: string;
@@ -25,8 +27,20 @@ export type CandlestickChartProps = Readonly<{
 export function CandlestickChart({ symbol, timeframe }: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const latestHistoricalCandleTimeRef = useRef<number | undefined>(undefined);
   const seriesRef = useRef<ISeriesApi<"Candlestick", Time> | null>(null);
   const historicalCandles = useHistoricalCandles(symbol, timeframe);
+
+  const updateCurrentCandle = useCallback((candle: Candle): void => {
+    if (
+      latestHistoricalCandleTimeRef.current !== undefined &&
+      candle.time < latestHistoricalCandleTimeRef.current
+    ) {
+      return;
+    }
+
+    seriesRef.current?.update(toChartCandle(candle));
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -72,8 +86,10 @@ export function CandlestickChart({ symbol, timeframe }: CandlestickChartProps) {
 
     chartRef.current = chart;
     seriesRef.current = series;
+    const stopObservingSize = observeChartSize(chart, container);
 
     return () => {
+      stopObservingSize();
       seriesRef.current = null;
       chartRef.current = null;
       chart.remove();
@@ -81,6 +97,7 @@ export function CandlestickChart({ symbol, timeframe }: CandlestickChartProps) {
   }, []);
 
   useEffect(() => {
+    latestHistoricalCandleTimeRef.current = undefined;
     seriesRef.current?.setData([]);
   }, [symbol, timeframe]);
 
@@ -89,9 +106,31 @@ export function CandlestickChart({ symbol, timeframe }: CandlestickChartProps) {
     const series = seriesRef.current;
     if (!chart || !series || !historicalCandles.data) return;
 
-    series.setData(historicalCandles.data.candles.map(toChartCandle));
+    const candles = historicalCandles.data.candles;
+    latestHistoricalCandleTimeRef.current = candles.reduce(
+      (latestTime, candle) => Math.max(latestTime, candle.time),
+      0,
+    );
+    series.setData(candles.map(toChartCandle));
     chart.timeScale().fitContent();
-  }, [historicalCandles.data]);
+
+    const currentCandle = selectCurrentCandle(symbol, timeframe)(candleStore.getState());
+    if (currentCandle) updateCurrentCandle(currentCandle.candle);
+  }, [historicalCandles.data, symbol, timeframe, updateCurrentCandle]);
+
+  useEffect(() => {
+    const selectCandle = selectCurrentCandle(symbol, timeframe);
+    const currentCandle = selectCandle(candleStore.getState());
+    if (currentCandle) updateCurrentCandle(currentCandle.candle);
+
+    return candleStore.subscribe((state, previousState) => {
+      const nextCandle = selectCandle(state);
+      const previousCandle = selectCandle(previousState);
+      if (nextCandle === previousCandle) return;
+
+      if (nextCandle) updateCurrentCandle(nextCandle.candle);
+    });
+  }, [symbol, timeframe, updateCurrentCandle]);
 
   return (
     <div

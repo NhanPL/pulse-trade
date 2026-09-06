@@ -2,6 +2,7 @@ import {
   bindConnectionStateStore,
   type RealtimeConnectionStateSource,
 } from "./stores/connection-state-store";
+import { bindCandleStore } from "./stores/candle-store";
 import { bindOrderBookStore } from "./stores/order-book-store";
 import { bindRecentTradesStore } from "./stores/recent-trades-store";
 import { bindTickerStore, type RealtimeEventSource } from "./stores/ticker-store";
@@ -26,6 +27,7 @@ export function acquireRealtimeStoreBindings(runtime: RealtimeStoreBindingRuntim
   }
 
   const releaseConnectionState = bindConnectionStateStore(runtime.client);
+  const releaseCandles = bindCandleStore(runtime.eventRouter);
   const releaseTicker = bindTickerStore(runtime.eventRouter);
   const releaseOrderBook = bindOrderBookStore(runtime.eventRouter);
   const releaseRecentTrades = bindRecentTradesStore(runtime.eventRouter);
@@ -35,6 +37,7 @@ export function acquireRealtimeStoreBindings(runtime: RealtimeStoreBindingRuntim
       releaseRecentTrades();
       releaseOrderBook();
       releaseTicker();
+      releaseCandles();
       releaseConnectionState();
     },
   };

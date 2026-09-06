@@ -5,6 +5,7 @@ import { environmentSchema, type EnvironmentVariables } from "./env.schema";
 export type Environment = Readonly<{
   nodeEnv: EnvironmentVariables["NODE_ENV"];
   port: EnvironmentVariables["PORT"];
+  webOrigin: EnvironmentVariables["WEB_ORIGIN"];
 }>;
 
 export function loadEnvironment(environment: NodeJS.ProcessEnv = process.env): Environment {
@@ -19,5 +20,6 @@ export function loadEnvironment(environment: NodeJS.ProcessEnv = process.env): E
   return {
     nodeEnv: result.data.NODE_ENV,
     port: result.data.PORT,
+    webOrigin: result.data.WEB_ORIGIN,
   };
 }

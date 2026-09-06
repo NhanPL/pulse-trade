@@ -40,11 +40,11 @@ test("shares store bindings for a runtime until the final consumer releases them
   const releaseSecond = acquireRealtimeStoreBindings(runtime);
 
   assert.equal(runtime.client.listeners.size, 1);
-  assert.equal(runtime.eventRouter.listeners.size, 3);
+  assert.equal(runtime.eventRouter.listeners.size, 4);
 
   releaseFirst();
   assert.equal(runtime.client.listeners.size, 1);
-  assert.equal(runtime.eventRouter.listeners.size, 3);
+  assert.equal(runtime.eventRouter.listeners.size, 4);
 
   releaseSecond();
   assert.equal(runtime.client.listeners.size, 0);

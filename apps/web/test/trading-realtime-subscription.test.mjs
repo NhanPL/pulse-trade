@@ -14,6 +14,10 @@ const {
   selectOrderBook,
 } = require("../.next/realtime-test/features/realtime/stores/order-book-store.js");
 const {
+  candleStore,
+  selectCurrentCandle,
+} = require("../.next/realtime-test/features/realtime/stores/candle-store.js");
+const {
   recentTradesStore,
   selectRecentTrades,
 } = require("../.next/realtime-test/features/realtime/stores/recent-trades-store.js");
@@ -64,6 +68,9 @@ function createRuntime() {
 }
 
 function resetStores() {
+  candleStore.getState().clearCandles("BTC-USD");
+  candleStore.getState().clearCandles("ETH-USD");
+  candleStore.getState().clearCandles("SOL-USD");
   orderBookStore.getState().clearOrderBook("BTC-USD");
   orderBookStore.getState().clearOrderBook("ETH-USD");
   recentTradesStore.getState().clearRecentTrades("BTC-USD");
@@ -85,6 +92,16 @@ test("subscribes to the trading channels and releases symbol state on cleanup", 
     .updateRecentTrades("BTC-USD", [
       { id: "trade", marketTs: 1, price: "100", quantity: "1", side: "BUY" },
     ]);
+  candleStore.getState().applyUpdate({
+    data: {
+      candle: { close: "101", high: "102", low: "99", open: "100", time: 100, volume: "10" },
+      interval: "1m",
+    },
+    event: "candle.update",
+    symbol: "BTC-USD",
+    ts: 1,
+    v: 1,
+  });
   flushOrderBookPresentation();
 
   const runtime = createRuntime();
@@ -99,12 +116,13 @@ test("subscribes to the trading channels and releases symbol state on cleanup", 
     symbols: ["BTC-USD"],
   });
   assert.equal(runtime.client.listeners.size, 1);
-  assert.equal(runtime.eventRouter.listeners.size, 3);
+  assert.equal(runtime.eventRouter.listeners.size, 4);
 
   release();
   release();
   assert.equal(runtime.trackedSubscriptions[0]?.released, true);
   assert.equal(runtime.trackedSubscriptions[1]?.released, true);
+  assert.equal(selectCurrentCandle("BTC-USD", "1m")(candleStore.getState()), undefined);
   assert.equal(selectOrderBook("BTC-USD")(orderBookStore.getState()), undefined);
   assert.deepEqual(selectRecentTrades("BTC-USD")(recentTradesStore.getState()), []);
   assert.equal(runtime.client.listeners.size, 0);
@@ -119,13 +137,13 @@ test("keeps shared store bindings while symbol subscriptions overlap", () => {
 
   assert.equal(runtime.trackedSubscriptions.length, 4);
   assert.equal(runtime.client.listeners.size, 1);
-  assert.equal(runtime.eventRouter.listeners.size, 3);
+  assert.equal(runtime.eventRouter.listeners.size, 4);
 
   releaseBtc();
   assert.equal(runtime.trackedSubscriptions[0]?.released, true);
   assert.equal(runtime.trackedSubscriptions[1]?.released, true);
   assert.equal(runtime.client.listeners.size, 1);
-  assert.equal(runtime.eventRouter.listeners.size, 3);
+  assert.equal(runtime.eventRouter.listeners.size, 4);
 
   releaseEth();
   assert.equal(runtime.trackedSubscriptions[2]?.released, true);
@@ -147,7 +165,7 @@ test("does not accumulate listeners when the trading route repeatedly changes sy
 
     releaseCurrentRoute = subscribeToTradingMarket(runtime, symbol);
     assert.equal(runtime.client.listeners.size, 1);
-    assert.equal(runtime.eventRouter.listeners.size, 3);
+    assert.equal(runtime.eventRouter.listeners.size, 4);
   }
 
   releaseCurrentRoute?.();
@@ -185,7 +203,7 @@ test("replaces only the candle subscription when the timeframe changes", () => {
   assert.equal(runtime.trackedSubscriptions[1]?.released, true);
   assert.equal(runtime.trackedSubscriptions[2]?.released, false);
   assert.equal(runtime.client.listeners.size, 1);
-  assert.equal(runtime.eventRouter.listeners.size, 3);
+  assert.equal(runtime.eventRouter.listeners.size, 4);
 
   releaseFiveMinuteCandles();
   releaseMarketData();
