@@ -1,6 +1,7 @@
 export type RealtimeConnectionState = "CONNECTING" | "CONNECTED" | "RECONNECTING" | "DISCONNECTED";
 
 export type RealtimeConnectionStateListener = (state: RealtimeConnectionState) => void;
+export type RealtimeMessageListener = (message: unknown) => void;
 
 export type RealtimeSocket = Pick<
   WebSocket,
@@ -21,6 +22,7 @@ export type RealtimeClientOptions = Readonly<{
 type SocketListeners = Readonly<{
   close: EventListener;
   error: EventListener;
+  message: EventListener;
   open: EventListener;
 }>;
 
@@ -63,6 +65,7 @@ export function calculateReconnectDelayMs(
 export class RealtimeClient {
   private readonly cancelTimeout: typeof clearTimeout;
   private readonly connectionStateListeners = new Set<RealtimeConnectionStateListener>();
+  private readonly messageListeners = new Set<RealtimeMessageListener>();
   private readonly random: () => number;
   private readonly reconnectDelaysMs: readonly number[];
   private readonly reconnectJitterRatio: number;
@@ -145,6 +148,12 @@ export class RealtimeClient {
     return () => this.connectionStateListeners.delete(listener);
   }
 
+  onMessage(listener: RealtimeMessageListener): () => void {
+    this.messageListeners.add(listener);
+
+    return () => this.messageListeners.delete(listener);
+  }
+
   send(payload: string): boolean {
     const socket = this.socket;
     if (!socket || socket.readyState !== SOCKET_OPEN) return false;
@@ -161,6 +170,11 @@ export class RealtimeClient {
     const listeners: SocketListeners = {
       close: () => this.handleUnexpectedDisconnect(socket),
       error: () => this.handleSocketError(socket),
+      message: (event) => {
+        if (this.socket !== socket || !("data" in event)) return;
+
+        this.notifyMessageListeners(event.data);
+      },
       open: () => {
         if (this.socket !== socket) return;
 
@@ -172,6 +186,7 @@ export class RealtimeClient {
     this.socketListeners = listeners;
     socket.addEventListener("close", listeners.close);
     socket.addEventListener("error", listeners.error);
+    socket.addEventListener("message", listeners.message);
     socket.addEventListener("open", listeners.open);
   }
 
@@ -181,6 +196,7 @@ export class RealtimeClient {
 
     socket.removeEventListener("close", listeners.close);
     socket.removeEventListener("error", listeners.error);
+    socket.removeEventListener("message", listeners.message);
     socket.removeEventListener("open", listeners.open);
     this.socketListeners = undefined;
   }
@@ -291,6 +307,16 @@ export class RealtimeClient {
       listener(state);
     } catch {
       // One consumer must not interrupt socket cleanup or other state listeners.
+    }
+  }
+
+  private notifyMessageListeners(message: unknown): void {
+    for (const listener of this.messageListeners) {
+      try {
+        listener(message);
+      } catch {
+        // An event consumer must not block other consumers from receiving market data.
+      }
     }
   }
 }
