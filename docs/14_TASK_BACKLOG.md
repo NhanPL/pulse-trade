@@ -71,8 +71,8 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 
 - [x] G01 Implement RealtimeClient connection lifecycle.
 - [x] G02 Implement exponential reconnect/backoff.
-- [ ] G03 Implement subscription manager.
-- [ ] G04 Re-subscribe after reconnect.
+- [x] G03 Implement subscription manager.
+- [x] G04 Re-subscribe after reconnect.
 - [ ] G05 Implement event-router validation.
 - [ ] G06 Build connection-state store.
 - [ ] G07 Build ticker store.

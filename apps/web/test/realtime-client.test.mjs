@@ -40,6 +40,7 @@ class FakeSocket {
   closeCalls = [];
   listeners = new Map();
   readyState = 0;
+  sent = [];
 
   addEventListener(type, listener) {
     const listeners = this.listeners.get(type) ?? new Set();
@@ -61,6 +62,10 @@ class FakeSocket {
 
   removeEventListener(type, listener) {
     this.listeners.get(type)?.delete(listener);
+  }
+
+  send(payload) {
+    this.sent.push(payload);
   }
 
   listenerCount() {
@@ -149,6 +154,19 @@ test("disconnect closes the active socket once and cancels lifecycle timers", ()
   assert.deepEqual(scheduler.delays, []);
   assert.equal(client.connectionState, "DISCONNECTED");
   assert.deepEqual(states, ["DISCONNECTED", "CONNECTING", "CONNECTED", "DISCONNECTED"]);
+});
+
+test("sends payloads only while the socket is open", () => {
+  const { client, sockets } = createHarness();
+  client.connect();
+
+  assert.equal(client.send("before-open"), false);
+  sockets[0].emit("open");
+  assert.equal(client.send("ready"), true);
+  assert.deepEqual(sockets[0].sent, ["ready"]);
+
+  client.disconnect();
+  assert.equal(client.send("after-close"), false);
 });
 
 test("reconnects after socket errors without retaining stale listeners", () => {
