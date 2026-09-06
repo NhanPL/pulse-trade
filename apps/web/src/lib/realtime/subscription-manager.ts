@@ -29,7 +29,9 @@ const CANDLE_INTERVALS = new Set<NonNullable<SubscriptionOptions["candleInterval
 export class RealtimeSubscriptionManager {
   private readonly createRequestId: () => string;
   private destroyed = false;
+  private hasConnected = false;
   private readonly removeConnectionStateListener: () => void;
+  private shouldResubscribe = false;
   private readonly subscriptions = new Map<string, ManagedSubscription>();
 
   constructor(
@@ -37,9 +39,9 @@ export class RealtimeSubscriptionManager {
     options: RealtimeSubscriptionManagerOptions = {},
   ) {
     this.createRequestId = options.createRequestId ?? (() => crypto.randomUUID());
-    this.removeConnectionStateListener = this.client.onConnectionState((state) => {
-      if (state === "CONNECTED") this.flushPendingSubscriptions();
-    });
+    this.removeConnectionStateListener = this.client.onConnectionState((state) =>
+      this.handleConnectionState(state),
+    );
   }
 
   get activeSubscriptionCount(): number {
@@ -100,6 +102,27 @@ export class RealtimeSubscriptionManager {
     for (const subscription of this.subscriptions.values()) {
       this.sendSubscribe(subscription);
     }
+  }
+
+  private handleConnectionState(state: RealtimeClient["connectionState"]): void {
+    if (this.destroyed) return;
+
+    if (state === "RECONNECTING" || state === "DISCONNECTED") {
+      if (this.hasConnected) this.shouldResubscribe = true;
+      return;
+    }
+
+    if (state !== "CONNECTED") return;
+
+    if (this.shouldResubscribe) {
+      for (const subscription of this.subscriptions.values()) {
+        subscription.sent = false;
+      }
+      this.shouldResubscribe = false;
+    }
+
+    this.flushPendingSubscriptions();
+    this.hasConnected = true;
   }
 
   private sendSubscribe(subscription: ManagedSubscription): void {

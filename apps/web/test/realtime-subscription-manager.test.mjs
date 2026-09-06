@@ -94,7 +94,7 @@ test("deduplicates identical subscriptions until the final cleanup", () => {
   assert.equal(client.payloads.length, 2);
 });
 
-test("flushes pending subscriptions once connected without resubscribing existing entries", () => {
+test("resubscribes active entries once after reconnect and sends subscriptions created meanwhile", () => {
   const { client, manager } = createHarness("DISCONNECTED");
   const btcCleanup = manager.subscribe({ channels: ["ticker"], symbols: ["BTC-USD"] });
   assert.equal(client.payloads.length, 0);
@@ -107,14 +107,47 @@ test("flushes pending subscriptions once connected without resubscribing existin
   const ethCleanup = manager.subscribe({ channels: ["ticker"], symbols: ["ETH-USD"] });
   client.setState("CONNECTED");
 
-  assert.equal(client.payloads.length, 2);
+  assert.equal(client.payloads.length, 3);
   assert.deepEqual(
     client.payloads.map(({ symbols }) => symbols),
-    [["BTC-USD"], ["ETH-USD"]],
+    [["BTC-USD"], ["BTC-USD"], ["ETH-USD"]],
   );
+
+  client.setState("CONNECTED");
+  assert.equal(client.payloads.length, 3);
 
   btcCleanup();
   ethCleanup();
+});
+
+test("does not resubscribe entries released while reconnecting", () => {
+  const { client, manager } = createHarness();
+  const btcCleanup = manager.subscribe({ channels: ["ticker"], symbols: ["BTC-USD"] });
+  const ethCleanup = manager.subscribe({ channels: ["ticker"], symbols: ["ETH-USD"] });
+
+  client.setState("RECONNECTING");
+  ethCleanup();
+  client.setState("CONNECTED");
+
+  assert.deepEqual(
+    client.payloads.filter(({ action }) => action === "subscribe").map(({ symbols }) => symbols),
+    [["BTC-USD"], ["ETH-USD"], ["BTC-USD"]],
+  );
+
+  btcCleanup();
+});
+
+test("resubscribes active entries after an explicit disconnected lifecycle", () => {
+  const { client, manager } = createHarness();
+  const cleanup = manager.subscribe({ channels: ["ticker"], symbols: ["BTC-USD"] });
+
+  client.setState("DISCONNECTED");
+  client.setState("CONNECTING");
+  client.setState("CONNECTED");
+
+  assert.equal(client.payloads.filter(({ action }) => action === "subscribe").length, 2);
+
+  cleanup();
 });
 
 test("releases all owned subscriptions and the connection listener on destroy", () => {
