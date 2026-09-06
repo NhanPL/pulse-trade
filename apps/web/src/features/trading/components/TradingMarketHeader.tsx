@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/Badge";
 import { classNames } from "@/components/ui/class-names";
 import {
   formatMarketPrice,
@@ -7,6 +6,7 @@ import {
 } from "@/lib/format/market-value";
 
 import { TradingHeaderPrice } from "./TradingHeaderPrice";
+import { TradingRealtimeStatus } from "./TradingRealtimeStatus";
 
 export type TradingMarketHeaderProps = {
   baseAsset: string;
@@ -84,14 +84,7 @@ export function TradingMarketHeader(props: TradingMarketHeaderProps) {
           </div>
         </dl>
 
-        <Badge
-          aria-label="Market data status: Delayed"
-          className="order-2 justify-self-end lg:order-4"
-          showDot
-          variant="warning"
-        >
-          Delayed
-        </Badge>
+        <TradingRealtimeStatus />
       </div>
     </section>
   );

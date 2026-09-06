@@ -3,14 +3,21 @@ import { memo } from "react";
 import { classNames } from "@/components/ui/class-names";
 import { formatMarketPrice } from "@/lib/format/market-value";
 
-import type { OrderBookPreviewLevel, OrderBookSide } from "./order-book-preview";
-
 const quantityFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 8,
 });
 
+export type OrderBookSide = "ask" | "bid";
+
+export type OrderBookDisplayLevel = Readonly<{
+  amount: string;
+  depthPercent: number;
+  price: string;
+  total: string;
+}>;
+
 export type OrderBookLevelRowProps = {
-  level: OrderBookPreviewLevel;
+  level: OrderBookDisplayLevel;
   side: OrderBookSide;
 };
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
+import { useRecentTrades } from "@/features/realtime/stores/recent-trades-store";
 
 import { RecentTradeRow } from "./RecentTradeRow";
 import { createRecentTradesPreview } from "./recent-trades-preview";
@@ -15,7 +16,9 @@ export type RecentTradesProps = {
 };
 
 export function RecentTrades({ baseAsset, midPrice, quoteAsset, symbol }: RecentTradesProps) {
-  const trades = createRecentTradesPreview(midPrice);
+  const realtimeTrades = useRecentTrades(symbol);
+  const trades = realtimeTrades.length > 0 ? realtimeTrades : createRecentTradesPreview(midPrice);
+  const isLive = realtimeTrades.length > 0;
   const [showAll, setShowAll] = useState(false);
   const visibleTrades = showAll ? trades : trades.slice(0, 6);
 
@@ -31,13 +34,13 @@ export function RecentTrades({ baseAsset, midPrice, quoteAsset, symbol }: Recent
           </h2>
           <p className="mt-0.5 font-mono text-xs text-foreground-muted">{symbol}</p>
         </div>
-        <Badge variant="neutral">Snapshot</Badge>
+        <Badge variant={isLive ? "positive" : "neutral"}>{isLive ? "Live" : "Snapshot"}</Badge>
       </header>
 
       <div className="max-h-96 overflow-auto lg:min-h-0 lg:flex-1">
         <table className="w-full min-w-[28rem] table-fixed border-collapse">
           <caption className="sr-only">
-            Static {symbol} recent trades preview, newest first; times shown in UTC
+            {isLive ? "Live" : "Snapshot"} {symbol} recent trades, newest first; times shown in UTC
           </caption>
           <thead className="sticky top-0 z-10 bg-surface-elevated">
             <tr className="h-9 border-b border-border-subtle text-xs text-foreground-muted lg:h-8">
