@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { AppHeader } from "@/components/layout/AppHeader";
+import { QueryProvider } from "@/providers/QueryProvider";
 
 import "./globals.css";
 
@@ -19,7 +20,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
     <html lang="en">
       <body>
         <AppHeader authState="guest" />
-        {children}
+        <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
   );

@@ -6,11 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "pnpm --filter @pulse-trade/contracts build && tsc --ignoreConfig src/lib/realtime/RealtimeClient.ts src/lib/realtime/subscription-manager.ts src/lib/realtime/event-router.ts --outDir .next/realtime-test --module commonjs --target es2022 --lib es2022,dom --types node --strict --skipLibCheck && tsc --ignoreConfig --rootDir src src/features/realtime/stores/connection-state-store.ts src/features/realtime/stores/ticker-store.ts src/features/realtime/stores/order-book-store.ts src/features/realtime/stores/recent-trades-store.ts src/features/realtime/realtime-store-bindings.ts src/features/trading/hooks/useTradingRealtimeSubscription.ts --outDir .next/realtime-test --module commonjs --target es2022 --lib es2022,dom --types node --strict --skipLibCheck && node --test test/*.test.mjs",
+    "test": "pnpm --filter @pulse-trade/contracts build && tsc --ignoreConfig src/lib/realtime/RealtimeClient.ts src/lib/realtime/subscription-manager.ts src/lib/realtime/event-router.ts --outDir .next/realtime-test --module commonjs --target es2022 --lib es2022,dom --types node --strict --skipLibCheck && tsc --ignoreConfig --rootDir src src/features/realtime/stores/connection-state-store.ts src/features/realtime/stores/ticker-store.ts src/features/realtime/stores/order-book-store.ts src/features/realtime/stores/recent-trades-store.ts src/features/realtime/realtime-store-bindings.ts src/features/trading/api/historical-candles.ts src/features/trading/hooks/useTradingRealtimeSubscription.ts --outDir .next/realtime-test --module commonjs --target es2022 --lib es2022,dom --types node --strict --skipLibCheck && node --test test/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@pulse-trade/contracts": "workspace:*",
+    "@tanstack/react-query": "^5.102.8",
     "lightweight-charts": "^5.2.1",
     "next": "16.3.3",
     "react": "19.2.8",

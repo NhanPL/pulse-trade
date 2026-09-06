@@ -34,7 +34,7 @@ export function ChartPanel({ children, symbol, timeframe = "1m" }: ChartPanelPro
         className="relative h-80 min-w-0 overflow-hidden sm:h-[26rem] lg:h-auto lg:min-h-0 lg:flex-1"
         data-chart-container={symbol}
       >
-        {children ?? <CandlestickChart symbol={symbol} />}
+        {children ?? <CandlestickChart symbol={symbol} timeframe={timeframe} />}
       </div>
     </section>
   );
