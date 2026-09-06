@@ -83,7 +83,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 
 ## Epic H — Chart
 
-- [ ] H01 Integrate Lightweight Charts client component.
+- [x] H01 Integrate Lightweight Charts client component.
 - [ ] H02 Load historical candles.
 - [ ] H03 Add 1m/5m/15m/1h interval switch.
 - [ ] H04 Apply realtime current candle update.
