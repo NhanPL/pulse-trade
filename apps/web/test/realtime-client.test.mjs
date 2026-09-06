@@ -53,11 +53,12 @@ class FakeSocket {
     this.readyState = 2;
   }
 
-  emit(type) {
+  emit(type, data) {
     if (type === "open") this.readyState = 1;
     if (type === "close") this.readyState = 3;
 
-    for (const listener of this.listeners.get(type) ?? []) listener(new Event(type));
+    const event = type === "message" ? { data, type } : new Event(type);
+    for (const listener of this.listeners.get(type) ?? []) listener(event);
   }
 
   removeEventListener(type, listener) {
@@ -106,7 +107,7 @@ test("reports the connection lifecycle and cleans up its socket listeners", () =
 
   client.connect();
   assert.deepEqual(urls, ["ws://localhost:3001/realtime"]);
-  assert.equal(sockets[0].listenerCount(), 3);
+  assert.equal(sockets[0].listenerCount(), 4);
 
   sockets[0].emit("open");
   sockets[0].emit("close");
@@ -167,6 +168,23 @@ test("sends payloads only while the socket is open", () => {
 
   client.disconnect();
   assert.equal(client.send("after-close"), false);
+});
+
+test("forwards raw socket messages and removes the socket listener during cleanup", () => {
+  const { client, sockets } = createHarness();
+  const messages = [];
+  const removeMessageListener = client.onMessage((message) => messages.push(message));
+
+  client.connect();
+  sockets[0].emit("open");
+  sockets[0].emit("message", '{"event":"ticker.update"}');
+  assert.deepEqual(messages, ['{"event":"ticker.update"}']);
+
+  client.disconnect();
+  sockets[0].emit("message", '{"event":"must-not-arrive"}');
+  assert.deepEqual(messages, ['{"event":"ticker.update"}']);
+
+  removeMessageListener();
 });
 
 test("reconnects after socket errors without retaining stale listeners", () => {
