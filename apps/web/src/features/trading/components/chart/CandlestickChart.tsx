@@ -17,6 +17,8 @@ import type { Candle, CandleInterval } from "@pulse-trade/contracts";
 
 import { useHistoricalCandles } from "../../hooks/useHistoricalCandles";
 import { candleStore, selectCurrentCandle } from "../../../realtime/stores/candle-store";
+import { ChartDataState } from "./ChartDataState";
+import { resolveChartDataState } from "./chart-data-state";
 import { observeChartSize } from "./chart-resize";
 
 export type CandlestickChartProps = Readonly<{
@@ -30,6 +32,11 @@ export function CandlestickChart({ symbol, timeframe }: CandlestickChartProps) {
   const latestHistoricalCandleTimeRef = useRef<number | undefined>(undefined);
   const seriesRef = useRef<ISeriesApi<"Candlestick", Time> | null>(null);
   const historicalCandles = useHistoricalCandles(symbol, timeframe);
+  const chartDataState = resolveChartDataState({
+    candleCount: historicalCandles.data?.candles.length,
+    isError: historicalCandles.isError,
+    isPending: historicalCandles.isPending,
+  });
 
   const updateCurrentCandle = useCallback((candle: Candle): void => {
     if (
@@ -133,12 +140,24 @@ export function CandlestickChart({ symbol, timeframe }: CandlestickChartProps) {
   }, [symbol, timeframe, updateCurrentCandle]);
 
   return (
-    <div
-      aria-label={`${symbol} candlestick chart`}
-      className="absolute inset-0"
-      ref={containerRef}
-      role="img"
-    />
+    <>
+      <div
+        aria-label={`${symbol} candlestick chart`}
+        className="absolute inset-0"
+        ref={containerRef}
+        role="img"
+      />
+      {chartDataState !== "ready" ? (
+        <ChartDataState
+          isRetrying={historicalCandles.isFetching}
+          onRetry={() => {
+            void historicalCandles.refetch();
+          }}
+          status={chartDataState}
+          symbol={symbol}
+        />
+      ) : null}
+    </>
   );
 }
 
