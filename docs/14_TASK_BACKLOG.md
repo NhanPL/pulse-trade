@@ -69,7 +69,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 
 ## Epic G — Frontend realtime client
 
-- [ ] G01 Implement RealtimeClient connection lifecycle.
+- [x] G01 Implement RealtimeClient connection lifecycle.
 - [ ] G02 Implement exponential reconnect/backoff.
 - [ ] G03 Implement subscription manager.
 - [ ] G04 Re-subscribe after reconnect.
