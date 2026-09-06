@@ -77,7 +77,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] G06 Build connection-state store.
 - [x] G07 Build ticker store.
 - [x] G08 Build order-book model/store.
-- [ ] G09 Build bounded recent-trades store.
+- [x] G09 Build bounded recent-trades store.
 - [ ] G10 Integrate trading-page subscription hook.
 - [ ] G11 Verify no listener leak on repeated route changes.
 
