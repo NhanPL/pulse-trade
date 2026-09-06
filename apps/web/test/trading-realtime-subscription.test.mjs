@@ -124,3 +124,27 @@ test("keeps shared store bindings while symbol subscriptions overlap", () => {
   assert.equal(runtime.client.listeners.size, 0);
   assert.equal(runtime.eventRouter.listeners.size, 0);
 });
+
+test("does not accumulate listeners when the trading route repeatedly changes symbols", () => {
+  resetStores();
+  const runtime = createRuntime();
+  const symbols = ["BTC-USD", "ETH-USD", "SOL-USD", "BTC-USD", "ETH-USD"];
+  let releaseCurrentRoute;
+
+  for (const symbol of symbols) {
+    releaseCurrentRoute?.();
+    assert.equal(runtime.client.listeners.size, 0);
+    assert.equal(runtime.eventRouter.listeners.size, 0);
+
+    releaseCurrentRoute = subscribeToTradingMarket(runtime, symbol);
+    assert.equal(runtime.client.listeners.size, 1);
+    assert.equal(runtime.eventRouter.listeners.size, 3);
+  }
+
+  releaseCurrentRoute?.();
+
+  assert.equal(runtime.trackedSubscriptions.length, symbols.length);
+  assert.ok(runtime.trackedSubscriptions.every((subscription) => subscription.released));
+  assert.equal(runtime.client.listeners.size, 0);
+  assert.equal(runtime.eventRouter.listeners.size, 0);
+});
