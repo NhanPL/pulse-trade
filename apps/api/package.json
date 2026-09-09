@@ -3,13 +3,17 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "nest build",
+    "build": "pnpm db:generate && nest build",
+    "db:generate": "prisma generate",
+    "db:validate": "prisma validate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "dev": "nest start --watch",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
     "test": "pnpm --filter @pulse-trade/contracts build && pnpm build && node --test test/*.test.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "pnpm db:generate && tsc --noEmit"
   },
   "dependencies": {
     "@nestjs/common": "12.0.1",
@@ -17,6 +21,7 @@
     "@nestjs/platform-express": "12.0.1",
     "@nestjs/platform-ws": "12.0.1",
     "@nestjs/websockets": "12.0.1",
+    "@prisma/client": "7.10.0",
     "@pulse-trade/contracts": "workspace:*",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
@@ -27,6 +32,7 @@
     "@nestjs/cli": "12.0.0",
     "@types/node": "26.4.0",
     "@types/ws": "8.18.1",
+    "prisma": "7.10.0",
     "typescript": "6.0.3"
   }
 }

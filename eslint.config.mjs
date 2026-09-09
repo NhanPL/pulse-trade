@@ -17,6 +17,7 @@ export default defineConfig([
     "**/.next/**",
     "**/dist/**",
     "**/node_modules/**",
+    "apps/api/src/generated/prisma/**",
     "**/*.tsbuildinfo",
     "pnpm-lock.yaml",
   ]),
