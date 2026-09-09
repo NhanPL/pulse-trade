@@ -76,6 +76,18 @@ Side effects:
 - USD 10,000 virtual balance created.
 - Session may be created immediately depending on UX decision.
 
+I03 behavior: `201` returns only `data.user.id` and normalized `data.user.email`.
+Email is trimmed and lowercased. Passwords must contain 8–128 characters and are
+hashed using I02 Argon2id without trimming. Unknown fields (including client-provided
+funding amounts or user IDs) are rejected. Confirmation is a frontend field.
+User creation and the single USD wallet allocation (`available=10000`, `locked=0`)
+commit in one transaction. A duplicate/retried normalized email returns `409`
+with `EMAIL_ALREADY_REGISTERED`; it never adds funding. Invalid input returns `400`
+with `INVALID_REGISTRATION`; unavailable storage/hashing returns `503` with
+`REGISTRATION_UNAVAILABLE`. Errors contain no passwords or internal database details.
+Registration does not yet create a session; the subsequent UI should show success
+and direct the user to login when that flow is implemented.
+
 ### POST `/auth/login`
 
 Request:

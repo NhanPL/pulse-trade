@@ -9,14 +9,29 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email        String    @unique @db.VarChar(320)
-  passwordHash String    @map("password_hash") @db.VarChar(255)
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
-  sessions     Session[]
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email          String          @unique @db.VarChar(320)
+  passwordHash   String          @map("password_hash") @db.VarChar(255)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sessions       Session[]
+  walletBalances WalletBalance[]
 
   @@map("users")
+}
+
+model WalletBalance {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  asset     String   @db.VarChar(20)
+  available Decimal  @default(0) @db.Decimal(38, 18)
+  locked    Decimal  @default(0) @db.Decimal(38, 18)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, asset])
+  @@map("wallet_balances")
 }
 
 model Session {

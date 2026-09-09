@@ -9,6 +9,7 @@ import { parseRealtimeMessage } from "./realtime/realtime-message-parser";
 async function bootstrap(): Promise<void> {
   const environment = loadEnvironment();
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks();
   configureHttpApplication(app, environment);
   app.useWebSocketAdapter(new WsAdapter(app, { messageParser: parseRealtimeMessage }));
 
