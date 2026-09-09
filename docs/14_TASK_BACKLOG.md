@@ -94,7 +94,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 ## Epic I — Authentication
 
 - [x] I01 Add users/session DB models.
-- [ ] I02 Implement password hashing.
+- [x] I02 Implement password hashing.
 - [ ] I03 Implement register transaction + USD funding.
 - [ ] I04 Implement login.
 - [ ] I05 Implement refresh/session rotation.

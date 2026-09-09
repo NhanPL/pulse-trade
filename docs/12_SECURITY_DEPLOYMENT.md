@@ -11,6 +11,17 @@ Although this is paper trading, implement normal web security correctly because 
 - Use generic invalid-credential messages.
 - Apply reasonable login rate limiting in production.
 
+I02 implementation: `PasswordHashService` in the API `AuthModule` uses asynchronous
+Argon2id with 19 MiB memory, 2 iterations, parallelism 1 and a 32-byte hash,
+following the [OWASP baseline](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#argon2id).
+The library generates a fresh random salt and returns an encoded hash containing
+the salt and parameters, stored in `users.password_hash`. Passwords are not trimmed,
+normalized or truncated. `verify(password, passwordHash)` returns false for a
+mismatch, unsupported format or malformed hash, without logging credentials.
+Hash-generation errors propagate so callers cannot proceed with an unhashed password.
+Registration/login request validation and authentication endpoints belong to their
+respective subsequent tasks; the module does not open a database connection.
+
 ## 3. Token/session design
 
 Recommended:
