@@ -54,7 +54,7 @@ and disconnected on module shutdown. Set `DATABASE_URL` in the API process
 environment at runtime (the Prisma CLI separately loads `apps/api/.env`). Without
 a database, public market data remains usable and registration returns 503.
 
-## Registration integration tests
+## Authentication integration tests
 
 Use an isolated PostgreSQL database whose name ends in `_test`, supply its
 `DATABASE_URL` in the process environment and run:
@@ -67,4 +67,7 @@ pnpm --filter @pulse-trade/api test:integration
 Tests fail rather than skip when a test database is unavailable. They exercise
 the HTTP endpoint, concurrent duplicate registration, exactly-once funding and
 rollback after a real database CHECK violation. Cleanup targets only the test's
-randomly generated emails. CI provisions PostgreSQL 16 and runs this suite.
+randomly generated emails. Login tests additionally verify persisted session
+hashes, signed access tokens, credential errors, cookie/CORS policy and failure
+without a signing secret. They generate a temporary signing key in their own
+process. CI provisions PostgreSQL 16 and runs both suites.

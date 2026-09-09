@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const environmentSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  JWT_ACCESS_SECRET: z.string().min(32).optional(),
   DATABASE_URL: z
     .url()
     .refine((value) => /^postgres(ql)?:/.test(value))

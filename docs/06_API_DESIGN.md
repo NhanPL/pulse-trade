@@ -101,6 +101,42 @@ Request:
 
 Response returns user/session metadata; refresh credential should be handled using secure cookie strategy.
 
+I04 behavior: validates a strict email/password body, normalizes email, and keeps
+password unchanged (required, maximum 128 characters). Success is `200`:
+
+```json
+{
+  "data": {
+    "user": { "id": "uuid", "email": "user@example.com" },
+    "accessToken": "signed-jwt",
+    "tokenType": "Bearer",
+    "expiresIn": 900,
+    "session": { "id": "uuid", "expiresAt": "ISO-8601 timestamp" }
+  }
+}
+```
+
+The access JWT uses HS256, issuer `pulse-trade-api`, audience `pulse-trade-web`,
+`sub` = user ID and `sid` = session ID. It expires after 15 minutes. The random
+256-bit refresh credential is sent only in `pulse_trade_refresh`, a host-only
+HttpOnly cookie with `Path=/api/v1/auth`, `SameSite=Lax`, a 7-day Max-Age and
+`Secure` in production. Only its SHA-256 hash is stored in `sessions`; passwords
+still use Argon2id. Login does not create or modify wallet balances.
+
+Invalid input returns `400 INVALID_LOGIN`. Unknown email and incorrect password
+both return `401 INVALID_CREDENTIALS` with the same message. Database/signing
+failures return sanitized `503 LOGIN_UNAVAILABLE` without issuing a cookie.
+Browser requests with an Origin different from `WEB_ORIGIN` return
+`403 ORIGIN_NOT_ALLOWED`; requests without Origin remain supported for CLI clients.
+Responses use `Cache-Control: no-store`. Credentialed CORS permits the configured
+web origin. Browser callers must use `credentials: "include"`.
+
+Set a random `JWT_ACCESS_SECRET` of at least 32 characters in the API process
+environment. Missing configuration leaves public data and registration usable
+but prevents successful login. Keep access tokens in memory on the frontend.
+Refresh rotation, logout, authenticated guards and `/me` are subsequent tasks;
+I04 issues credentials without implementing those endpoints.
+
 ### POST `/auth/refresh`
 
 Rotates/renews access authentication based on refresh/session cookie.
