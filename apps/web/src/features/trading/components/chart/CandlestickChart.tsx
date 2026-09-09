@@ -5,11 +5,9 @@ import {
   ColorType,
   CrosshairMode,
   createChart,
-  type CandlestickData,
   type IChartApi,
   type ISeriesApi,
   type Time,
-  type UTCTimestamp,
 } from "lightweight-charts";
 import { useCallback, useEffect, useRef } from "react";
 
@@ -19,6 +17,7 @@ import { useHistoricalCandles } from "../../hooks/useHistoricalCandles";
 import { candleStore, selectCurrentCandle } from "../../../realtime/stores/candle-store";
 import { ChartDataState } from "./ChartDataState";
 import { resolveChartDataState } from "./chart-data-state";
+import { applyCurrentCandle, syncHistoricalCandles } from "./chart-data-sync";
 import { observeChartSize } from "./chart-resize";
 
 export type CandlestickChartProps = Readonly<{
@@ -39,14 +38,8 @@ export function CandlestickChart({ symbol, timeframe }: CandlestickChartProps) {
   });
 
   const updateCurrentCandle = useCallback((candle: Candle): void => {
-    if (
-      latestHistoricalCandleTimeRef.current !== undefined &&
-      candle.time < latestHistoricalCandleTimeRef.current
-    ) {
-      return;
-    }
-
-    seriesRef.current?.update(toChartCandle(candle));
+    if (!seriesRef.current) return;
+    applyCurrentCandle(seriesRef.current, candle, latestHistoricalCandleTimeRef.current);
   }, []);
 
   useEffect(() => {
@@ -114,12 +107,7 @@ export function CandlestickChart({ symbol, timeframe }: CandlestickChartProps) {
     if (!chart || !series || !historicalCandles.data) return;
 
     const candles = historicalCandles.data.candles;
-    latestHistoricalCandleTimeRef.current = candles.reduce(
-      (latestTime, candle) => Math.max(latestTime, candle.time),
-      0,
-    );
-    series.setData(candles.map(toChartCandle));
-    chart.timeScale().fitContent();
+    latestHistoricalCandleTimeRef.current = syncHistoricalCandles(chart, series, candles);
 
     const currentCandle = selectCurrentCandle(symbol, timeframe)(candleStore.getState());
     if (currentCandle) updateCurrentCandle(currentCandle.candle);
@@ -159,15 +147,4 @@ export function CandlestickChart({ symbol, timeframe }: CandlestickChartProps) {
       ) : null}
     </>
   );
-}
-
-function toChartCandle(candle: Candle): CandlestickData<UTCTimestamp> {
-  return {
-    close: Number(candle.close),
-    high: Number(candle.high),
-    low: Number(candle.low),
-    open: Number(candle.open),
-    // Candle schema validates Unix seconds; Lightweight Charts brands this runtime number as UTCTimestamp.
-    time: candle.time as UTCTimestamp,
-  };
 }
