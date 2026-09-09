@@ -96,7 +96,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] I01 Add users/session DB models.
 - [x] I02 Implement password hashing.
 - [x] I03 Implement register transaction + USD funding.
-- [ ] I04 Implement login.
+- [x] I04 Implement login.
 - [ ] I05 Implement refresh/session rotation.
 - [ ] I06 Implement logout.
 - [ ] I07 Implement `/me`.

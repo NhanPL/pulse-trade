@@ -9,6 +9,6 @@ export function configureHttpApplication(
   app: ConfigurableHttpApplication,
   environment: Environment,
 ): void {
-  app.enableCors({ origin: environment.webOrigin });
+  app.enableCors({ origin: environment.webOrigin, credentials: true });
   app.setGlobalPrefix("api/v1");
 }

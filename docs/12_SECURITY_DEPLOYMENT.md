@@ -19,8 +19,8 @@ the salt and parameters, stored in `users.password_hash`. Passwords are not trim
 normalized or truncated. `verify(password, passwordHash)` returns false for a
 mismatch, unsupported format or malformed hash, without logging credentials.
 Hash-generation errors propagate so callers cannot proceed with an unhashed password.
-Registration/login request validation and authentication endpoints belong to their
-respective subsequent tasks; the module does not open a database connection.
+Registration and login validate their shared request contracts before invoking
+hashing/verification. Database access is owned by the shared database module.
 
 ## 3. Token/session design
 
@@ -39,6 +39,21 @@ Cookie in production should consider:
 - explicit domain/path behavior.
 
 If web/API are on different sites, test browser cookie/CORS behavior carefully.
+
+I04 implements a 15-minute HS256 access JWT and a 7-day server-side session.
+Set `JWT_ACCESS_SECRET` to a randomly generated value of at least 32 characters;
+there is no default signing key. Refresh credentials contain 32 random bytes,
+are sent only as HttpOnly cookies, and are stored only as SHA-256 hashes. Missing
+users still go through password verification against a cached dummy hash; this
+reduces the obvious early-return timing difference, not a guarantee of constant
+request timing. Invalid-credential responses do not distinguish missing users.
+
+Cookies use `SameSite=Lax`, a host-only domain and `/api/v1/auth` path; production
+requires HTTPS for the Secure cookie. Login checks browser Origin against
+`WEB_ORIGIN` to prevent login CSRF. Deploy web/API on the same site for this cookie
+policy; arbitrary cross-site deployments need a separately reviewed cookie/CSRF
+policy. Configure login rate limiting at the production edge before public
+deployment; I04 does not introduce a distributed rate limiter.
 
 ## 4. Authorization
 
