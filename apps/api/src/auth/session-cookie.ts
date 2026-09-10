@@ -23,3 +23,7 @@ export function readRefreshCookie(header: string | undefined): string | undefine
     return undefined;
   }
 }
+
+export function clearSessionCookie(production: boolean): string {
+  return `${sessionCookie("", production, 0)}; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+}

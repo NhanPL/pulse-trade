@@ -65,6 +65,16 @@ The API rejects ambiguous duplicate refresh cookies and checks Origin on refresh
 as on login. No token-family replay revocation or grace-window retry is implemented;
 a committed rotation whose response is lost requires a fresh login.
 
+I06 revokes the current session before expiring its refresh cookie. It accepts a
+verified access JWT (stable session ID) or falls back to the current cookie hash;
+unverified claims never identify a session. Supplying the access JWT handles
+logout racing a refresh that has already rotated the cookie. All auth mutations
+use the same Origin check. Revocation is idempotent and does not affect other
+sessions. JWT verification checks signature/algorithm/issuer/audience/type/expiry;
+invalid bearer tokens fall back to cookie authentication. Database failures keep
+the cookie for retry. Subsequent protected-route authorization must check
+`revoked_at`; logout alone does not invalidate a JWT's cryptographic signature.
+
 ## 4. Authorization
 
 Backend determines user from authentication context.

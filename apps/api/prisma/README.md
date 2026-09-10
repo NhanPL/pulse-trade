@@ -74,3 +74,6 @@ process. CI provisions PostgreSQL 16 and runs the authentication suites.
 Refresh tests cover rotation/replay, concurrent refresh, concurrent revocation,
 expired/revoked sessions, near-expiry lifetime caps and rollback of a failed
 rotation. They reuse the existing Session model; I05 needs no schema migration.
+Logout tests check idempotent revocation, isolation between sessions, expired and
+unknown credentials, bearer verification, cookie removal and both refresh/logout
+orderings. I06 uses the existing `revoked_at` field without a new migration.

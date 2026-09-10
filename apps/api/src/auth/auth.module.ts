@@ -7,6 +7,7 @@ import { RegistrationService } from "./registration.service";
 import { LoginService } from "./login.service";
 import { SessionService } from "./session.service";
 import { RefreshService } from "./refresh.service";
+import { LogoutService } from "./logout.service";
 
 @Module({
   imports: [DatabaseModule],
@@ -17,6 +18,7 @@ import { RefreshService } from "./refresh.service";
     LoginService,
     SessionService,
     RefreshService,
+    LogoutService,
   ],
   exports: [PasswordHashService],
 })
