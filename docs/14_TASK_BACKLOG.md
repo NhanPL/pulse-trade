@@ -98,7 +98,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] I03 Implement register transaction + USD funding.
 - [x] I04 Implement login.
 - [x] I05 Implement refresh/session rotation.
-- [ ] I06 Implement logout.
+- [x] I06 Implement logout.
 - [ ] I07 Implement `/me`.
 - [ ] I08 Build register page.
 - [ ] I09 Build login page.

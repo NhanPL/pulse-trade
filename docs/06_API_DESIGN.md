@@ -134,7 +134,7 @@ web origin. Browser callers must use `credentials: "include"`.
 Set a random `JWT_ACCESS_SECRET` of at least 32 characters in the API process
 environment. Missing configuration leaves public data and registration usable
 but prevents successful login. Keep access tokens in memory on the frontend.
-Refresh rotation is implemented in I05 below. Logout, authenticated guards and
+Refresh rotation and logout are implemented below. Authenticated guards and
 `/me` remain subsequent tasks.
 
 ### POST `/auth/refresh`
@@ -173,6 +173,39 @@ authorization belongs to the protected-route tasks.
 ### POST `/auth/logout`
 
 Revokes current session and clears cookie.
+
+I06 accepts no body or `{}`. Success returns `204` with no response body and
+`Cache-Control: no-store`. The refresh cookie is expired using the same name,
+host-only domain, path, HttpOnly, SameSite and production Secure flags as login.
+Body identity fields return `400 INVALID_LOGOUT`; untrusted browser Origin returns
+`403 ORIGIN_NOT_ALLOWED`, following the login/refresh origin policy.
+
+Clients should send the current access JWT in `Authorization: Bearer ...` as well
+as the cookie (`credentials: "include"`). The server verifies signature, HS256,
+issuer, audience, type, expiry and required claims before using `sid`/`sub` to
+identify the session. A valid bearer takes precedence over the cookie. If it is
+missing or invalid/expired, the server falls back to the current refresh-cookie
+hash. No client-provided session/user ID is trusted.
+
+Logout sets `revoked_at` only when still null, preserving the first revocation
+timestamp. It revokes only the identified session, not other devices/sessions,
+and never modifies wallets. Repeated logout, missing/unknown/malformed credentials,
+and already-revoked sessions return the same `204` and expire the cookie.
+Expired sessions are also revoked when their cookie still identifies them.
+Storage failures return sanitized `503 LOGOUT_UNAVAILABLE` and keep the cookie so
+the client can retry; the API does not falsely report successful revocation.
+
+Revocation targets the stable session ID after credential validation, so rotation
+after cookie lookup cannot evade logout. Sending a valid access JWT also lets
+logout find the session when rotation already replaced the cookie hash. A stale
+cookie alone can no longer identify that session; serialize refresh/logout in
+the client and include the access JWT. A late refresh response may restore an
+unusable cookie, but a revoked session cannot refresh again.
+
+Logout does not erase a JWT already held by a client: signed access tokens remain
+cryptographically valid until expiry. Protected-route authorization must check
+session revocation in its task. Frontend token/private-query cleanup belongs to
+I11; this endpoint does not implement that UI behavior.
 
 ### GET `/me`
 

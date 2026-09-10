@@ -12,12 +12,14 @@ import type { ServerResponse } from "node:http";
 import { loginRequestSchema, type LoginResponse } from "@pulse-trade/contracts";
 import { registerRequestSchema, type RegisterResponse } from "@pulse-trade/contracts";
 import { refreshRequestSchema, type RefreshResponse } from "@pulse-trade/contracts";
+import { logoutRequestSchema } from "@pulse-trade/contracts";
 
 import { RegistrationService } from "./registration.service";
 import { LoginService } from "./login.service";
-import { sessionCookie, readRefreshCookie } from "./session-cookie";
+import { sessionCookie, readRefreshCookie, clearSessionCookie } from "./session-cookie";
 import { assertAuthOrigin } from "./auth-origin";
 import { RefreshService } from "./refresh.service";
+import { LogoutService } from "./logout.service";
 
 @Controller("auth")
 export class AuthController {
@@ -25,6 +27,7 @@ export class AuthController {
     private readonly registration: RegistrationService,
     private readonly loginService: LoginService,
     private readonly refreshService: RefreshService,
+    private readonly logoutService: LogoutService,
   ) {}
 
   @Post("login")
@@ -68,6 +71,30 @@ export class AuthController {
       });
     }
     return this.registration.register(result.data);
+  }
+
+  @Post("logout")
+  @HttpCode(204)
+  @Header("Cache-Control", "no-store")
+  async logout(
+    @Body() body: unknown,
+    @Headers("origin") origin: string | undefined,
+    @Headers("cookie") cookie: string | undefined,
+    @Headers("authorization") authorization: string | undefined,
+    @Res({ passthrough: true }) response: ServerResponse,
+  ): Promise<void> {
+    assertAuthOrigin(origin);
+    if (!logoutRequestSchema.safeParse(body).success) {
+      throw new BadRequestException({
+        error: {
+          code: "INVALID_LOGOUT",
+          message: "Logout does not accept request fields.",
+          details: null,
+        },
+      });
+    }
+    await this.logoutService.logout(readRefreshCookie(cookie), authorization);
+    response.setHeader("Set-Cookie", clearSessionCookie(process.env.NODE_ENV === "production"));
   }
 
   @Post("refresh")
