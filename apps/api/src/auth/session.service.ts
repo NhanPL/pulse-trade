@@ -12,20 +12,11 @@ export class SessionService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(userId: string, userAgent?: string) {
-    const secret = process.env.JWT_ACCESS_SECRET;
-    if (!secret || secret.length < 32) throw new Error("Access token signing is not configured.");
     const id = randomUUID();
     const refreshToken = randomBytes(32).toString("base64url");
     const now = Math.floor(Date.now() / 1000);
     const expiresAt = new Date((now + SESSION_SECONDS) * 1000);
-    const accessToken = await new SignJWT({ sid: id })
-      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-      .setSubject(userId)
-      .setIssuer("pulse-trade-api")
-      .setAudience("pulse-trade-web")
-      .setIssuedAt(now)
-      .setExpirationTime(now + ACCESS_TOKEN_SECONDS)
-      .sign(Buffer.from(secret, "utf8"));
+    const accessToken = await this.signAccessToken(userId, id, now, ACCESS_TOKEN_SECONDS);
 
     // High-entropy random credentials can use SHA-256; passwords still use Argon2id.
     await this.prisma.client.session.create({
@@ -39,5 +30,24 @@ export class SessionService {
       select: { id: true },
     });
     return { accessToken, refreshToken, session: { id, expiresAt: expiresAt.toISOString() } };
+  }
+
+  signAccessToken(
+    userId: string,
+    sessionId: string,
+    issuedAt: number,
+    expiresIn: number,
+  ): Promise<string> {
+    const secret = process.env.JWT_ACCESS_SECRET;
+    if (!secret || secret.length < 32) throw new Error("Access token signing is not configured.");
+    return new SignJWT({ sid: sessionId })
+      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+      .setSubject(userId)
+      .setJti(randomUUID())
+      .setIssuer("pulse-trade-api")
+      .setAudience("pulse-trade-web")
+      .setIssuedAt(issuedAt)
+      .setExpirationTime(issuedAt + expiresIn)
+      .sign(Buffer.from(secret, "utf8"));
   }
 }

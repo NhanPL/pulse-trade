@@ -134,12 +134,41 @@ web origin. Browser callers must use `credentials: "include"`.
 Set a random `JWT_ACCESS_SECRET` of at least 32 characters in the API process
 environment. Missing configuration leaves public data and registration usable
 but prevents successful login. Keep access tokens in memory on the frontend.
-Refresh rotation, logout, authenticated guards and `/me` are subsequent tasks;
-I04 issues credentials without implementing those endpoints.
+Refresh rotation is implemented in I05 below. Logout, authenticated guards and
+`/me` remain subsequent tasks.
 
 ### POST `/auth/refresh`
 
 Rotates/renews access authentication based on refresh/session cookie.
+
+I05 accepts no body or `{}` and authenticates only using `pulse_trade_refresh`.
+JSON identity/token fields are rejected with `400 INVALID_REFRESH`. Cookie
+credentials must match the 43-character base64url format issued by login;
+missing, malformed, duplicate, unknown, expired, revoked or already-used
+credentials return `401 INVALID_SESSION`. Browser Origin must match `WEB_ORIGIN`,
+using the same policy as login (`403 ORIGIN_NOT_ALLOWED` otherwise).
+
+Success returns `200` with the same user/access-token/session response shape as
+login and sets a new HttpOnly refresh cookie. The session ID and original
+7-day absolute expiry stay unchanged. Refresh updates `last_used_at` and replaces
+the stored credential hash; no raw credential enters JSON or storage. Access
+tokens expire in at most 900 seconds, capped by remaining session lifetime.
+The cookie Max-Age is also capped to that remaining lifetime. Each access JWT
+has a random `jti`, including when issuance happens within the same second.
+
+Rotation performs a conditional update on the old hash, unrevoked state and
+expiry inside a transaction. Two concurrent requests with one credential cannot
+both succeed: the loser receives `401`. Replaying an old credential does not
+revoke the new one. Clients should serialize refresh requests. No error response
+sets or clears the cookie, so a late failure cannot erase another request's
+successful rotation. Database/signing failures return `503 REFRESH_UNAVAILABLE`;
+failed transactions preserve the old hash. Responses use `Cache-Control: no-store`.
+
+There is no grace period for old credentials or historical token-family tracking.
+If the server commits a rotation but the browser loses the successful response,
+the old cookie cannot refresh again; the user must log in again. Previously issued
+access JWTs remain cryptographically valid until their expiry; session-aware
+authorization belongs to the protected-route tasks.
 
 ### POST `/auth/logout`
 

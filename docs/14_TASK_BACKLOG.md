@@ -97,7 +97,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] I02 Implement password hashing.
 - [x] I03 Implement register transaction + USD funding.
 - [x] I04 Implement login.
-- [ ] I05 Implement refresh/session rotation.
+- [x] I05 Implement refresh/session rotation.
 - [ ] I06 Implement logout.
 - [ ] I07 Implement `/me`.
 - [ ] I08 Build register page.

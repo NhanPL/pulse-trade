@@ -70,4 +70,7 @@ rollback after a real database CHECK violation. Cleanup targets only the test's
 randomly generated emails. Login tests additionally verify persisted session
 hashes, signed access tokens, credential errors, cookie/CORS policy and failure
 without a signing secret. They generate a temporary signing key in their own
-process. CI provisions PostgreSQL 16 and runs both suites.
+process. CI provisions PostgreSQL 16 and runs the authentication suites.
+Refresh tests cover rotation/replay, concurrent refresh, concurrent revocation,
+expired/revoked sessions, near-expiry lifetime caps and rollback of a failed
+rotation. They reuse the existing Session model; I05 needs no schema migration.
