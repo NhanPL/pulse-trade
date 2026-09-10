@@ -55,6 +55,16 @@ policy; arbitrary cross-site deployments need a separately reviewed cookie/CSRF
 policy. Configure login rate limiting at the production edge before public
 deployment; I04 does not introduce a distributed rate limiter.
 
+I05 rotates refresh credentials with a transaction and conditional hash update.
+Session expiry is absolute (7 days from login), not extended by refresh. Revoked,
+expired and previously consumed credentials cannot rotate. Only the successful
+rotation sets a cookie; errors never clear it, avoiding a concurrent-response
+race. Session ID remains stable and `last_used_at` records successful use. Access
+JWT expiry is capped to session expiry and JWTs have random `jti` identifiers.
+The API rejects ambiguous duplicate refresh cookies and checks Origin on refresh
+as on login. No token-family replay revocation or grace-window retry is implemented;
+a committed rotation whose response is lost requires a fresh login.
+
 ## 4. Authorization
 
 Backend determines user from authentication context.

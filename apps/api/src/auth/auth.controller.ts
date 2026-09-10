@@ -7,21 +7,24 @@ import {
   Header,
   Headers,
   Res,
-  ForbiddenException,
 } from "@nestjs/common";
 import type { ServerResponse } from "node:http";
 import { loginRequestSchema, type LoginResponse } from "@pulse-trade/contracts";
 import { registerRequestSchema, type RegisterResponse } from "@pulse-trade/contracts";
+import { refreshRequestSchema, type RefreshResponse } from "@pulse-trade/contracts";
 
 import { RegistrationService } from "./registration.service";
 import { LoginService } from "./login.service";
-import { sessionCookie } from "./session-cookie";
+import { sessionCookie, readRefreshCookie } from "./session-cookie";
+import { assertAuthOrigin } from "./auth-origin";
+import { RefreshService } from "./refresh.service";
 
 @Controller("auth")
 export class AuthController {
   constructor(
     private readonly registration: RegistrationService,
     private readonly loginService: LoginService,
+    private readonly refreshService: RefreshService,
   ) {}
 
   @Post("login")
@@ -33,12 +36,7 @@ export class AuthController {
     @Headers("user-agent") userAgent: string | undefined,
     @Res({ passthrough: true }) response: ServerResponse,
   ): Promise<LoginResponse> {
-    // Prevent browser login CSRF; clients without Origin (e.g. CLI) may authenticate.
-    if (origin !== undefined && origin !== (process.env.WEB_ORIGIN ?? "http://localhost:3000")) {
-      throw new ForbiddenException({
-        error: { code: "ORIGIN_NOT_ALLOWED", message: "Origin is not allowed.", details: null },
-      });
-    }
+    assertAuthOrigin(origin);
     const result = loginRequestSchema.safeParse(body);
     if (!result.success) {
       throw new BadRequestException({
@@ -70,5 +68,37 @@ export class AuthController {
       });
     }
     return this.registration.register(result.data);
+  }
+
+  @Post("refresh")
+  @HttpCode(200)
+  @Header("Cache-Control", "no-store")
+  async refresh(
+    @Body() body: unknown,
+    @Headers("origin") origin: string | undefined,
+    @Headers("cookie") cookie: string | undefined,
+    @Res({ passthrough: true }) response: ServerResponse,
+  ): Promise<RefreshResponse> {
+    assertAuthOrigin(origin);
+    if (!refreshRequestSchema.safeParse(body).success) {
+      throw new BadRequestException({
+        error: {
+          code: "INVALID_REFRESH",
+          message: "Refresh does not accept request fields.",
+          details: null,
+        },
+      });
+    }
+    const refreshed = await this.refreshService.refresh(readRefreshCookie(cookie));
+    // Only success writes the cookie: a concurrent losing request must not clear the winner's token.
+    response.setHeader(
+      "Set-Cookie",
+      sessionCookie(
+        refreshed.refreshToken,
+        process.env.NODE_ENV === "production",
+        refreshed.cookieMaxAge,
+      ),
+    );
+    return refreshed.response;
   }
 }
