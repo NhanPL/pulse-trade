@@ -72,8 +72,9 @@ logout racing a refresh that has already rotated the cookie. All auth mutations
 use the same Origin check. Revocation is idempotent and does not affect other
 sessions. JWT verification checks signature/algorithm/issuer/audience/type/expiry;
 invalid bearer tokens fall back to cookie authentication. Database failures keep
-the cookie for retry. Subsequent protected-route authorization must check
-`revoked_at`; logout alone does not invalidate a JWT's cryptographic signature.
+the cookie for retry. I07 checks live session revocation for `/me`; subsequent
+protected endpoints must also check `revoked_at`. Logout does not invalidate a
+JWT's cryptographic signature.
 
 ## 4. Authorization
 
@@ -88,6 +89,13 @@ Never trust:
 for wallet/order ownership.
 
 Every order/watchlist/portfolio query must scope by authenticated user.
+
+I07's `/me` uses a shared access-token verifier (also used by logout) and validates
+UUID-shaped session/user claims before querying PostgreSQL. `CurrentUserService`
+requires a session owned by the signed user that is neither expired nor revoked.
+It reads only the persisted user's ID/email, never trusts query-string identity,
+and does not accept a refresh cookie as an access token. There is no global guard
+on public market endpoints. Future private APIs must adopt this session check.
 
 ## 5. Validation
 

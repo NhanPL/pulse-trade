@@ -134,8 +134,8 @@ web origin. Browser callers must use `credentials: "include"`.
 Set a random `JWT_ACCESS_SECRET` of at least 32 characters in the API process
 environment. Missing configuration leaves public data and registration usable
 but prevents successful login. Keep access tokens in memory on the frontend.
-Refresh rotation and logout are implemented below. Authenticated guards and
-`/me` remain subsequent tasks.
+Refresh rotation, logout and `/me` are implemented below. Other protected endpoints
+must apply the same session-aware authentication when their tasks are implemented.
 
 ### POST `/auth/refresh`
 
@@ -167,8 +167,8 @@ failed transactions preserve the old hash. Responses use `Cache-Control: no-stor
 There is no grace period for old credentials or historical token-family tracking.
 If the server commits a rotation but the browser loses the successful response,
 the old cookie cannot refresh again; the user must log in again. Previously issued
-access JWTs remain cryptographically valid until their expiry; session-aware
-authorization belongs to the protected-route tasks.
+access JWTs remain cryptographically valid until their expiry; `/me` additionally
+checks live session state as described below.
 
 ### POST `/auth/logout`
 
@@ -203,13 +203,45 @@ the client and include the access JWT. A late refresh response may restore an
 unusable cookie, but a revoked session cannot refresh again.
 
 Logout does not erase a JWT already held by a client: signed access tokens remain
-cryptographically valid until expiry. Protected-route authorization must check
-session revocation in its task. Frontend token/private-query cleanup belongs to
+cryptographically valid until expiry. `/me` checks session revocation on every
+request; future protected endpoints must do so as well. Frontend token/private-query cleanup belongs to
 I11; this endpoint does not implement that UI behavior.
 
 ### GET `/me`
 
 Returns current authenticated user.
+
+I07 implements `GET /api/v1/me` (not `/auth/me`). The request must include
+`Authorization: Bearer <accessToken>`. Success returns `200`:
+
+```json
+{
+  "data": {
+    "user": { "id": "uuid", "email": "user@example.com" }
+  }
+}
+```
+
+Only the persisted user's ID and email are selected and returned. Password/token
+hashes, session metadata and financial balances are not included. The endpoint
+does not update session timestamps, rotate credentials, or set cookies.
+All responses use `Cache-Control: no-store`.
+
+`CurrentUserService` verifies the access JWT's signature, HS256 algorithm, issuer,
+audience, JWT type, expiry and required claims, including UUID-shaped `sub`/`sid`.
+It then requires a database session matching both signed identifiers, with no
+revocation and an expiry in the future, and returns its associated user. Logout
+therefore makes existing access tokens fail `/me` immediately even if their JWT
+expiry has not been reached. Refresh may issue a new access JWT for the same active
+session; earlier unexpired JWTs for that session continue working until revocation.
+
+Missing/malformed/invalid/expired access tokens, nonexistent sessions/users, an
+expired/revoked session or mismatched session owner all return
+`401 UNAUTHENTICATED` with the same generic message. Database or verification
+configuration failures return sanitized `503 AUTH_UNAVAILABLE`. Refresh cookies
+and query-string identity fields never authenticate the request. Clients bootstrap
+from their HttpOnly cookie through `/auth/refresh`, then call `/me` with the returned
+access token; frontend bootstrap/protected-route work remains I10.
 
 ## 5. Market REST endpoints
 

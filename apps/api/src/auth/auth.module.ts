@@ -8,10 +8,12 @@ import { LoginService } from "./login.service";
 import { SessionService } from "./session.service";
 import { RefreshService } from "./refresh.service";
 import { LogoutService } from "./logout.service";
+import { CurrentUserService } from "./current-user.service";
+import { MeController } from "./me.controller";
 
 @Module({
   imports: [DatabaseModule],
-  controllers: [AuthController],
+  controllers: [AuthController, MeController],
   providers: [
     PasswordHashService,
     RegistrationService,
@@ -19,6 +21,7 @@ import { LogoutService } from "./logout.service";
     SessionService,
     RefreshService,
     LogoutService,
+    CurrentUserService,
   ],
   exports: [PasswordHashService],
 })

@@ -77,3 +77,6 @@ rotation. They reuse the existing Session model; I05 needs no schema migration.
 Logout tests check idempotent revocation, isolation between sessions, expired and
 unknown credentials, bearer verification, cookie removal and both refresh/logout
 orderings. I06 uses the existing `revoked_at` field without a new migration.
+I07 tests `/me` against live session state, including logout/refresh, invalid JWTs,
+wrong session ownership, removed/expired/revoked sessions and removed users. The
+endpoint only reads data and needs no new migration.

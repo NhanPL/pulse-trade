@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
-import { jwtVerify } from "jose";
 
 import { PrismaService } from "../database/prisma.service";
+import { verifyAccessIdentity } from "./access-identity";
 
 @Injectable()
 export class LogoutService {
@@ -11,7 +11,7 @@ export class LogoutService {
   async logout(refreshToken: string | undefined, authorization: string | undefined): Promise<void> {
     try {
       // A verified access token identifies the stable session even if refresh rotated its cookie first.
-      const identity = await this.accessIdentity(authorization);
+      const identity = await verifyAccessIdentity(authorization, process.env.JWT_ACCESS_SECRET);
       let target = identity;
       if (!target && refreshToken) {
         target =
@@ -36,28 +36,6 @@ export class LogoutService {
           details: null,
         },
       });
-    }
-  }
-
-  private async accessIdentity(
-    authorization: string | undefined,
-  ): Promise<{ id: string; userId: string } | undefined> {
-    const match = authorization?.match(/^Bearer ([^\s]+)$/i);
-    const secret = process.env.JWT_ACCESS_SECRET;
-    if (!match || !secret || secret.length < 32) return undefined;
-    try {
-      const { payload } = await jwtVerify(match[1], Buffer.from(secret, "utf8"), {
-        algorithms: ["HS256"],
-        issuer: "pulse-trade-api",
-        audience: "pulse-trade-web",
-        typ: "JWT",
-        requiredClaims: ["sub", "sid", "exp", "iat"],
-      });
-      if (typeof payload.sub !== "string" || typeof payload.sid !== "string") return undefined;
-      return { id: payload.sid, userId: payload.sub };
-    } catch {
-      // Invalid or expired bearer credentials may fall back to the HttpOnly cookie.
-      return undefined;
     }
   }
 }
