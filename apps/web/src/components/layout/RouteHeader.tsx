@@ -2,13 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import type { MeResponse } from "@pulse-trade/contracts";
+import { authQueryKeys } from "@/features/auth/model/query-keys";
+import { useRealtimeConnectionState } from "@/features/realtime/stores/connection-state-store";
 
 import { AppHeader } from "./AppHeader";
 import { BrandLink } from "./BrandLink";
 
 export function RouteHeader() {
   const pathname = usePathname();
-  if (pathname !== "/register") return <AppHeader authState="guest" />;
+  if (pathname !== "/register" && pathname !== "/login") return <SessionHeader />;
   return (
     <header className="h-16 border-b border-border-subtle bg-header/95">
       <div className="mx-auto flex h-full max-w-[1586px] items-center justify-between gap-4 px-4 sm:px-8">
@@ -21,13 +25,36 @@ export function RouteHeader() {
             Markets
           </Link>
           <Link
-            href="/login"
+            href={pathname === "/login" ? "/register" : "/login"}
             className="rounded text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
-            Login
+            {pathname === "/login" ? "Register" : "Login"}
           </Link>
         </nav>
       </div>
     </header>
+  );
+}
+
+function SessionHeader() {
+  // I09 consumes the confirmed login result; cookie bootstrap and protected routes belong to I10.
+  const { data: user } = useQuery<MeResponse["data"]["user"]>({
+    queryKey: authQueryKeys.me,
+    enabled: false,
+  });
+  const connection = useRealtimeConnectionState();
+  if (!user) return <AppHeader authState="guest" />;
+  const status = {
+    CONNECTED: "live",
+    CONNECTING: "connecting",
+    RECONNECTING: "reconnecting",
+    DISCONNECTED: "offline",
+  } as const;
+  return (
+    <AppHeader
+      authState="authenticated"
+      userLabel={user.email}
+      connectionStatus={status[connection]}
+    />
   );
 }
