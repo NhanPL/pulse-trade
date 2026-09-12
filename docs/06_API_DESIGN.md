@@ -204,8 +204,13 @@ unusable cookie, but a revoked session cannot refresh again.
 
 Logout does not erase a JWT already held by a client: signed access tokens remain
 cryptographically valid until expiry. `/me` checks session revocation on every
-request; future protected endpoints must do so as well. Frontend token/private-query cleanup belongs to
-I11; this endpoint does not implement that UI behavior.
+request; future protected endpoints must do so as well. I11 serializes the web
+logout action after any in-flight refresh, sends the in-memory bearer token when
+available, then clears that credential and the `auth`, `portfolio`, `orders` and
+`watchlist` query-cache scopes only after this endpoint confirms `204`. Public
+market query data remains cached. A failed logout preserves local session state
+and displays a sanitized retry message because the API intentionally retains the
+cookie on a storage failure.
 
 ### GET `/me`
 

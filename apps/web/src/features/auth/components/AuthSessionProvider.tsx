@@ -14,6 +14,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { LoginResponse, MeResponse } from "@pulse-trade/contracts";
 
 import { bootstrapSession } from "../api/bootstrap";
+import { logoutUser } from "../api/logout";
+import { clearPrivateQueryCache } from "../model/private-query-cache";
 import { authQueryKeys } from "../model/query-keys";
 
 export type AuthStatus = "checking" | "authenticated" | "unauthenticated" | "unavailable";
@@ -21,6 +23,9 @@ export type AuthStatus = "checking" | "authenticated" | "unauthenticated" | "una
 type AuthSession = {
   acceptLogin(data: LoginResponse["data"]): void;
   getAccessToken(): string | null;
+  isLoggingOut: boolean;
+  logout(): Promise<void>;
+  logoutError: string | null;
   retry(): void;
   status: AuthStatus;
   user: MeResponse["data"]["user"] | null;
@@ -28,27 +33,44 @@ type AuthSession = {
 };
 const AuthSessionContext = createContext<AuthSession | null>(null);
 
+type AuthState = {
+  expiresAt: number | null;
+  isLoggingOut: boolean;
+  logoutError: string | null;
+  status: AuthStatus;
+  user: MeResponse["data"]["user"] | null;
+};
+
 export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   // Provider-local memory avoids persistent credential storage and cross-request SSR state.
   const credential = useRef<{ token: string; expiresAt: number } | null>(null);
   const bootstrap = useRef<Promise<void> | null>(null);
+  const logoutOperation = useRef<Promise<void> | null>(null);
+  const hasLoggedOut = useRef(false);
   const hasStarted = useRef(false);
   const isMounted = useRef(false);
-  const [state, setState] = useState<{
-    status: AuthStatus;
-    user: MeResponse["data"]["user"] | null;
-    expiresAt: number | null;
-  }>({
+  const [state, setState] = useState<AuthState>({
     status: "checking",
     user: null,
     expiresAt: null,
+    isLoggingOut: false,
+    logoutError: null,
   });
 
   const clearCredential = useCallback(() => {
     credential.current = null;
     queryClient.removeQueries({ queryKey: authQueryKeys.me, exact: true });
   }, [queryClient]);
+
+  const getAccessToken = useCallback((): string | null => {
+    const current = credential.current;
+    if (!current || current.expiresAt <= Date.now()) {
+      credential.current = null;
+      return null;
+    }
+    return current.token;
+  }, []);
 
   const acceptSession = useCallback(
     (data: LoginResponse["data"], user = data.user) => {
@@ -59,18 +81,37 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
         clearCredential();
         if (isMounted.current) {
-          setState({ status: "unauthenticated", user: null, expiresAt: null });
+          setState({
+            status: "unauthenticated",
+            user: null,
+            expiresAt: null,
+            isLoggingOut: false,
+            logoutError: null,
+          });
         }
         return;
       }
+      hasLoggedOut.current = false;
       credential.current = { token: data.accessToken, expiresAt };
       queryClient.setQueryData(authQueryKeys.me, user);
-      if (isMounted.current) setState({ status: "authenticated", user, expiresAt });
+      if (isMounted.current) {
+        setState({
+          status: "authenticated",
+          user,
+          expiresAt,
+          // Keep the action disabled when this refresh completed just before logout revokes it.
+          isLoggingOut: logoutOperation.current !== null,
+          logoutError: null,
+        });
+      }
     },
     [clearCredential, queryClient],
   );
 
   const runBootstrap = useCallback((): Promise<void> => {
+    // A completed explicit logout must not be undone by a late refresh timer.
+    if (hasLoggedOut.current) return Promise.resolve();
+    if (logoutOperation.current) return logoutOperation.current;
     if (bootstrap.current) return bootstrap.current;
     const task = (async () => {
       if (isMounted.current) {
@@ -84,7 +125,15 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
         return;
       }
       clearCredential();
-      if (isMounted.current) setState({ status: result.kind, user: null, expiresAt: null });
+      if (isMounted.current) {
+        setState({
+          status: result.kind,
+          user: null,
+          expiresAt: null,
+          isLoggingOut: false,
+          logoutError: null,
+        });
+      }
     })();
     bootstrap.current = task;
     void task.finally(() => {
@@ -115,19 +164,61 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [runBootstrap, state.expiresAt, state.status]);
 
+  const logout = useCallback((): Promise<void> => {
+    if (logoutOperation.current) return logoutOperation.current;
+
+    const task = (async () => {
+      if (isMounted.current) {
+        setState((current) => ({ ...current, isLoggingOut: true, logoutError: null }));
+      }
+
+      try {
+        // Refresh rotates the cookie, so finish it before asking the API to revoke this session.
+        await (bootstrap.current ?? Promise.resolve());
+        await logoutUser(getAccessToken());
+      } catch (error) {
+        if (isMounted.current) {
+          setState((current) => ({
+            ...current,
+            isLoggingOut: false,
+            logoutError:
+              error instanceof Error
+                ? error.message
+                : "Sign-out is temporarily unavailable. Please try again shortly.",
+          }));
+        }
+        return;
+      }
+
+      hasLoggedOut.current = true;
+      credential.current = null;
+      clearPrivateQueryCache(queryClient);
+      if (isMounted.current) {
+        setState({
+          status: "unauthenticated",
+          user: null,
+          expiresAt: null,
+          isLoggingOut: false,
+          logoutError: null,
+        });
+      }
+    })();
+    logoutOperation.current = task;
+    void task.finally(() => {
+      if (logoutOperation.current === task) logoutOperation.current = null;
+    });
+    return task;
+  }, [getAccessToken, queryClient]);
+
   const session = useMemo<AuthSession>(
     () => ({
       acceptLogin(data) {
         acceptSession(data);
       },
-      getAccessToken() {
-        const current = credential.current;
-        if (!current || current.expiresAt <= Date.now()) {
-          credential.current = null;
-          return null;
-        }
-        return current.token;
-      },
+      getAccessToken,
+      isLoggingOut: state.isLoggingOut,
+      logout,
+      logoutError: state.logoutError,
       retry() {
         void runBootstrap();
       },
@@ -137,7 +228,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
         return bootstrap.current ?? Promise.resolve();
       },
     }),
-    [acceptSession, runBootstrap, state.status, state.user],
+    [acceptSession, getAccessToken, logout, runBootstrap, state],
   );
   return <AuthSessionContext.Provider value={session}>{children}</AuthSessionContext.Provider>;
 }

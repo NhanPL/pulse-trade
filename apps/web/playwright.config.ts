@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: ["register.spec.ts", "login.spec.ts", "auth-bootstrap.spec.ts"],
+  testMatch: ["register.spec.ts", "login.spec.ts", "auth-bootstrap.spec.ts", "logout.spec.ts"],
   fullyParallel: true,
   use: {
     baseURL: "http://localhost:3100",

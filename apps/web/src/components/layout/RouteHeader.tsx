@@ -35,7 +35,7 @@ export function RouteHeader() {
 }
 
 function SessionHeader() {
-  const { status: authStatus, user } = useAuthSession();
+  const { isLoggingOut, logout, logoutError, status: authStatus, user } = useAuthSession();
   const connection = useRealtimeConnectionState();
   if (authStatus !== "authenticated" || !user) return <AppHeader authState="guest" />;
   const connectionStatus = {
@@ -45,10 +45,24 @@ function SessionHeader() {
     DISCONNECTED: "offline",
   } as const;
   return (
-    <AppHeader
-      authState="authenticated"
-      userLabel={user.email}
-      connectionStatus={connectionStatus[connection]}
-    />
+    <>
+      <AppHeader
+        authState="authenticated"
+        userLabel={user.email}
+        connectionStatus={connectionStatus[connection]}
+        isLoggingOut={isLoggingOut}
+        onLogout={() => {
+          void logout();
+        }}
+      />
+      {logoutError ? (
+        <p
+          role="alert"
+          className="border-b border-negative/30 bg-negative-subtle px-4 py-2 text-center text-sm text-foreground"
+        >
+          {logoutError}
+        </p>
+      ) : null}
+    </>
   );
 }

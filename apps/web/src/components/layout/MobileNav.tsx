@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, type KeyboardEvent } from "react";
 
 import { Badge } from "../ui/Badge";
+import { Button } from "../ui/Button";
 import { classNames } from "../ui/class-names";
 import { BrandLink } from "./BrandLink";
 import { connectionPresentation, getNavigationItems, type ConnectionStatus } from "./header-config";
@@ -12,9 +13,16 @@ import { connectionPresentation, getNavigationItems, type ConnectionStatus } fro
 export type MobileNavProps = {
   connectionStatus?: ConnectionStatus;
   isAuthenticated: boolean;
+  isLoggingOut?: boolean;
+  onLogout?: () => void;
 };
 
-export function MobileNav({ connectionStatus, isAuthenticated }: MobileNavProps) {
+export function MobileNav({
+  connectionStatus,
+  isAuthenticated,
+  isLoggingOut = false,
+  onLogout,
+}: MobileNavProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const items = getNavigationItems(isAuthenticated);
@@ -119,7 +127,18 @@ export function MobileNav({ connectionStatus, isAuthenticated }: MobileNavProps)
               })}
             </ul>
 
-            {!isAuthenticated ? (
+            {isAuthenticated ? (
+              <div className="mt-4 border-t border-border-subtle pt-4">
+                <Button
+                  className="w-full"
+                  isLoading={isLoggingOut}
+                  variant="ghost"
+                  onClick={onLogout}
+                >
+                  {isLoggingOut ? "Signing out…" : "Log out"}
+                </Button>
+              </div>
+            ) : (
               <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border-subtle pt-4">
                 <Link
                   className="flex min-h-11 items-center justify-center rounded-lg border border-border bg-surface-interactive text-sm font-semibold text-foreground-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
@@ -136,7 +155,7 @@ export function MobileNav({ connectionStatus, isAuthenticated }: MobileNavProps)
                   Create account
                 </Link>
               </div>
-            ) : null}
+            )}
           </nav>
         </>
       ) : null}
