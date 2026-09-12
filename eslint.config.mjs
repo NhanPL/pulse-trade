@@ -15,6 +15,8 @@ function scopeConfigs(configs, files) {
 export default defineConfig([
   globalIgnores([
     "**/.next/**",
+    "**/test-results/**",
+    "**/playwright-report/**",
     "**/dist/**",
     "**/node_modules/**",
     "apps/api/src/generated/prisma/**",

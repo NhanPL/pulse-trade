@@ -100,7 +100,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] I05 Implement refresh/session rotation.
 - [x] I06 Implement logout.
 - [x] I07 Implement `/me`.
-- [ ] I08 Build register page.
+- [x] I08 Build register page.
 - [ ] I09 Build login page.
 - [ ] I10 Implement frontend auth bootstrap/protected routes.
 - [ ] I11 Clear private query cache on logout.

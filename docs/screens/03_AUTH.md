@@ -80,6 +80,12 @@ After registration, preferred UX:
 - Sign user in immediately if session design supports it.
 - Otherwise redirect to login with success notice.
 
+I08 implementation note: registration currently returns a user without creating a
+session, and the login page is scoped to I09. Until that route is available, show
+an accessible success panel on `/register` with a `/login?registered=1` link and
+an Explore markets link, rather than automatically navigating to a missing page.
+The eventual login redirect/notice remains part of the auth-flow integration.
+
 ## 7. Errors
 
 Map stable codes:
@@ -105,3 +111,25 @@ Do not expose whether a specific email exists during login.
 - [ ] Intended route can be restored after login.
 - [ ] Logout from app shell removes private data access.
 - [ ] Forms are keyboard accessible.
+
+## 10. I08 registration implementation
+
+- The centered desktop card follows `docs/design/desktop/register.png` and reuses
+  the existing brand, UI controls, theme tokens, and supplied background asset.
+  Mobile uses a single-column card without horizontal overflow.
+- React Hook Form owns inputs and pending state. Zod extends the shared register
+  request schema with client-only password confirmation; only normalized email
+  and password are posted to `/api/v1/auth/register`.
+- The backend alone creates the user and exactly one initial virtual allocation.
+  The page never writes balances, stores credentials, or automatically retries a
+  registration request. Success requires a validated response.
+- Duplicate email, invalid registration, rate limits, server errors, network
+  failures, and malformed responses have safe local messages. Recoverable errors
+  preserve inputs; success clears them. Pending submission prevents duplicates,
+  has a timeout, and aborts its client request on unmount.
+- Inputs have associated labels/errors and password visibility controls. Invalid
+  submissions focus the first error; successful submissions focus the confirmation.
+- Run `pnpm --filter @pulse-trade/web exec playwright install chromium` once,
+  then `pnpm --filter @pulse-trade/web test:register` for focused browser checks.
+  These tests mock registration responses and do not replace the existing
+  PostgreSQL auth integration tests or the later complete trading E2E flow.
