@@ -64,6 +64,12 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Install registration test browser
+        run: pnpm --filter @pulse-trade/web exec playwright install --with-deps chromium
+
+      - name: Registration browser tests
+        run: pnpm --filter @pulse-trade/web exec playwright test
+
       - name: API tests
         run: pnpm --filter @pulse-trade/api test
 

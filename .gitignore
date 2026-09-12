@@ -1,6 +1,8 @@
 node_modules/
 apps/api/src/generated/prisma/
 .next/
+test-results/
+playwright-report/
 dist/
 *.tsbuildinfo
 .env

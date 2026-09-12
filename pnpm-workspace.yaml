@@ -7,3 +7,6 @@ allowBuilds:
   argon2: true
   prisma: true
   unrs-resolver: true
+
+minimumReleaseAgeExclude:
+  - react-hook-form@7.88.0
