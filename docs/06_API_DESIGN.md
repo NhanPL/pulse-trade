@@ -241,7 +241,12 @@ expired/revoked session or mismatched session owner all return
 configuration failures return sanitized `503 AUTH_UNAVAILABLE`. Refresh cookies
 and query-string identity fields never authenticate the request. Clients bootstrap
 from their HttpOnly cookie through `/auth/refresh`, then call `/me` with the returned
-access token; frontend bootstrap/protected-route work remains I10.
+access token. I10 implements that frontend sequence with one serialized refresh at
+startup, validates both shared response schemas and requires the `/me` identity to
+match the refresh response. It retains the access token only in memory, refreshes it
+before expiry, and never stores it or a refresh credential in browser storage. An
+unauthenticated refresh or `/me` response clears the in-memory identity; transient
+errors require an explicit retry instead of automatic refresh retries.
 
 ## 5. Market REST endpoints
 

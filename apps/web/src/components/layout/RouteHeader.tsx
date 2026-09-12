@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import type { MeResponse } from "@pulse-trade/contracts";
-import { authQueryKeys } from "@/features/auth/model/query-keys";
 import { useRealtimeConnectionState } from "@/features/realtime/stores/connection-state-store";
+import { useAuthSession } from "@/features/auth/components/AuthSessionProvider";
 
 import { AppHeader } from "./AppHeader";
 import { BrandLink } from "./BrandLink";
@@ -37,14 +35,10 @@ export function RouteHeader() {
 }
 
 function SessionHeader() {
-  // I09 consumes the confirmed login result; cookie bootstrap and protected routes belong to I10.
-  const { data: user } = useQuery<MeResponse["data"]["user"]>({
-    queryKey: authQueryKeys.me,
-    enabled: false,
-  });
+  const { status: authStatus, user } = useAuthSession();
   const connection = useRealtimeConnectionState();
-  if (!user) return <AppHeader authState="guest" />;
-  const status = {
+  if (authStatus !== "authenticated" || !user) return <AppHeader authState="guest" />;
+  const connectionStatus = {
     CONNECTED: "live",
     CONNECTING: "connecting",
     RECONNECTING: "reconnecting",
@@ -54,7 +48,7 @@ function SessionHeader() {
     <AppHeader
       authState="authenticated"
       userLabel={user.email}
-      connectionStatus={status[connection]}
+      connectionStatus={connectionStatus[connection]}
     />
   );
 }

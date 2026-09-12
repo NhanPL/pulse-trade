@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { RouteHeader } from "@/components/layout/RouteHeader";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthSessionProvider } from "@/features/auth/components/AuthSessionProvider";
+import { RouteAuthBoundary } from "@/features/auth/components/ProtectedRoute";
 
 import "./globals.css";
 
@@ -23,7 +24,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <QueryProvider>
           <AuthSessionProvider>
             <RouteHeader />
-            {children}
+            <RouteAuthBoundary>{children}</RouteAuthBoundary>
           </AuthSessionProvider>
         </QueryProvider>
       </body>
