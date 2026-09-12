@@ -39,6 +39,9 @@ export function LoginForm({ returnTo }: { returnTo: string }) {
     request.current = controller;
     clearErrors("root");
     try {
+      // The bootstrap refresh rotates its cookie, so a login must not race it.
+      await session.waitForBootstrap();
+      if (controller.signal.aborted) return;
       const result = await loginUser(values, controller.signal);
       if (controller.signal.aborted) return;
       session.acceptLogin(result);

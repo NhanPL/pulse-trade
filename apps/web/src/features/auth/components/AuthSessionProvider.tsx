@@ -1,14 +1,30 @@
 "use client";
 
-import { createContext, useContext, useMemo, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { LoginResponse } from "@pulse-trade/contracts";
+import type { LoginResponse, MeResponse } from "@pulse-trade/contracts";
 
+import { bootstrapSession } from "../api/bootstrap";
 import { authQueryKeys } from "../model/query-keys";
+
+export type AuthStatus = "checking" | "authenticated" | "unauthenticated" | "unavailable";
 
 type AuthSession = {
   acceptLogin(data: LoginResponse["data"]): void;
   getAccessToken(): string | null;
+  retry(): void;
+  status: AuthStatus;
+  user: MeResponse["data"]["user"] | null;
+  waitForBootstrap(): Promise<void>;
 };
 const AuthSessionContext = createContext<AuthSession | null>(null);
 
@@ -16,17 +32,93 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   // Provider-local memory avoids persistent credential storage and cross-request SSR state.
   const credential = useRef<{ token: string; expiresAt: number } | null>(null);
+  const bootstrap = useRef<Promise<void> | null>(null);
+  const hasStarted = useRef(false);
+  const isMounted = useRef(false);
+  const [state, setState] = useState<{
+    status: AuthStatus;
+    user: MeResponse["data"]["user"] | null;
+    expiresAt: number | null;
+  }>({
+    status: "checking",
+    user: null,
+    expiresAt: null,
+  });
+
+  const clearCredential = useCallback(() => {
+    credential.current = null;
+    queryClient.removeQueries({ queryKey: authQueryKeys.me, exact: true });
+  }, [queryClient]);
+
+  const acceptSession = useCallback(
+    (data: LoginResponse["data"], user = data.user) => {
+      const expiresAt = Math.min(
+        Date.now() + data.expiresIn * 1000,
+        Date.parse(data.session.expiresAt),
+      );
+      if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+        clearCredential();
+        if (isMounted.current) {
+          setState({ status: "unauthenticated", user: null, expiresAt: null });
+        }
+        return;
+      }
+      credential.current = { token: data.accessToken, expiresAt };
+      queryClient.setQueryData(authQueryKeys.me, user);
+      if (isMounted.current) setState({ status: "authenticated", user, expiresAt });
+    },
+    [clearCredential, queryClient],
+  );
+
+  const runBootstrap = useCallback((): Promise<void> => {
+    if (bootstrap.current) return bootstrap.current;
+    const task = (async () => {
+      if (isMounted.current) {
+        setState((current) =>
+          current.status === "authenticated" ? current : { ...current, status: "checking" },
+        );
+      }
+      const result = await bootstrapSession();
+      if (result.kind === "authenticated") {
+        acceptSession(result.session, result.user);
+        return;
+      }
+      clearCredential();
+      if (isMounted.current) setState({ status: result.kind, user: null, expiresAt: null });
+    })();
+    bootstrap.current = task;
+    void task.finally(() => {
+      if (bootstrap.current === task) bootstrap.current = null;
+    });
+    return task;
+  }, [acceptSession, clearCredential]);
+
+  useEffect(() => {
+    isMounted.current = true;
+    // Do not abort or duplicate this request in React Strict Mode: refresh rotates its cookie.
+    if (!hasStarted.current) {
+      hasStarted.current = true;
+      void runBootstrap();
+    }
+    return () => {
+      isMounted.current = false;
+    };
+  }, [runBootstrap]);
+
+  useEffect(() => {
+    if (state.status !== "authenticated" || !state.expiresAt) return;
+    // Refresh before access-token expiry; runBootstrap serializes the cookie rotation.
+    const delay = Math.max(1_000, Math.floor((state.expiresAt - Date.now()) * 0.8));
+    const timer = window.setTimeout(() => {
+      void runBootstrap();
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [runBootstrap, state.expiresAt, state.status]);
+
   const session = useMemo<AuthSession>(
     () => ({
       acceptLogin(data) {
-        credential.current = {
-          token: data.accessToken,
-          expiresAt: Math.min(
-            Date.now() + data.expiresIn * 1000,
-            Date.parse(data.session.expiresAt),
-          ),
-        };
-        queryClient.setQueryData(authQueryKeys.me, data.user);
+        acceptSession(data);
       },
       getAccessToken() {
         const current = credential.current;
@@ -36,8 +128,16 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
         }
         return current.token;
       },
+      retry() {
+        void runBootstrap();
+      },
+      status: state.status,
+      user: state.user,
+      waitForBootstrap() {
+        return bootstrap.current ?? Promise.resolve();
+      },
     }),
-    [queryClient],
+    [acceptSession, runBootstrap, state.status, state.user],
   );
   return <AuthSessionContext.Provider value={session}>{children}</AuthSessionContext.Provider>;
 }

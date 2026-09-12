@@ -106,10 +106,10 @@ Do not expose whether a specific email exists during login.
 - [ ] Register validation works.
 - [ ] Account gets exactly one virtual USD allocation.
 - [x] Login works.
-- [ ] Auth survives reload.
+- [x] Auth survives reload.
 - [x] Intended route can be restored after login.
 - [ ] Logout from app shell removes private data access.
-- [ ] Forms are keyboard accessible.
+- [x] Forms are keyboard accessible.
 
 ## 10. I08 registration implementation
 
@@ -157,10 +157,39 @@ Do not expose whether a specific email exists during login.
   `/`. Only product routes are accepted; external URLs, auth loops, encoded paths,
   backslashes and control characters are rejected. All 401 responses use the same
   invalid-credentials message, regardless of server body.
-- This is the login handoff only. Automatic refresh, cookie bootstrap after reload,
-  live session revalidation and protected-route enforcement remain I10. Logout
-  and private cache cleanup remain I11; the header is not an authorization guard.
+- I10 now adds automatic refresh, cookie bootstrap after reload, live session
+  revalidation and protected-route enforcement. Logout and private cache cleanup
+  remain I11; the header is not an authorization guard.
 - `pnpm --filter @pulse-trade/web test:login` builds and runs the focused browser
   tests. CI runs both login and registration browser suites plus the existing API
   and PostgreSQL authentication tests. Browser API responses are mocked; they do
   not replace the backend integration suite.
+
+## 12. I10 frontend bootstrap and protected routes
+
+- `AuthSessionProvider` performs one serialized `POST /auth/refresh` on client
+  startup (including a browser reload), validates the response, then validates
+  `GET /me` with its returned bearer token. `/me` is the final user identity after
+  the backend's live session-revocation check. The refresh and `/me` identities
+  must agree before the application becomes authenticated.
+- The access token and expiry remain provider-local memory only. The verified user
+  is cached under `['auth', 'me']`; neither credentials nor tokens are put in
+  localStorage, sessionStorage, URLs or mutation/query payloads. The access token
+  refreshes at 80% of its lifetime. Refresh calls are serialized because each one
+  rotates the HttpOnly credential; a login waits for an active bootstrap refresh.
+- The root client boundary protects `/portfolio`, `/orders`, `/watchlist` and any
+  nested paths. It holds the child page behind a checking panel, redirects an
+  unauthenticated visitor to `/login?returnTo=…`, and preserves only a safe internal
+  return path. The later Portfolio, Orders and Watchlist tasks provide those pages;
+  I10 provides their shared authorization boundary, not their feature UIs.
+- A 401 during refresh or `/me` clears the local identity and redirects protected
+  routes to login. A network, schema or server failure does not expose the child
+  page or redirect in a loop; it shows an explicit Try again control. There is no
+  automatic retry after a failed refresh rotation.
+- Set `WEB_ORIGIN` to the actual web origin, and keep credentialed web/API requests
+  on the same site as required by `12_SECURITY_DEPLOYMENT.md`. I11 remains
+  responsible for clearing all private query data on logout.
+- `pnpm --filter @pulse-trade/web test:auth` runs the browser coverage for login,
+  registration and I10. It checks reload bootstrap, automatic token refresh,
+  refresh/login serialization, `/me` verification, safe protected-route redirects,
+  failures, explicit retry and absence of browser credential storage.
