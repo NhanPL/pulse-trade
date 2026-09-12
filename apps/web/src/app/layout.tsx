@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { RouteHeader } from "@/components/layout/RouteHeader";
 import { QueryProvider } from "@/providers/QueryProvider";
+import { AuthSessionProvider } from "@/features/auth/components/AuthSessionProvider";
 
 import "./globals.css";
 
@@ -19,8 +20,12 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
       <body>
-        <RouteHeader />
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          <AuthSessionProvider>
+            <RouteHeader />
+            {children}
+          </AuthSessionProvider>
+        </QueryProvider>
       </body>
     </html>
   );
