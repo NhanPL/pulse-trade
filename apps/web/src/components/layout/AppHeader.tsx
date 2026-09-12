@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Badge } from "../ui/Badge";
+import { Button } from "../ui/Button";
 import { BrandLink } from "./BrandLink";
 import { DesktopNav } from "./DesktopNav";
 import { connectionPresentation, type ConnectionStatus } from "./header-config";
@@ -15,6 +16,8 @@ type GuestHeaderProps = {
 type AuthenticatedHeaderProps = {
   authState: "authenticated";
   connectionStatus: ConnectionStatus;
+  isLoggingOut: boolean;
+  onLogout(): void;
   userLabel: string;
 };
 
@@ -77,6 +80,14 @@ export function AppHeader(props: AppHeaderProps) {
                     {props.userLabel}
                   </span>
                 </div>
+                <Button
+                  isLoading={props.isLoggingOut}
+                  size="sm"
+                  variant="ghost"
+                  onClick={props.onLogout}
+                >
+                  {props.isLoggingOut ? "Signing out…" : "Log out"}
+                </Button>
               </>
             )}
           </div>
@@ -85,6 +96,8 @@ export function AppHeader(props: AppHeaderProps) {
       <MobileNav
         isAuthenticated={isAuthenticated}
         connectionStatus={props.authState === "authenticated" ? props.connectionStatus : undefined}
+        isLoggingOut={props.authState === "authenticated" ? props.isLoggingOut : false}
+        onLogout={props.authState === "authenticated" ? props.onLogout : undefined}
       />
     </>
   );

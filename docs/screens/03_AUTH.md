@@ -108,7 +108,7 @@ Do not expose whether a specific email exists during login.
 - [x] Login works.
 - [x] Auth survives reload.
 - [x] Intended route can be restored after login.
-- [ ] Logout from app shell removes private data access.
+- [x] Logout from app shell removes private data access.
 - [x] Forms are keyboard accessible.
 
 ## 10. I08 registration implementation
@@ -157,9 +157,9 @@ Do not expose whether a specific email exists during login.
   `/`. Only product routes are accepted; external URLs, auth loops, encoded paths,
   backslashes and control characters are rejected. All 401 responses use the same
   invalid-credentials message, regardless of server body.
-- I10 now adds automatic refresh, cookie bootstrap after reload, live session
-  revalidation and protected-route enforcement. Logout and private cache cleanup
-  remain I11; the header is not an authorization guard.
+- I10 adds automatic refresh, cookie bootstrap after reload, live session
+  revalidation and protected-route enforcement. I11 adds the header logout action
+  and private cache cleanup; the header is not an authorization guard.
 - `pnpm --filter @pulse-trade/web test:login` builds and runs the focused browser
   tests. CI runs both login and registration browser suites plus the existing API
   and PostgreSQL authentication tests. Browser API responses are mocked; they do
@@ -187,9 +187,26 @@ Do not expose whether a specific email exists during login.
   page or redirect in a loop; it shows an explicit Try again control. There is no
   automatic retry after a failed refresh rotation.
 - Set `WEB_ORIGIN` to the actual web origin, and keep credentialed web/API requests
-  on the same site as required by `12_SECURITY_DEPLOYMENT.md`. I11 remains
-  responsible for clearing all private query data on logout.
+  on the same site as required by `12_SECURITY_DEPLOYMENT.md`.
 - `pnpm --filter @pulse-trade/web test:auth` runs the browser coverage for login,
   registration and I10. It checks reload bootstrap, automatic token refresh,
   refresh/login serialization, `/me` verification, safe protected-route redirects,
   failures, explicit retry and absence of browser credential storage.
+
+## 13. I11 logout and private cache cleanup
+
+- The authenticated desktop header and mobile navigation provide a visible, keyboard
+  accessible Log out action. It disables while the request is pending and exposes a
+  sanitized retry message without discarding the current session after an API or
+  network failure.
+- Logout waits for an in-flight refresh rotation, then posts `{}` to
+  `/auth/logout` with the current in-memory bearer token when it remains valid. On
+  `204`, the provider drops its token/user state and removes only `auth`,
+  `portfolio`, `orders` and `watchlist` TanStack Query data. Public market caches
+  are intentionally retained.
+- The protected-route boundary then redirects the signed-out user to Login, with a
+  safe return path. A completed logout prevents a late automatic refresh timer from
+  restoring the session.
+- Browser coverage verifies successful logout, retry after a `503`, refresh/logout
+  serialization, protected-route redirection and the mobile keyboard action. The
+  focused unit test verifies private query eviction without removing market data.
