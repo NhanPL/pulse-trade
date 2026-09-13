@@ -50,9 +50,10 @@ for deployment; migrations do not run automatically when the API starts.
 
 The client uses CommonJS output to match the API. `DatabaseModule` owns a shared
 Prisma PostgreSQL adapter/pool, created lazily on the first registration request
-and disconnected on module shutdown. Set `DATABASE_URL` in the API process
-environment at runtime (the Prisma CLI separately loads `apps/api/.env`). Without
-a database, public market data remains usable and registration returns 503.
+and disconnected on module shutdown. The API package loads `apps/api/.env` before
+Nest starts, while a `DATABASE_URL` supplied by the runtime environment takes
+precedence. The Prisma CLI loads the same file independently. Without a database,
+public market data remains usable and registration returns 503.
 
 ## Authentication integration tests
 
