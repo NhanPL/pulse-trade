@@ -27,3 +27,31 @@ select,
 textarea {
   font: inherit;
 }
+
+/* Keep the sign-in action and its fields in one viewport on shorter screens. */
+@media (max-height: 800px) {
+  .login-page {
+    padding-block: 1.5rem;
+  }
+
+  .login-card {
+    padding-block: 1.5rem;
+  }
+
+  .login-card-brand {
+    margin-bottom: 1rem;
+  }
+
+  .login-card-copy {
+    margin-top: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .login-page form.space-y-6 > :not(:last-child) {
+    margin-block: 0 1rem;
+  }
+
+  .login-support {
+    display: none;
+  }
+}

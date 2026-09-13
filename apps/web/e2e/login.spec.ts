@@ -72,6 +72,27 @@ test("desktop login follows the auth design and validates with keyboard access",
   expect(requests).toBe(0);
 });
 
+test("login fits a standard desktop viewport without vertical scrolling", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.goto("/login");
+
+  await expect(page.getByRole("heading", { name: "Welcome back" })).toBeInViewport();
+  await expect(page.getByRole("button", { name: "Sign In", exact: true })).toBeInViewport();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight),
+  ).toBe(true);
+
+  await page.getByRole("button", { name: "Sign In", exact: true }).click();
+  await expect(page.getByText("Enter a valid email address.")).toBeVisible();
+  await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+  expect(
+    await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight),
+  ).toBe(true);
+});
+
 test("mobile login and registration notice fit without horizontal overflow", async ({
   page,
 }, testInfo) => {
@@ -79,8 +100,10 @@ test("mobile login and registration notice fit without horizontal overflow", asy
   await page.goto("/login?registered=1");
   await expect(page.getByRole("status")).toContainText("Account created.");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.getByRole("button", { name: "Sign In", exact: true }).scrollIntoViewIfNeeded();
   await expect(page.getByRole("button", { name: "Sign In", exact: true })).toBeInViewport();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight),
+  ).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("login-mobile.png"), fullPage: true });
   await page.getByRole("link", { name: "Create account", exact: true }).click();
   await expect(page).toHaveURL(/\/register$/);
