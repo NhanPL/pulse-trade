@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "auth:setup": "node scripts/setup-auth-env.mjs",
     "build": "pnpm db:generate && nest build",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",

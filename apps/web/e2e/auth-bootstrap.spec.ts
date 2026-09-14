@@ -35,8 +35,9 @@ async function authenticatedBootstrap(
       },
     });
   });
-  await page.route("**/me", async (route) => {
+  await page.route("**/api/v1/me", async (route) => {
     meCalls.count++;
+    expect(new URL(route.request().url()).pathname).toBe("/api/v1/me");
     expect((await route.request().allHeaders()).authorization).toBe(
       "Bearer synthetic-bootstrap-access-token",
     );
@@ -102,7 +103,7 @@ test("refreshes an in-memory access token before it expires without concurrent c
       body: JSON.stringify(response),
     });
   });
-  await page.route("**/me", async (route) => {
+  await page.route("**/api/v1/me", async (route) => {
     meCalls++;
     await route.fulfill({
       status: 200,
@@ -189,7 +190,7 @@ test("a missing, expired or revoked session never calls me and cannot expose a p
     refreshCalls++;
     await route.fulfill({ status: 401, contentType: "application/json", body: "{}" });
   });
-  await page.route("**/me", async (route) => {
+  await page.route("**/api/v1/me", async (route) => {
     meCalls++;
     await route.abort();
   });
@@ -207,7 +208,7 @@ test("a refresh followed by rejected current-user verification returns guests to
   await page.route("**/auth/refresh", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(session) }),
   );
-  await page.route("**/me", async (route) => {
+  await page.route("**/api/v1/me", async (route) => {
     meCalls++;
     await route.fulfill({
       status: 401,
@@ -242,7 +243,7 @@ test("an unavailable bootstrap protects private content, never retries itself, a
       body: JSON.stringify(session),
     });
   });
-  await page.route("**/me", async (route) => {
+  await page.route("**/api/v1/me", async (route) => {
     meCalls++;
     await route.fulfill({
       status: 200,
@@ -293,7 +294,7 @@ test("malformed or identity-mismatched bootstrap payloads fail closed", async ({
       body: JSON.stringify(session),
     });
   });
-  await page.route("**/me", (route) =>
+  await page.route("**/api/v1/me", (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
