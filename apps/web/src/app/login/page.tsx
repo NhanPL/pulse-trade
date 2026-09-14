@@ -14,22 +14,25 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   return (
-    <main className="relative isolate flex min-h-[calc(100svh-4rem)] flex-col items-center justify-center px-4 py-10 sm:px-6">
+    <main className="login-page relative isolate flex min-h-[calc(100svh-4rem)] flex-col items-center justify-center px-4 py-10 sm:px-6">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(rgba(3,10,22,0.65),rgba(3,10,22,0.75)),url('/images/auth-background.png')] bg-cover bg-center"
       />
       <section
         aria-labelledby="login-title"
-        className="w-full max-w-[564px] rounded-xl border border-border-strong/80 bg-surface/90 p-5 shadow-panel backdrop-blur-sm sm:p-10"
+        className="login-card w-full max-w-[564px] rounded-xl border border-border-strong/80 bg-surface/90 p-5 shadow-panel backdrop-blur-sm sm:p-10"
       >
-        <div className="mb-8 flex justify-center">
+        <div className="login-card-brand mb-8 flex justify-center">
           <BrandLink />
         </div>
-        <h1 id="login-title" className="text-center text-2xl font-bold tracking-tight sm:text-3xl">
+        <h1
+          id="login-title"
+          className="login-card-title text-center text-2xl font-bold tracking-tight sm:text-3xl"
+        >
           Welcome back
         </h1>
-        <p className="mb-8 mt-4 text-center text-sm leading-6 text-foreground-secondary sm:text-base">
+        <p className="login-card-copy mb-8 mt-4 text-center text-sm leading-6 text-foreground-secondary sm:text-base">
           Sign in to access your account and practice trading with real-time market data.
         </p>
         {params.registered === "1" ? (
@@ -41,7 +44,7 @@ export default async function LoginPage({
           </p>
         ) : null}
         <LoginForm returnTo={safeReturnTo(params.returnTo)} />
-        <div className="mt-8 flex items-center gap-4 rounded-lg border border-border-subtle bg-canvas/20 p-4">
+        <div className="login-support mt-8 flex items-center gap-4 rounded-lg border border-border-subtle bg-canvas/20 p-4">
           <span className="shrink-0 text-brand">
             <AuthIcon name="shield" className="size-8" />
           </span>

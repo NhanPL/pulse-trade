@@ -4,7 +4,10 @@ import { WsAdapter } from "@nestjs/platform-ws";
 import { AppModule } from "./app.module";
 import { loadEnvironment } from "./config/configuration";
 import { configureHttpApplication } from "./config/http-application";
+import { loadRuntimeEnvironment } from "./config/runtime-environment";
 import { parseRealtimeMessage } from "./realtime/realtime-message-parser";
+
+loadRuntimeEnvironment();
 
 async function bootstrap(): Promise<void> {
   const environment = loadEnvironment();

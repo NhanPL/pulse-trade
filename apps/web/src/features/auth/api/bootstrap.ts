@@ -38,7 +38,7 @@ export async function bootstrapSession(): Promise<BootstrapResult> {
   const refreshResult = refreshResponseSchema.safeParse(refreshBody);
   if (!refreshResult.success) return { kind: "unavailable" };
 
-  const me = await request(`${apiBaseUrl.replace(/\/api\/v1$/, "")}/me`, {
+  const me = await request(`${apiBaseUrl}/me`, {
     headers: { Authorization: `Bearer ${refreshResult.data.data.accessToken}` },
     signal: AbortSignal.timeout(15_000),
   });

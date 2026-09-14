@@ -139,6 +139,11 @@ Do not expose whether a specific email exists during login.
   background, brand, theme and form primitives. The unsupported Forgot password
   action in the image is intentionally omitted: recovery is not in I09's API or
   written requirements.
+- The desktop evidence remains intact at taller viewport heights. At shorter
+  viewports, the card reduces spacing and removes only its non-essential paper
+  trading note so the sign-in fields, validation feedback and action remain visible
+  without vertical scrolling. The same constraint covers the mobile
+  registration-success notice.
 - React Hook Form and the shared Zod login schema validate email and a required
   password (maximum 128 characters). Email is normalized; passwords are never
   trimmed. The form supports keyboard use, password visibility, local errors,

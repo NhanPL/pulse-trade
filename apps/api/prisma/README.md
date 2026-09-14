@@ -50,9 +50,30 @@ for deployment; migrations do not run automatically when the API starts.
 
 The client uses CommonJS output to match the API. `DatabaseModule` owns a shared
 Prisma PostgreSQL adapter/pool, created lazily on the first registration request
-and disconnected on module shutdown. Set `DATABASE_URL` in the API process
-environment at runtime (the Prisma CLI separately loads `apps/api/.env`). Without
-a database, public market data remains usable and registration returns 503.
+and disconnected on module shutdown. The API package loads `apps/api/.env` before
+Nest starts, while a `DATABASE_URL` supplied by the runtime environment takes
+precedence. The Prisma CLI loads the same file independently. Without a database,
+public market data remains usable and registration returns 503.
+
+## Local login configuration
+
+Registration can work without a JWT signing key, but login requires one. After
+configuring `apps/api/.env`, run this once from the repository root:
+
+```sh
+pnpm --filter @pulse-trade/api auth:setup
+```
+
+This development-only command adds a random 256-bit `JWT_ACCESS_SECRET` to the
+ignored local `.env` without printing it. It preserves existing valid keys and
+database settings. Restart the API after changing its environment. Production
+must supply a separate key through the deployment environment; no default or
+automatically generated production key is used.
+
+If login returns `503 LOGIN_UNAVAILABLE`, check the signing key and database
+connection/migrations. `403 ORIGIN_NOT_ALLOWED` means `WEB_ORIGIN` differs from
+the browser origin. After login, session restoration uses `POST /api/v1/auth/refresh`
+followed by `GET /api/v1/me` with the returned bearer token.
 
 ## Authentication integration tests
 
