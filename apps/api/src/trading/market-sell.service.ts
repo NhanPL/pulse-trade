@@ -3,7 +3,11 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
 import { Prisma } from "../generated/prisma/client";
 import { MarketCacheService } from "../realtime/market-cache.service";
-import { calculatePositionAfterBuy } from "./domain/position-calculations";
+import { TradingDomainError } from "./domain/decimal";
+import {
+  calculatePositionAfterSell,
+  type SellPositionUpdate,
+} from "./domain/position-calculations";
 import { MarketOrderError } from "./market-order.error";
 import {
   type MarketDefinition,
@@ -15,13 +19,13 @@ import {
 
 const MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS = 3;
 
-export type MarketBuyInput = Readonly<{
+export type MarketSellInput = Readonly<{
   quantity: string;
   symbol: string;
   userId: string;
 }>;
 
-export type MarketBuyExecution = Readonly<{
+export type MarketSellExecution = Readonly<{
   executionPrice: string;
   executedAt: Date;
   orderId: string;
@@ -32,13 +36,13 @@ export type MarketBuyExecution = Readonly<{
 }>;
 
 @Injectable()
-export class MarketBuyService {
+export class MarketSellService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly marketCache: MarketCacheService,
   ) {}
 
-  async execute(input: MarketBuyInput): Promise<MarketBuyExecution> {
+  async execute(input: MarketSellInput): Promise<MarketSellExecution> {
     const market = parseMarketOrderSymbol(input.symbol);
     const quantity = parseMarketOrderQuantity(input.quantity);
     const executionPrice = parseMarketExecutionPrice(
@@ -46,7 +50,7 @@ export class MarketBuyService {
     );
     const quoteAmount = calculateMarketQuoteAmount(executionPrice, quantity);
 
-    // Concurrent orders can contend on the same USD row and position; retry only transaction conflicts.
+    // Concurrent orders can contend on the same base wallet and position; retry only transaction conflicts.
     for (let attempt = 1; attempt <= MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS; attempt++) {
       try {
         return await this.prisma.client.$transaction(
@@ -88,58 +92,70 @@ export class MarketBuyService {
       market: MarketDefinition;
       quantity: string;
       quoteAmount: string;
-      symbol: string;
       userId: string;
     }>,
-  ): Promise<MarketBuyExecution> {
-    const debitedQuoteBalance = await transaction.walletBalance.updateMany({
-      data: { available: { decrement: input.quoteAmount } },
-      where: {
-        asset: input.market.quoteAsset,
-        available: { gte: input.quoteAmount },
-        userId: input.userId,
-      },
-    });
-    if (debitedQuoteBalance.count !== 1) {
-      throw new MarketOrderError(
-        "INSUFFICIENT_BALANCE",
-        `Insufficient ${input.market.quoteAsset} balance.`,
-      );
-    }
-
-    await transaction.walletBalance.upsert({
-      create: {
-        asset: input.market.baseAsset,
-        available: input.quantity,
-        locked: "0",
-        userId: input.userId,
-      },
-      update: { available: { increment: input.quantity } },
-      where: {
-        userId_asset: { asset: input.market.baseAsset, userId: input.userId },
-      },
-    });
-
+  ): Promise<MarketSellExecution> {
     const currentPosition = await transaction.position.findUnique({
       select: { averageCostUsd: true, quantity: true, realizedPnlUsd: true },
       where: {
         userId_asset: { asset: input.market.baseAsset, userId: input.userId },
       },
     });
-    const nextPosition = calculatePositionAfterBuy(
-      {
-        averageCostUsd: currentPosition?.averageCostUsd.toString() ?? "0",
-        quantity: currentPosition?.quantity.toString() ?? "0",
-        realizedPnlUsd: currentPosition?.realizedPnlUsd.toString() ?? "0",
-      },
-      input.quantity,
-      input.executionPrice,
-    );
-    await transaction.position.upsert({
-      create: { ...nextPosition, asset: input.market.baseAsset, userId: input.userId },
-      update: nextPosition,
+    if (!currentPosition) {
+      throw insufficientAssetBalance(input.market.baseAsset);
+    }
+
+    let positionUpdate: SellPositionUpdate;
+    try {
+      positionUpdate = calculatePositionAfterSell(
+        {
+          averageCostUsd: currentPosition.averageCostUsd.toString(),
+          quantity: currentPosition.quantity.toString(),
+          realizedPnlUsd: currentPosition.realizedPnlUsd.toString(),
+        },
+        input.quantity,
+        input.executionPrice,
+      );
+    } catch (error) {
+      if (error instanceof TradingDomainError)
+        throw insufficientAssetBalance(input.market.baseAsset);
+      throw error;
+    }
+
+    const debitedBaseBalance = await transaction.walletBalance.updateMany({
+      data: { available: { decrement: input.quantity } },
       where: {
-        userId_asset: { asset: input.market.baseAsset, userId: input.userId },
+        asset: input.market.baseAsset,
+        available: { gte: input.quantity },
+        userId: input.userId,
+      },
+    });
+    if (debitedBaseBalance.count !== 1) {
+      throw insufficientAssetBalance(input.market.baseAsset);
+    }
+
+    const updatedPosition = await transaction.position.updateMany({
+      data: positionUpdate.position,
+      where: {
+        asset: input.market.baseAsset,
+        quantity: { gte: input.quantity },
+        userId: input.userId,
+      },
+    });
+    if (updatedPosition.count !== 1) {
+      throw insufficientAssetBalance(input.market.baseAsset);
+    }
+
+    await transaction.walletBalance.upsert({
+      create: {
+        asset: input.market.quoteAsset,
+        available: input.quoteAmount,
+        locked: "0",
+        userId: input.userId,
+      },
+      update: { available: { increment: input.quoteAmount } },
+      where: {
+        userId_asset: { asset: input.market.quoteAsset, userId: input.userId },
       },
     });
 
@@ -152,7 +168,7 @@ export class MarketBuyService {
         filledQuantity: input.quantity,
         quantity: input.quantity,
         quoteAsset: input.market.quoteAsset,
-        side: "BUY",
+        side: "SELL",
         status: "FILLED",
         symbol: input.market.symbol,
         type: "MARKET",
@@ -167,7 +183,7 @@ export class MarketBuyService {
         price: input.executionPrice,
         quantity: input.quantity,
         quoteAmount: input.quoteAmount,
-        side: "BUY",
+        side: "SELL",
         symbol: input.market.symbol,
         userId: input.userId,
       },
@@ -184,6 +200,10 @@ export class MarketBuyService {
       tradeId: trade.id,
     };
   }
+}
+
+function insufficientAssetBalance(asset: string): MarketOrderError {
+  return new MarketOrderError("INSUFFICIENT_BALANCE", `Insufficient ${asset} balance.`);
 }
 
 function isSerializationConflict(error: unknown): boolean {

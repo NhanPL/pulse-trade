@@ -3,13 +3,14 @@ import { createRequire } from "node:module";
 import test from "node:test";
 
 const require = createRequire(import.meta.url);
-const { MarketBuyService } = require("../dist/trading/market-buy.service.js");
 const { MarketOrderError } = require("../dist/trading/market-order.error.js");
+const { MarketSellService } = require("../dist/trading/market-sell.service.js");
 
 function createService({
-  executionPrice = "67542.31",
-  position = null,
-  quoteDebitCount = 1,
+  executionPrice = "70000",
+  position = { averageCostUsd: "55000", quantity: "2", realizedPnlUsd: "20" },
+  baseDebitCount = 1,
+  positionUpdateCount = 1,
   transactionFailures = [],
 } = {}) {
   const calls = {
@@ -24,11 +25,11 @@ function createService({
   const transaction = {
     walletBalance: {
       async updateMany(args) {
-        calls.quoteWallet.push(args);
-        return { count: quoteDebitCount };
+        calls.baseWallet.push(args);
+        return { count: baseDebitCount };
       },
       async upsert(args) {
-        calls.baseWallet.push(args);
+        calls.quoteWallet.push(args);
         return {};
       },
     },
@@ -37,9 +38,9 @@ function createService({
         calls.positionFind.push(args);
         return position;
       },
-      async upsert(args) {
+      async updateMany(args) {
         calls.positionWrite.push(args);
-        return {};
+        return { count: positionUpdateCount };
       },
     },
     order: {
@@ -69,59 +70,62 @@ function createService({
     },
   };
 
-  return { calls, service: new MarketBuyService({ client }, cache) };
+  return { calls, service: new MarketSellService({ client }, cache) };
 }
 
-test("fills a market BUY atomically with the backend ticker price", async () => {
+test("fills a market SELL atomically, credits USD, and realizes P&L", async () => {
   const { calls, service } = createService();
 
   const result = await service.execute({
-    quantity: "0.01",
+    quantity: "0.5",
     symbol: "BTC-USD",
     userId: "user-1",
   });
 
   assert.deepEqual(result, {
-    executionPrice: "67542.31",
+    executionPrice: "70000",
     executedAt: result.executedAt,
     orderId: "order-1",
-    quantity: "0.01",
-    quoteAmount: "675.4231",
+    quantity: "0.5",
+    quoteAmount: "35000",
     symbol: "BTC-USD",
     tradeId: "trade-1",
   });
   assert.equal(result.executedAt instanceof Date, true);
   assert.deepEqual(calls.transactionOptions, [{ isolationLevel: "Serializable" }]);
-  assert.deepEqual(calls.quoteWallet, [
+  assert.deepEqual(calls.baseWallet, [
     {
-      data: { available: { decrement: "675.4231" } },
+      data: { available: { decrement: "0.5" } },
       where: {
-        asset: "USD",
-        available: { gte: "675.4231" },
+        asset: "BTC",
+        available: { gte: "0.5" },
         userId: "user-1",
       },
     },
   ]);
-  assert.deepEqual(calls.baseWallet[0], {
-    create: { asset: "BTC", available: "0.01", locked: "0", userId: "user-1" },
-    update: { available: { increment: "0.01" } },
-    where: { userId_asset: { asset: "BTC", userId: "user-1" } },
-  });
-  assert.deepEqual(calls.positionWrite[0].create, {
-    asset: "BTC",
-    averageCostUsd: "67542.31",
-    quantity: "0.01",
-    realizedPnlUsd: "0",
-    userId: "user-1",
+  assert.deepEqual(calls.positionWrite, [
+    {
+      data: { averageCostUsd: "55000", quantity: "1.5", realizedPnlUsd: "7520" },
+      where: {
+        asset: "BTC",
+        quantity: { gte: "0.5" },
+        userId: "user-1",
+      },
+    },
+  ]);
+  assert.deepEqual(calls.quoteWallet[0], {
+    create: { asset: "USD", available: "35000", locked: "0", userId: "user-1" },
+    update: { available: { increment: "35000" } },
+    where: { userId_asset: { asset: "USD", userId: "user-1" } },
   });
   assert.deepEqual(calls.order[0].data, {
-    avgFillPrice: "67542.31",
+    avgFillPrice: "70000",
     baseAsset: "BTC",
     filledAt: result.executedAt,
-    filledQuantity: "0.01",
-    quantity: "0.01",
+    filledQuantity: "0.5",
+    quantity: "0.5",
     quoteAsset: "USD",
-    side: "BUY",
+    side: "SELL",
     status: "FILLED",
     symbol: "BTC-USD",
     type: "MARKET",
@@ -130,41 +134,56 @@ test("fills a market BUY atomically with the backend ticker price", async () => 
   assert.deepEqual(calls.trade[0].data, {
     executedAt: result.executedAt,
     orderId: "order-1",
-    price: "67542.31",
-    quantity: "0.01",
-    quoteAmount: "675.4231",
-    side: "BUY",
+    price: "70000",
+    quantity: "0.5",
+    quoteAmount: "35000",
+    side: "SELL",
     symbol: "BTC-USD",
     userId: "user-1",
   });
 });
 
-test("uses weighted average cost when the base position already exists", async () => {
-  const { calls, service } = createService({
-    executionPrice: "60000",
-    position: { averageCostUsd: "50000", quantity: "1", realizedPnlUsd: "12.5" },
-  });
+test("resets the cost basis when a sell closes the position", async () => {
+  const { calls, service } = createService({ executionPrice: "50000" });
 
-  await service.execute({ quantity: "1", symbol: "BTC-USD", userId: "user-1" });
+  await service.execute({ quantity: "2", symbol: "BTC-USD", userId: "user-1" });
 
-  assert.deepEqual(calls.positionWrite[0].update, {
-    averageCostUsd: "55000",
-    quantity: "2",
-    realizedPnlUsd: "12.5",
+  assert.deepEqual(calls.positionWrite[0].data, {
+    averageCostUsd: "0",
+    quantity: "0",
+    realizedPnlUsd: "-9980",
   });
 });
 
-test("rejects insufficient funds before creating an order, position, or trade", async () => {
-  const { calls, service } = createService({ quoteDebitCount: 0 });
+test("rejects insufficient base balance without crediting USD or creating a fill", async () => {
+  const { calls, service } = createService({ baseDebitCount: 0 });
 
   await assert.rejects(
-    service.execute({ quantity: "0.01", symbol: "BTC-USD", userId: "user-1" }),
+    service.execute({ quantity: "0.5", symbol: "BTC-USD", userId: "user-1" }),
     (error) => error instanceof MarketOrderError && error.code === "INSUFFICIENT_BALANCE",
   );
-  assert.equal(calls.baseWallet.length, 0);
   assert.equal(calls.positionWrite.length, 0);
+  assert.equal(calls.quoteWallet.length, 0);
   assert.equal(calls.order.length, 0);
   assert.equal(calls.trade.length, 0);
+});
+
+test("rejects a missing or insufficient position before debiting a base wallet", async () => {
+  const missing = createService({ position: null });
+  await assert.rejects(
+    missing.service.execute({ quantity: "0.5", symbol: "BTC-USD", userId: "user-1" }),
+    (error) => error instanceof MarketOrderError && error.code === "INSUFFICIENT_BALANCE",
+  );
+  assert.equal(missing.calls.baseWallet.length, 0);
+
+  const insufficient = createService({
+    position: { averageCostUsd: "55000", quantity: "0.25", realizedPnlUsd: "20" },
+  });
+  await assert.rejects(
+    insufficient.service.execute({ quantity: "0.5", symbol: "BTC-USD", userId: "user-1" }),
+    (error) => error instanceof MarketOrderError && error.code === "INSUFFICIENT_BALANCE",
+  );
+  assert.equal(insufficient.calls.baseWallet.length, 0);
 });
 
 test("rejects invalid inputs and unavailable market prices before a transaction", async () => {
@@ -176,42 +195,31 @@ test("rejects invalid inputs and unavailable market prices before a transaction"
 
   const unsupportedSymbol = createService();
   await assert.rejects(
-    unsupportedSymbol.service.execute({ quantity: "0.01", symbol: "BTC_USD", userId: "user-1" }),
+    unsupportedSymbol.service.execute({ quantity: "0.5", symbol: "BTC_USD", userId: "user-1" }),
     (error) => error instanceof MarketOrderError && error.code === "UNSUPPORTED_SYMBOL",
   );
 
   const unavailableMarket = createService({ executionPrice: null });
   await assert.rejects(
-    unavailableMarket.service.execute({ quantity: "0.01", symbol: "BTC-USD", userId: "user-1" }),
+    unavailableMarket.service.execute({ quantity: "0.5", symbol: "BTC-USD", userId: "user-1" }),
     (error) => error instanceof MarketOrderError && error.code === "MARKET_DATA_UNAVAILABLE",
   );
 
-  const invalidMarketPrice = createService({ executionPrice: "not-a-price" });
-  await assert.rejects(
-    invalidMarketPrice.service.execute({ quantity: "0.01", symbol: "BTC-USD", userId: "user-1" }),
-    (error) => error instanceof MarketOrderError && error.code === "MARKET_DATA_UNAVAILABLE",
-  );
-
-  for (const calls of [
-    invalidQuantity.calls,
-    unsupportedSymbol.calls,
-    unavailableMarket.calls,
-    invalidMarketPrice.calls,
-  ]) {
+  for (const calls of [invalidQuantity.calls, unsupportedSymbol.calls, unavailableMarket.calls]) {
     assert.equal(calls.transactionOptions.length, 0);
   }
 });
 
 test("retries serializable transaction conflicts and exposes exhaustion as an order conflict", async () => {
   const retry = createService({ transactionFailures: [{ code: "P2034" }] });
-  await retry.service.execute({ quantity: "0.01", symbol: "BTC-USD", userId: "user-1" });
+  await retry.service.execute({ quantity: "0.5", symbol: "BTC-USD", userId: "user-1" });
   assert.equal(retry.calls.transactionOptions.length, 2);
 
   const exhausted = createService({
     transactionFailures: [{ code: "P2034" }, { code: "P2034" }, { code: "P2034" }],
   });
   await assert.rejects(
-    exhausted.service.execute({ quantity: "0.01", symbol: "BTC-USD", userId: "user-1" }),
+    exhausted.service.execute({ quantity: "0.5", symbol: "BTC-USD", userId: "user-1" }),
     (error) => error instanceof MarketOrderError && error.code === "ORDER_CONFLICT",
   );
   assert.equal(exhausted.calls.transactionOptions.length, 3);
