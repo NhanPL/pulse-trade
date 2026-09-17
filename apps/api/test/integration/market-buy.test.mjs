@@ -37,8 +37,7 @@ test("market BUY persists one atomic fill and concurrent orders cannot overspend
     }
   });
 
-  const tickerCache = { getTicker: () => ({ price: "67542.31" }) };
-  const service = new MarketBuyService({ client }, tickerCache);
+  const service = new MarketBuyService({ client }, { getPrice: () => "67542.31" });
   const user = await client.user.create({
     data: { email: emails[0], passwordHash: "not-used-by-this-transaction-test" },
   });
@@ -129,10 +128,7 @@ test("market BUY persists one atomic fill and concurrent orders cannot overspend
     await client.walletBalance.create({
       data: { asset: "USD", available: "10000", locked: "0", userId: concurrentUser.id },
     });
-    const concurrentService = new MarketBuyService(
-      { client },
-      { getTicker: () => ({ price: "6000" }) },
-    );
+    const concurrentService = new MarketBuyService({ client }, { getPrice: () => "6000" });
 
     const results = await Promise.allSettled([
       concurrentService.execute({ quantity: "1", symbol: "BTC-USD", userId: concurrentUser.id }),

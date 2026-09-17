@@ -2,17 +2,16 @@ import { Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../database/prisma.service";
 import { Prisma } from "../generated/prisma/client";
-import { MarketCacheService } from "../realtime/market-cache.service";
 import { TradingDomainError } from "./domain/decimal";
 import {
   calculatePositionAfterSell,
   type SellPositionUpdate,
 } from "./domain/position-calculations";
+import { MarketExecutionPriceService } from "./market-execution-price.service";
 import { MarketOrderError } from "./market-order.error";
 import {
   type MarketDefinition,
   calculateMarketQuoteAmount,
-  parseMarketExecutionPrice,
   parseMarketOrderQuantity,
   parseMarketOrderSymbol,
 } from "./market-order.input";
@@ -39,19 +38,16 @@ export type MarketSellExecution = Readonly<{
 export class MarketSellService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly marketCache: MarketCacheService,
+    private readonly executionPrices: MarketExecutionPriceService,
   ) {}
 
   async execute(input: MarketSellInput): Promise<MarketSellExecution> {
     const market = parseMarketOrderSymbol(input.symbol);
     const quantity = parseMarketOrderQuantity(input.quantity);
-    const executionPrice = parseMarketExecutionPrice(
-      this.marketCache.getTicker(market.symbol)?.price,
-    );
-    const quoteAmount = calculateMarketQuoteAmount(executionPrice, quantity);
-
     // Concurrent orders can contend on the same base wallet and position; retry only transaction conflicts.
     for (let attempt = 1; attempt <= MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS; attempt++) {
+      const executionPrice = this.executionPrices.getPrice(market.symbol);
+      const quoteAmount = calculateMarketQuoteAmount(executionPrice, quantity);
       try {
         return await this.prisma.client.$transaction(
           (transaction) =>
