@@ -10,6 +10,7 @@ function createService({
   executionPrice = "70000",
   position = { averageCostUsd: "55000", quantity: "2", realizedPnlUsd: "20" },
   baseDebitCount = 1,
+  executionErrorCode,
   positionUpdateCount = 1,
   transactionFailures = [],
 } = {}) {
@@ -64,13 +65,22 @@ function createService({
       return callback(transaction);
     },
   };
-  const cache = {
-    getTicker() {
-      return executionPrice === undefined ? undefined : { price: executionPrice };
+  const executionPrices = {
+    getPrice() {
+      if (executionErrorCode) {
+        throw new MarketOrderError(executionErrorCode, "Market execution price is unavailable.");
+      }
+      if (!executionPrice || executionPrice === "not-a-price") {
+        throw new MarketOrderError(
+          "MARKET_DATA_UNAVAILABLE",
+          "Market execution price is unavailable.",
+        );
+      }
+      return executionPrice;
     },
   };
 
-  return { calls, service: new MarketSellService({ client }, cache) };
+  return { calls, service: new MarketSellService({ client }, executionPrices) };
 }
 
 test("fills a market SELL atomically, credits USD, and realizes P&L", async () => {
@@ -205,7 +215,18 @@ test("rejects invalid inputs and unavailable market prices before a transaction"
     (error) => error instanceof MarketOrderError && error.code === "MARKET_DATA_UNAVAILABLE",
   );
 
-  for (const calls of [invalidQuantity.calls, unsupportedSymbol.calls, unavailableMarket.calls]) {
+  const staleMarket = createService({ executionErrorCode: "MARKET_DATA_STALE" });
+  await assert.rejects(
+    staleMarket.service.execute({ quantity: "0.5", symbol: "BTC-USD", userId: "user-1" }),
+    (error) => error instanceof MarketOrderError && error.code === "MARKET_DATA_STALE",
+  );
+
+  for (const calls of [
+    invalidQuantity.calls,
+    unsupportedSymbol.calls,
+    unavailableMarket.calls,
+    staleMarket.calls,
+  ]) {
     assert.equal(calls.transactionOptions.length, 0);
   }
 });

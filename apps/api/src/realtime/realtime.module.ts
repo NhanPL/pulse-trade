@@ -9,7 +9,7 @@ import { RealtimeGateway } from "./realtime.gateway";
 import { SubscriptionRegistry } from "./subscription-registry.service";
 
 @Module({
-  exports: [MarketCacheService, SubscriptionRegistry],
+  exports: [MarketCacheService, MarketFreshnessService, SubscriptionRegistry],
   imports: [MarketModule],
   providers: [
     CandleAggregationService,

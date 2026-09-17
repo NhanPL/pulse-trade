@@ -111,7 +111,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] J02 Implement decimal/domain helpers.
 - [x] J03 Implement market BUY transaction.
 - [x] J04 Implement market SELL transaction.
-- [ ] J05 Reject stale market execution.
+- [x] J05 Reject stale market execution.
 - [ ] J06 Add order API.
 - [ ] J07 Integrate OrderForm MARKET mode.
 - [ ] J08 Add insufficient-balance UX.

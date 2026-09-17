@@ -37,7 +37,7 @@ test("market SELL persists one atomic fill and concurrent orders cannot oversell
     }
   });
 
-  const service = new MarketSellService({ client }, { getTicker: () => ({ price: "70000" }) });
+  const service = new MarketSellService({ client }, { getPrice: () => "70000" });
   const user = await client.user.create({
     data: { email: emails[0], passwordHash: "not-used-by-this-transaction-test" },
   });
@@ -165,10 +165,7 @@ test("market SELL persists one atomic fill and concurrent orders cannot oversell
         },
       }),
     ]);
-    const concurrentService = new MarketSellService(
-      { client },
-      { getTicker: () => ({ price: "6000" }) },
-    );
+    const concurrentService = new MarketSellService({ client }, { getPrice: () => "6000" });
 
     const results = await Promise.allSettled([
       concurrentService.execute({ quantity: "1", symbol: "BTC-USD", userId: concurrentUser.id }),
