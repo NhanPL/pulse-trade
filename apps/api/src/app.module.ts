@@ -3,6 +3,7 @@ import { AuthModule } from "./auth/auth.module";
 
 import { MarketModule } from "./markets/market.module";
 import { RealtimeModule } from "./realtime/realtime.module";
+import { TradingModule } from "./trading/trading.module";
 
-@Module({ imports: [AuthModule, MarketModule, RealtimeModule] })
+@Module({ imports: [AuthModule, MarketModule, RealtimeModule, TradingModule] })
 export class AppModule {}

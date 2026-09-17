@@ -109,7 +109,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 
 - [x] J01 Add wallet/position/order/trade DB models.
 - [x] J02 Implement decimal/domain helpers.
-- [ ] J03 Implement market BUY transaction.
+- [x] J03 Implement market BUY transaction.
 - [ ] J04 Implement market SELL transaction.
 - [ ] J05 Reject stale market execution.
 - [ ] J06 Add order API.
