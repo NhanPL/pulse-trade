@@ -4,8 +4,11 @@ I01 introduces only `User` and `Session`, mapped to PostgreSQL `users` and
 `sessions`. See `docs/05_DATABASE_DESIGN.md` for the domain specification.
 
 I03 adds `WalletBalance` as the direct prerequisite for registration funding.
-Other J01 models remain unimplemented. The wallet uses `NUMERIC(38,18)`, a unique
-`(user_id, asset)` key and migration-level nonnegative/finite CHECK constraints.
+J01 adds `Position`, `Order` and immutable `Trade` models with PostgreSQL enums,
+financial CHECK constraints, ownership-preserving foreign keys and order/history
+indexes. It is schema-only: market/limit execution and order HTTP endpoints remain
+subsequent tasks. Wallets, positions and orders use `NUMERIC(38,18)`; the wallet
+and position rows each have a unique `(user_id, asset)` key.
 
 ## Commands
 

@@ -16,8 +16,98 @@ model User {
   updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   sessions       Session[]
   walletBalances WalletBalance[]
+  positions      Position[]
+  orders         Order[]
+  trades         Trade[]
 
   @@map("users")
+}
+
+model Position {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  asset           String   @db.VarChar(20)
+  quantity        Decimal  @default(0) @db.Decimal(38, 18)
+  averageCostUsd  Decimal  @default(0) @map("average_cost_usd") @db.Decimal(38, 18)
+  realizedPnlUsd  Decimal  @default(0) @map("realized_pnl_usd") @db.Decimal(38, 18)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, asset])
+  @@map("positions")
+}
+
+enum OrderSide {
+  BUY
+  SELL
+
+  @@map("order_side")
+}
+
+enum OrderType {
+  MARKET
+  LIMIT
+
+  @@map("order_type")
+}
+
+enum OrderStatus {
+  PENDING
+  FILLED
+  CANCELLED
+  REJECTED
+
+  @@map("order_status")
+}
+
+model Order {
+  id                  String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String      @map("user_id") @db.Uuid
+  symbol              String      @db.VarChar(41)
+  baseAsset           String      @map("base_asset") @db.VarChar(20)
+  quoteAsset          String      @map("quote_asset") @db.VarChar(20)
+  side                OrderSide
+  type                OrderType
+  status              OrderStatus
+  quantity            Decimal     @db.Decimal(38, 18)
+  limitPrice          Decimal?    @map("limit_price") @db.Decimal(38, 18)
+  filledQuantity      Decimal     @default(0) @map("filled_quantity") @db.Decimal(38, 18)
+  avgFillPrice        Decimal?    @map("avg_fill_price") @db.Decimal(38, 18)
+  reservedAsset       String?     @map("reserved_asset") @db.VarChar(20)
+  reservedAmount      Decimal     @default(0) @map("reserved_amount") @db.Decimal(38, 18)
+  idempotencyKey      String?     @map("idempotency_key") @db.VarChar(255)
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  filledAt            DateTime?   @map("filled_at") @db.Timestamptz(3)
+  cancelledAt         DateTime?   @map("cancelled_at") @db.Timestamptz(3)
+  rejectionReasonCode String?     @map("rejection_reason_code") @db.VarChar(100)
+  user                User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  trades              Trade[]
+
+  @@unique([id, userId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, status, createdAt(sort: Desc)])
+  @@index([status, symbol])
+  @@map("orders")
+}
+
+model Trade {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId       String    @map("order_id") @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  symbol        String    @db.VarChar(41)
+  side          OrderSide
+  price         Decimal   @db.Decimal(38, 18)
+  quantity      Decimal   @db.Decimal(38, 18)
+  quoteAmount   Decimal   @map("quote_amount") @db.Decimal(38, 18)
+  executedAt    DateTime  @default(now()) @map("executed_at") @db.Timestamptz(3)
+  order         Order     @relation(fields: [orderId, userId], references: [id, userId], onDelete: Restrict)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, executedAt(sort: Desc)])
+  @@index([orderId])
+  @@map("trades")
 }
 
 model WalletBalance {
