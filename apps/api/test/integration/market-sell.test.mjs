@@ -9,10 +9,10 @@ const require = createRequire(import.meta.url);
 const { NestFactory } = require("@nestjs/core");
 const { PrismaService } = require("../../dist/database/prisma.service.js");
 const { DatabaseModule } = require("../../dist/database/database.module.js");
-const { MarketBuyService } = require("../../dist/trading/market-buy.service.js");
 const { MarketOrderError } = require("../../dist/trading/market-order.error.js");
+const { MarketSellService } = require("../../dist/trading/market-sell.service.js");
 
-test("market BUY persists one atomic fill and concurrent orders cannot overspend", async (t) => {
+test("market SELL persists one atomic fill and concurrent orders cannot oversell", async (t) => {
   const databaseUrl = process.env.DATABASE_URL;
   assert.ok(
     databaseUrl && new URL(databaseUrl).pathname.endsWith("_test"),
@@ -20,7 +20,7 @@ test("market BUY persists one atomic fill and concurrent orders cannot overspend
   );
   const app = await NestFactory.createApplicationContext(DatabaseModule, { logger: false });
   const client = app.get(PrismaService).client;
-  const prefix = `market-buy-${randomUUID()}`;
+  const prefix = `market-sell-${randomUUID()}`;
   const emails = [`${prefix}@example.com`, `${prefix}-concurrent@example.com`];
 
   t.after(async () => {
@@ -37,24 +37,37 @@ test("market BUY persists one atomic fill and concurrent orders cannot overspend
     }
   });
 
-  const tickerCache = { getTicker: () => ({ price: "67542.31" }) };
-  const service = new MarketBuyService({ client }, tickerCache);
+  const service = new MarketSellService({ client }, { getTicker: () => ({ price: "70000" }) });
   const user = await client.user.create({
     data: { email: emails[0], passwordHash: "not-used-by-this-transaction-test" },
   });
-  await client.walletBalance.create({
-    data: { asset: "USD", available: "10000", locked: "0", userId: user.id },
-  });
+  await client.$transaction([
+    client.walletBalance.create({
+      data: { asset: "USD", available: "1000", locked: "0", userId: user.id },
+    }),
+    client.walletBalance.create({
+      data: { asset: "BTC", available: "2", locked: "0", userId: user.id },
+    }),
+    client.position.create({
+      data: {
+        asset: "BTC",
+        averageCostUsd: "55000",
+        quantity: "2",
+        realizedPnlUsd: "20",
+        userId: user.id,
+      },
+    }),
+  ]);
 
   await t.test(
-    "records the filled order, immutable trade, balances, and weighted cost basis",
+    "records proceeds, realized P&L, the filled order, and immutable trade",
     async () => {
       const execution = await service.execute({
-        quantity: "0.01",
+        quantity: "0.5",
         symbol: "BTC-USD",
         userId: user.id,
       });
-      assert.equal(execution.quoteAmount, "675.4231");
+      assert.equal(execution.quoteAmount, "35000");
 
       const [usd, btc, position, order, trade] = await Promise.all([
         client.walletBalance.findUniqueOrThrow({
@@ -69,12 +82,11 @@ test("market BUY persists one atomic fill and concurrent orders cannot overspend
         client.order.findUniqueOrThrow({ where: { id: execution.orderId } }),
         client.trade.findUniqueOrThrow({ where: { id: execution.tradeId } }),
       ]);
-      assert.equal(usd.available.toString(), "9324.5769");
-      assert.equal(usd.locked.toString(), "0");
-      assert.equal(btc.available.toString(), "0.01");
-      assert.equal(position.quantity.toString(), "0.01");
-      assert.equal(position.averageCostUsd.toString(), "67542.31");
-      assert.equal(position.realizedPnlUsd.toString(), "0");
+      assert.equal(usd.available.toString(), "36000");
+      assert.equal(btc.available.toString(), "1.5");
+      assert.equal(position.quantity.toString(), "1.5");
+      assert.equal(position.averageCostUsd.toString(), "55000");
+      assert.equal(position.realizedPnlUsd.toString(), "7520");
       assert.deepEqual(
         {
           avgFillPrice: order.avgFillPrice?.toString(),
@@ -85,10 +97,10 @@ test("market BUY persists one atomic fill and concurrent orders cannot overspend
           type: order.type,
         },
         {
-          avgFillPrice: "67542.31",
-          filledQuantity: "0.01",
-          quantity: "0.01",
-          side: "BUY",
+          avgFillPrice: "70000",
+          filledQuantity: "0.5",
+          quantity: "0.5",
+          side: "SELL",
           status: "FILLED",
           type: "MARKET",
         },
@@ -103,33 +115,57 @@ test("market BUY persists one atomic fill and concurrent orders cannot overspend
         },
         {
           orderId: execution.orderId,
-          price: "67542.31",
-          quantity: "0.01",
-          quoteAmount: "675.4231",
-          side: "BUY",
+          price: "70000",
+          quantity: "0.5",
+          quoteAmount: "35000",
+          side: "SELL",
         },
       );
     },
   );
 
-  await t.test("does not create partial state when available USD is insufficient", async () => {
+  await t.test("does not create partial state when available BTC is insufficient", async () => {
     await assert.rejects(
-      service.execute({ quantity: "1", symbol: "BTC-USD", userId: user.id }),
+      service.execute({ quantity: "2", symbol: "BTC-USD", userId: user.id }),
       (error) => error instanceof MarketOrderError && error.code === "INSUFFICIENT_BALANCE",
     );
     assert.equal(await client.order.count({ where: { userId: user.id } }), 1);
     assert.equal(await client.trade.count({ where: { userId: user.id } }), 1);
-    assert.equal(await client.walletBalance.count({ where: { asset: "BTC", userId: user.id } }), 1);
+    const [usd, btc, position] = await Promise.all([
+      client.walletBalance.findUniqueOrThrow({
+        where: { userId_asset: { asset: "USD", userId: user.id } },
+      }),
+      client.walletBalance.findUniqueOrThrow({
+        where: { userId_asset: { asset: "BTC", userId: user.id } },
+      }),
+      client.position.findUniqueOrThrow({
+        where: { userId_asset: { asset: "BTC", userId: user.id } },
+      }),
+    ]);
+    assert.equal(usd.available.toString(), "36000");
+    assert.equal(btc.available.toString(), "1.5");
+    assert.equal(position.quantity.toString(), "1.5");
   });
 
-  await t.test("allows only one of two concurrent purchases to spend the same USD", async () => {
+  await t.test("allows only one of two concurrent sales to spend the same BTC", async () => {
     const concurrentUser = await client.user.create({
       data: { email: emails[1], passwordHash: "not-used-by-this-transaction-test" },
     });
-    await client.walletBalance.create({
-      data: { asset: "USD", available: "10000", locked: "0", userId: concurrentUser.id },
-    });
-    const concurrentService = new MarketBuyService(
+    await client.$transaction([
+      client.walletBalance.create({
+        data: { asset: "BTC", available: "1", locked: "0", userId: concurrentUser.id },
+      }),
+      client.position.create({
+        data: {
+          asset: "BTC",
+          averageCostUsd: "5000",
+          quantity: "1",
+          realizedPnlUsd: "0",
+          userId: concurrentUser.id,
+        },
+      }),
+    ]);
+    const concurrentService = new MarketSellService(
       { client },
       { getTicker: () => ({ price: "6000" }) },
     );
@@ -156,9 +192,11 @@ test("market BUY persists one atomic fill and concurrent orders cannot overspend
       client.order.count({ where: { userId: concurrentUser.id } }),
       client.trade.count({ where: { userId: concurrentUser.id } }),
     ]);
-    assert.equal(usd.available.toString(), "4000");
-    assert.equal(btc.available.toString(), "1");
-    assert.equal(position.quantity.toString(), "1");
+    assert.equal(usd.available.toString(), "6000");
+    assert.equal(btc.available.toString(), "0");
+    assert.equal(position.quantity.toString(), "0");
+    assert.equal(position.averageCostUsd.toString(), "0");
+    assert.equal(position.realizedPnlUsd.toString(), "1000");
     assert.equal(orderCount, 1);
     assert.equal(tradeCount, 1);
   });
