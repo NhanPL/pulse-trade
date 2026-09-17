@@ -107,7 +107,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 
 ## Epic J — Market orders
 
-- [ ] J01 Add wallet/position/order/trade DB models.
+- [x] J01 Add wallet/position/order/trade DB models.
 - [ ] J02 Implement decimal/domain helpers.
 - [ ] J03 Implement market BUY transaction.
 - [ ] J04 Implement market SELL transaction.
