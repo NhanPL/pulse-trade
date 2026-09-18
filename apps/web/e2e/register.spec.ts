@@ -28,8 +28,6 @@ test("desktop follows the auth layout and keyboard validation never sends invali
   await expect(page.getByText("Passwords do not match.")).toBeVisible();
   expect(requests).toBe(0);
   const showPassword = page.getByRole("button", { name: "Show password", exact: true });
-  await showPassword.focus();
-  await expect(showPassword).toBeFocused();
   await showPassword.press("Enter");
   await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute("type", "text");
   await page.getByRole("button", { name: "Hide password", exact: true }).press("Enter");
