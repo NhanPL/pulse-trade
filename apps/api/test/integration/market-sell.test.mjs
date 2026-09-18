@@ -190,7 +190,9 @@ test("market SELL persists one atomic fill and concurrent orders cannot oversell
       client.trade.count({ where: { userId: concurrentUser.id } }),
     ]);
     assert.equal(usd.available.toString(), "6000");
+    assert.equal(usd.locked.toString(), "0");
     assert.equal(btc.available.toString(), "0");
+    assert.equal(btc.locked.toString(), "0");
     assert.equal(position.quantity.toString(), "0");
     assert.equal(position.averageCostUsd.toString(), "0");
     assert.equal(position.realizedPnlUsd.toString(), "1000");

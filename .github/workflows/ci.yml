@@ -76,5 +76,5 @@ jobs:
       - name: Apply test database migrations
         run: pnpm --filter @pulse-trade/api db:deploy
 
-      - name: Authentication PostgreSQL integration tests
+      - name: PostgreSQL integration tests
         run: pnpm --filter @pulse-trade/api test:integration

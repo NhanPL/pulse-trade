@@ -115,7 +115,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] J06 Add order API.
 - [x] J07 Integrate OrderForm MARKET mode.
 - [x] J08 Add insufficient-balance UX.
-- [ ] J09 Add transaction/concurrency tests.
+- [x] J09 Add transaction/concurrency tests.
 
 ## Epic K — Portfolio
 
