@@ -382,6 +382,8 @@ Common errors:
 - `MARKET_DATA_UNAVAILABLE`
 - `MARKET_DATA_STALE`
 - `ORDER_CONFLICT`
+- `INVALID_ORDER`
+- `ORDER_UNAVAILABLE`
 
 ### POST `/orders/:id/cancel`
 

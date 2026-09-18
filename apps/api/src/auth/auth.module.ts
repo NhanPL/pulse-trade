@@ -23,6 +23,6 @@ import { MeController } from "./me.controller";
     LogoutService,
     CurrentUserService,
   ],
-  exports: [PasswordHashService],
+  exports: [CurrentUserService, PasswordHashService],
 })
 export class AuthModule {}
