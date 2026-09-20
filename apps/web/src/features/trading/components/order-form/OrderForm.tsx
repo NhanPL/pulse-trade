@@ -172,7 +172,6 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
   const router = useRouter();
   const session = useAuthSession();
   const formId = useId();
-  const submitting = useRef(false);
   const [side, setSide] = useState<OrderSide>("BUY");
   const [type, setType] = useState<OrderType>("LIMIT");
   const [limitPrice, setLimitPrice] = useState(currentPrice);
@@ -378,7 +377,7 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
             label="Quantity"
             min="0.00000001"
             placeholder="0.00"
-            readOnly={pending}
+            required
             step="0.00000001"
             trailingElement={<span className="text-xs font-semibold">{baseAsset}</span>}
             type="number"
@@ -399,25 +398,6 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
             {estimate}
           </span>
         </div>
-
-        {errors.root?.message ? (
-          <p
-            className="rounded-lg border border-negative/30 bg-negative-subtle p-3 text-sm text-negative"
-            role="alert"
-          >
-            {errors.root.message}
-          </p>
-        ) : null}
-
-        {filledOrder ? (
-          <p
-            className="rounded-lg border border-positive/30 bg-positive-subtle p-3 text-sm text-positive"
-            role="status"
-          >
-            Market {filledOrder.side} order filled at {formatMarketPrice(filledOrder.price)}{" "}
-            {quoteAsset}.
-          </p>
-        ) : null}
 
         <Button
           className="w-full lg:sticky lg:bottom-0 lg:z-10"
