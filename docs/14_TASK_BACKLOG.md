@@ -114,12 +114,12 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] J05 Reject stale market execution.
 - [x] J06 Add order API.
 - [x] J07 Integrate OrderForm MARKET mode.
-- [ ] J08 Add insufficient-balance UX.
-- [ ] J09 Add transaction/concurrency tests.
+- [x] J08 Add insufficient-balance UX.
+- [x] J09 Add transaction/concurrency tests.
 
 ## Epic K — Portfolio
 
-- [ ] K01 Implement portfolio endpoint.
+- [x] K01 Implement portfolio endpoint.
 - [ ] K02 Build summary cards.
 - [ ] K03 Build balances section.
 - [ ] K04 Build holdings table/cards.

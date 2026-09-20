@@ -1,18 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { marketOrderRequestSchema, type MarketOrderRequest } from "@pulse-trade/contracts";
-import { useId, useRef, useState, type FormEvent } from "react";
-import { useForm, useWatch } from "react-hook-form";
 
 import { Button } from "@/components/ui/Button";
 import { classNames } from "@/components/ui/class-names";
 import { Input } from "@/components/ui/Input";
 import { useAuthSession } from "@/features/auth/components/AuthSessionProvider";
 import { formatMarketPrice } from "@/lib/format/market-value";
-import { MarketOrderSubmissionError, submitMarketOrder } from "../../api/market-order";
+import { CreateMarketOrderError, createMarketOrder } from "../../api/create-market-order";
 
 type OrderSide = "BUY" | "SELL";
 type OrderType = "MARKET" | "LIMIT";
@@ -171,39 +170,27 @@ function BuySellTabs({ controlsId, disabled = false, idPrefix, onChange, side }:
 
 export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: OrderFormProps) {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const auth = useAuthSession();
+  const session = useAuthSession();
   const formId = useId();
-  const submitting = useRef(false);
   const [side, setSide] = useState<OrderSide>("BUY");
   const [type, setType] = useState<OrderType>("LIMIT");
   const [limitPrice, setLimitPrice] = useState(currentPrice);
-  const [filledOrder, setFilledOrder] = useState<{
-    price: string;
-    side: OrderSide;
-  } | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const request = useRef<AbortController | null>(null);
+  const submitting = useRef(false);
   const {
     clearErrors,
     control,
-    formState: { errors, isSubmitting },
     handleSubmit,
     register,
     reset,
     setError,
+    formState: { errors, isSubmitting },
   } = useForm<MarketOrderFormValues>({
     defaultValues: { quantity: "" },
     resolver: zodResolver(marketOrderFormSchema),
   });
-  const marketOrder = useMutation({
-    mutationFn: submitMarketOrder,
-    onSuccess: () => {
-      // These queries are introduced in later epics; invalidation avoids stale balances/order history.
-      void queryClient.invalidateQueries({ queryKey: ["orders"] });
-      void queryClient.invalidateQueries({ queryKey: ["portfolio"] });
-    },
-  });
   const quantity = useWatch({ control, name: "quantity" });
-  const pending = isSubmitting || marketOrder.isPending;
   const estimatePrice = type === "MARKET" ? currentPrice : limitPrice;
   const reservesBaseAsset = type === "LIMIT" && side === "SELL";
   const estimateLabel = type === "LIMIT" ? "Estimated reserved" : "Estimated notional";
@@ -211,66 +198,105 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
     ? formatQuantityEstimate(quantity, baseAsset)
     : formatEstimate(quantity, estimatePrice, quoteAsset);
   const orderFieldsId = `${formId}-order-fields`;
+  const isAuthenticated = session.status === "authenticated";
+  const checkingSession = session.status === "checking";
+  const isMarketOrder = type === "MARKET";
+  const pending = isSubmitting;
+
+  useEffect(() => () => request.current?.abort(), []);
+
+  function clearOrderFeedback(): void {
+    clearErrors();
+    setSuccessMessage(null);
+  }
+
+  function routeToLogin(): void {
+    router.push(`/login?returnTo=${encodeURIComponent(`/trade/${symbol}`)}`);
+  }
+
+  async function submitMarketOrder(values: MarketOrderFormValues): Promise<void> {
+    const accessToken = session.getAccessToken();
+    if (!accessToken) {
+      routeToLogin();
+      return;
+    }
+
+    const controller = new AbortController();
+    request.current = controller;
+    clearOrderFeedback();
+
+    try {
+      const order = await createMarketOrder(
+        { quantity: values.quantity, side, symbol, type: "MARKET" },
+        accessToken,
+        controller.signal,
+      );
+      if (controller.signal.aborted) return;
+
+      reset({ quantity: "" });
+      setSuccessMessage(
+        `Market ${order.side.toLowerCase()} order filled at ${formatMarketPrice(order.avgFillPrice)} ${quoteAsset}.`,
+      );
+    } catch (error) {
+      if (controller.signal.aborted) return;
+
+      if (error instanceof CreateMarketOrderError && error.code === "UNAUTHENTICATED") {
+        routeToLogin();
+        return;
+      }
+      if (error instanceof CreateMarketOrderError && error.code === "INSUFFICIENT_BALANCE") {
+        const availableAsset = side === "BUY" ? quoteAsset : baseAsset;
+        setError(
+          "quantity",
+          {
+            type: "insufficient-balance",
+            message: `Insufficient ${availableAsset} available to ${side === "BUY" ? "buy" : "sell"} ${baseAsset}. Reduce the quantity and try again.`,
+          },
+          { shouldFocus: true },
+        );
+        return;
+      }
+      setError("root", {
+        message:
+          error instanceof Error
+            ? error.message
+            : "Order placement failed. Please try again shortly.",
+      });
+    } finally {
+      request.current = null;
+    }
+  }
 
   function handleFormSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    if (auth.status === "checking") return;
-    if (auth.status !== "authenticated") {
-      router.push(`/login?returnTo=${encodeURIComponent(`/trade/${symbol}`)}`);
+    if (submitting.current || pending) return;
+    if (checkingSession) {
+      setError("root", { message: "Checking your session. Please wait a moment." });
       return;
     }
-    if (type === "LIMIT") {
-      setError("root", { message: "Limit order placement is not available yet." });
+    if (!isAuthenticated) {
+      routeToLogin();
       return;
     }
-    void handleSubmit(submitMarketOrderForm)(event);
-  }
-
-  async function submitMarketOrderForm(values: MarketOrderFormValues): Promise<void> {
-    if (submitting.current) return;
-
-    const accessToken = auth.getAccessToken();
-    if (!accessToken) {
-      setError("root", {
-        message: "Your sign-in session has expired. Sign in again to place an order.",
-      });
+    if (!isMarketOrder) {
+      setError("root", { message: "Limit orders are not available yet." });
       return;
     }
 
     submitting.current = true;
-    clearErrors("root");
-    setFilledOrder(null);
-    try {
-      const filled = await marketOrder.mutateAsync({
-        accessToken,
-        quantity: values.quantity,
-        side,
-        symbol,
-        type: "MARKET",
-      });
-      reset({ quantity: "" });
-      setFilledOrder({ price: filled.avgFillPrice, side: filled.side });
-    } catch (error) {
-      setError("root", {
-        message:
-          error instanceof MarketOrderSubmissionError
-            ? error.message
-            : "Order placement is temporarily unavailable. Check your connection and try again.",
-      });
-    } finally {
+    void handleSubmit(submitMarketOrder)(event).finally(() => {
       submitting.current = false;
-    }
+    });
   }
 
-  const isGuest = auth.status !== "authenticated";
-  const limitOrderUnavailable = auth.status === "authenticated" && type === "LIMIT";
-  const buttonLabel =
-    auth.status === "checking"
-      ? "Checking session…"
-      : isGuest
-        ? `Sign in to ${side === "BUY" ? "buy" : "sell"} ${baseAsset}`
-        : limitOrderUnavailable
-          ? "Limit orders coming soon"
+  const submitLabel = checkingSession
+    ? "Checking session…"
+    : !isAuthenticated
+      ? `Sign in to ${side === "BUY" ? "buy" : "sell"} ${baseAsset}`
+      : !isMarketOrder
+        ? "Limit orders coming soon"
+        : pending
+          ? `${side === "BUY" ? "Buying" : "Selling"} ${baseAsset}…`
           : `${side === "BUY" ? "Buy" : "Sell"} ${baseAsset}`;
 
   return (
@@ -284,15 +310,17 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
         </h2>
         <BuySellTabs
           controlsId={orderFieldsId}
-          disabled={pending}
           idPrefix={formId}
-          onChange={setSide}
+          onChange={(value) => {
+            setSide(value);
+            clearOrderFeedback();
+          }}
           side={side}
         />
         <p className="hidden self-center text-right text-xs text-foreground-muted sm:block">
           Available / locked
           <span className="block font-medium text-foreground-secondary">
-            {isGuest ? "Sign in to view" : "View in Portfolio"}
+            {isAuthenticated ? "Checked when you submit" : "Sign in to view"}
           </span>
         </p>
       </header>
@@ -310,7 +338,10 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
           disabled={pending}
           label="Order type"
           name={`${formId}-type`}
-          onChange={setType}
+          onChange={(value) => {
+            setType(value);
+            clearOrderFeedback();
+          }}
           options={TYPE_OPTIONS}
           value={type}
         />
@@ -346,13 +377,18 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
             label="Quantity"
             min="0.00000001"
             placeholder="0.00"
-            readOnly={pending}
+            required
             step="0.00000001"
             trailingElement={<span className="text-xs font-semibold">{baseAsset}</span>}
             type="number"
-            value={quantity}
-            error={errors.quantity ? "Enter a positive fixed-point quantity." : undefined}
-            {...register("quantity")}
+            error={errors.quantity?.message}
+            readOnly={pending}
+            {...register("quantity", {
+              onChange: () => {
+                clearErrors("quantity");
+                setSuccessMessage(null);
+              },
+            })}
           />
         </div>
 
@@ -363,6 +399,17 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
           </span>
         </div>
 
+        <Button
+          className="w-full lg:sticky lg:bottom-0 lg:z-10"
+          disabled={checkingSession || (isAuthenticated && !isMarketOrder)}
+          isLoading={pending}
+          size="lg"
+          type="submit"
+          variant={side === "BUY" ? "positive" : "destructive"}
+        >
+          {submitLabel}
+        </Button>
+
         {errors.root?.message ? (
           <p
             className="rounded-lg border border-negative/30 bg-negative-subtle p-3 text-sm text-negative"
@@ -372,26 +419,14 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
           </p>
         ) : null}
 
-        {filledOrder ? (
+        {successMessage ? (
           <p
             className="rounded-lg border border-positive/30 bg-positive-subtle p-3 text-sm text-positive"
             role="status"
           >
-            Market {filledOrder.side} order filled at {formatMarketPrice(filledOrder.price)}{" "}
-            {quoteAsset}.
+            {successMessage}
           </p>
         ) : null}
-
-        <Button
-          className="w-full lg:sticky lg:bottom-0 lg:z-10"
-          disabled={auth.status === "checking" || limitOrderUnavailable}
-          isLoading={pending}
-          size="lg"
-          type="submit"
-          variant={side === "BUY" ? "positive" : "destructive"}
-        >
-          {pending ? `${side === "BUY" ? "Buying" : "Selling"}…` : buttonLabel}
-        </Button>
 
         <p className="text-center text-xs leading-5 text-foreground-muted lg:sr-only">
           Paper trading only. Estimates use the displayed price; execution price and balances are

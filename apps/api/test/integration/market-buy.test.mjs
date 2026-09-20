@@ -153,7 +153,9 @@ test("market BUY persists one atomic fill and concurrent orders cannot overspend
       client.trade.count({ where: { userId: concurrentUser.id } }),
     ]);
     assert.equal(usd.available.toString(), "4000");
+    assert.equal(usd.locked.toString(), "0");
     assert.equal(btc.available.toString(), "1");
+    assert.equal(btc.locked.toString(), "0");
     assert.equal(position.quantity.toString(), "1");
     assert.equal(orderCount, 1);
     assert.equal(tradeCount, 1);
