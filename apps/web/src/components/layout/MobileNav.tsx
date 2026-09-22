@@ -41,7 +41,7 @@ export function MobileNav({
 
   return (
     <header
-      className="relative z-30 border-b border-border-subtle bg-header/95 backdrop-blur md:hidden"
+      className="relative z-30 border-b border-border-subtle bg-header/95 backdrop-blur lg:hidden"
       onKeyDown={handleKeyDown}
     >
       <div className="flex h-14 items-center justify-between gap-3 px-4">

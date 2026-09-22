@@ -120,7 +120,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 ## Epic K — Portfolio
 
 - [x] K01 Implement portfolio endpoint.
-- [ ] K02 Build summary cards.
+- [x] K02 Build summary cards.
 - [ ] K03 Build balances section.
 - [ ] K04 Build holdings table/cards.
 - [ ] K05 Combine position snapshot with live tickers.

@@ -39,7 +39,7 @@ export function AppHeader(props: AppHeaderProps) {
 
   return (
     <>
-      <header className="hidden h-16 border-b border-border-subtle bg-header/95 backdrop-blur md:block">
+      <header className="hidden h-16 border-b border-border-subtle bg-header/95 backdrop-blur lg:block">
         <div className="mx-auto flex h-full max-w-[1440px] items-center gap-8 px-6 lg:px-8">
           <BrandLink />
           <DesktopNav isAuthenticated={isAuthenticated} />

@@ -50,6 +50,18 @@ PortfolioPage
    └─ ErrorState
 ```
 
+### K02 summary presentation
+
+The summary follows the four-card row in `docs/design/desktop/portfolio.png`: Total Value,
+Unrealized P&L, Realized P&L, and Cash Balance. The cash card supplements the three core cards
+above; the available/locked balances panel remains K03.
+
+At K02, `/portfolio` is authenticated and explicitly labeled as a sample portfolio. Separate
+fixtures supply illustrative USD values to presentational components, following the screen
+build order in `docs/10_DEVELOPMENT_PLAN.md`. REST/live valuation and realized-P&L aggregation
+remain subsequent tasks (K05–K07). Sample values must never be presented as account data.
+Do not add historical sparklines or percentage returns without the data to support them.
+
 ## 5. Data model
 
 REST provides:

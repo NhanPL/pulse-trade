@@ -8,6 +8,7 @@ export default defineConfig({
     "auth-bootstrap.spec.ts",
     "logout.spec.ts",
     "trading-order.spec.ts",
+    "portfolio-summary.spec.ts",
   ],
   fullyParallel: true,
   use: {
