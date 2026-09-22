@@ -62,6 +62,18 @@ build order in `docs/10_DEVELOPMENT_PLAN.md`. REST/live valuation and realized-P
 remain subsequent tasks (K05–K07). Sample values must never be presented as account data.
 Do not add historical sparklines or percentage returns without the data to support them.
 
+### K03 balances presentation
+
+The USD panel below the summary shows Available, Locked, Total, and the available share,
+following the desktop evidence. It uses the same explicitly labeled sample portfolio as K02.
+Total is calculated from the decimal inputs before display rounding; percentages describe
+the split of USD cash, not portfolio performance. Zero cash has no allocation and unavailable
+inputs must not appear as zero balances. The layout stacks on narrow screens.
+
+This step covers the USD breakdown documented by the screen and existing `/portfolio` contract.
+The broader per-asset balance requirement remains: `positions.quantity` alone cannot supply
+crypto available/locked balances. K03 does not extend that API or implement reservations.
+
 ## 5. Data model
 
 REST provides:

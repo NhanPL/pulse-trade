@@ -9,6 +9,7 @@ export default defineConfig({
     "logout.spec.ts",
     "trading-order.spec.ts",
     "portfolio-summary.spec.ts",
+    "portfolio-balances.spec.ts",
   ],
   fullyParallel: true,
   use: {

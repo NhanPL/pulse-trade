@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Badge } from "@/components/ui/Badge";
+import { BalancePanel } from "@/features/portfolio/components/BalancePanel";
 import { PortfolioSummary } from "@/features/portfolio/components/PortfolioSummary";
+import { CASH_BALANCE_PREVIEW } from "@/features/portfolio/model/cash-balance.mock";
 import { PORTFOLIO_SUMMARY_PREVIEW } from "@/features/portfolio/model/portfolio-summary.mock";
 
 export const metadata: Metadata = { title: "Portfolio | PulseTrade" };
@@ -28,6 +30,7 @@ export default function PortfolioPage() {
       </div>
 
       <PortfolioSummary values={PORTFOLIO_SUMMARY_PREVIEW} />
+      <BalancePanel cash={CASH_BALANCE_PREVIEW} />
     </PageContainer>
   );
 }
