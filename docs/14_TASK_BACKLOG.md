@@ -121,7 +121,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 
 - [x] K01 Implement portfolio endpoint.
 - [x] K02 Build summary cards.
-- [ ] K03 Build balances section.
+- [x] K03 Build balances section.
 - [ ] K04 Build holdings table/cards.
 - [ ] K05 Combine position snapshot with live tickers.
 - [ ] K06 Display unrealized P&L live.
