@@ -86,6 +86,26 @@ presentation-ready quantity, cost, price, value, and P&L strings so this step do
 live account valuation. Combining the authenticated position snapshot with tickers, calculating
 live unrealized P&L, and presenting stale/empty/loading states remain K05, K06, and K08.
 
+### K05 account snapshot and live prices
+
+The portfolio now fetches the authenticated `/portfolio` snapshot through TanStack Query. Cash,
+nonzero quantities, and average cost come from that response; the K02–K04 fixtures are no longer
+shown as account data. The response is runtime-validated with the shared contract and remains in
+the private `portfolio` query scope so logout removes it.
+
+After the snapshot loads, the page creates one ticker-only subscription containing exactly the
+held `ASSET-USD` symbols. The shared realtime manager owns reconnect and re-subscription, while
+route unmount or a changed position set releases the old subscription and store bindings. Each
+holding row selects only its own ticker. Aggregate selectors return stable primitive values so an
+unrelated ticker does not rerender the portfolio, and allocation labels update independently from
+the rest of each row.
+
+Current price, 24-hour change, position market value, total holdings value, and total portfolio
+value update from the ticker store without refetching `/portfolio`. Decimal multiplication and
+cash aggregation use scaled integers. "Hide Small Balances" treats a live position below $10 as
+small. Unrealized and realized P&L intentionally remain unavailable until K06 and K07; richer
+empty/loading/stale valuation presentation remains K08.
+
 ## 5. Data model
 
 REST provides:

@@ -10,10 +10,17 @@ const session = {
     session: { id: "123e4567-e89b-42d3-a456-426614174001", expiresAt: "2099-01-01T00:00:00.000Z" },
   },
 };
+const portfolio = {
+  data: {
+    cash: { available: "18642.30", locked: "0.00" },
+    positions: [],
+    quoteCurrency: "USD",
+  },
+};
 const metrics = [
-  { label: "Total Value", amount: "$124,638.57" },
-  { label: "Unrealized P&L", amount: "+$3,217.46" },
-  { label: "Realized P&L", amount: "+$2,124.83" },
+  { label: "Total Value", amount: "$18,642.30" },
+  { label: "Unrealized P&L", amount: "—" },
+  { label: "Realized P&L", amount: "—" },
   { label: "Cash Balance", amount: "$18,642.30" },
 ];
 
@@ -28,26 +35,26 @@ async function mockAuthenticatedSession(page: Page): Promise<void> {
       body: JSON.stringify({ data: { user } }),
     }),
   );
+  await page.route("**/api/v1/portfolio", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(portfolio),
+    }),
+  );
 }
 
-test("shows four clearly labeled sample metrics without fetching account balances", async ({
-  page,
-}) => {
+test("shows four clearly labeled metrics from the account snapshot", async ({ page }) => {
   await mockAuthenticatedSession(page);
-  let portfolioRequests = 0;
-  await page.route("**/api/v1/portfolio", async (route) => {
-    portfolioRequests++;
-    await route.abort();
-  });
 
   await page.goto("/portfolio");
   await expect(page.getByRole("heading", { name: "Portfolio", exact: true })).toBeVisible();
   await expect(
     page.getByText("Track your paper trading performance and asset allocation.", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Sample portfolio", { exact: true })).toBeVisible();
+  await expect(page.getByText("Paper account", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("Illustrative values only. These are not your account balances.", {
+    page.getByText("Balances and positions come from your account. Market prices update live.", {
       exact: true,
     }),
   ).toBeVisible();
@@ -61,7 +68,6 @@ test("shows four clearly labeled sample metrics without fetching account balance
     await expect(label).toBeVisible();
     await expect(label.locator("xpath=following-sibling::dd[1]")).toHaveText(metric.amount);
   }
-  expect(portfolioRequests).toBe(0);
 });
 
 test("metric explanations can be opened and closed with the keyboard", async ({ page }) => {
@@ -123,7 +129,11 @@ for (const viewport of [
       }
     }
     for (const metric of metrics) {
-      const amount = summary.locator("dd").filter({ hasText: metric.amount });
+      const card = summary.locator("dl > div").filter({
+        has: page.locator(`summary[aria-label="About ${metric.label}"]`),
+      });
+      const amount = card.locator("dd").first();
+      await expect(amount).toHaveText(metric.amount);
       await expect(amount).toBeVisible();
       expect(
         await amount.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),

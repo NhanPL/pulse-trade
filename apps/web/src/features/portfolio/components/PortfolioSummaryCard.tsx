@@ -1,4 +1,5 @@
 import { classNames } from "@/components/ui/class-names";
+import { memo } from "react";
 
 import { presentSummaryValue } from "../model/portfolio-summary";
 
@@ -21,7 +22,7 @@ const iconPaths: Record<SummaryIcon, string> = {
   cash: "M15 8.5c0-1.4-1.3-2.5-3-2.5S9 7.1 9 8.5 10.3 11 12 11s3 1.1 3 2.5-1.3 2.5-3 2.5-3-1.1-3-2.5M12 4v14",
 };
 
-export function PortfolioSummaryCard({
+export const PortfolioSummaryCard = memo(function PortfolioSummaryCard({
   amount,
   description,
   icon,
@@ -87,4 +88,4 @@ export function PortfolioSummaryCard({
       </dd>
     </div>
   );
-}
+});

@@ -1,16 +1,7 @@
 import type { Metadata } from "next";
 
 import { PageContainer } from "@/components/layout/PageContainer";
-import { Badge } from "@/components/ui/Badge";
-import { BalancePanel } from "@/features/portfolio/components/BalancePanel";
-import { HoldingsSection } from "@/features/portfolio/components/HoldingsSection";
-import { PortfolioSummary } from "@/features/portfolio/components/PortfolioSummary";
-import { CASH_BALANCE_PREVIEW } from "@/features/portfolio/model/cash-balance.mock";
-import {
-  HOLDING_PREVIEWS,
-  HOLDING_PREVIEW_TOTALS,
-} from "@/features/portfolio/model/holding-preview.mock";
-import { PORTFOLIO_SUMMARY_PREVIEW } from "@/features/portfolio/model/portfolio-summary.mock";
+import { PortfolioDashboard } from "@/features/portfolio/components/PortfolioDashboard";
 
 export const metadata: Metadata = { title: "Portfolio | PulseTrade" };
 
@@ -27,16 +18,7 @@ export default function PortfolioPage() {
         </p>
       </header>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <Badge variant="neutral">Sample portfolio</Badge>
-        <p className="text-sm text-foreground-muted">
-          Illustrative values only. These are not your account balances.
-        </p>
-      </div>
-
-      <PortfolioSummary values={PORTFOLIO_SUMMARY_PREVIEW} />
-      <BalancePanel cash={CASH_BALANCE_PREVIEW} />
-      <HoldingsSection holdings={HOLDING_PREVIEWS} totals={HOLDING_PREVIEW_TOTALS} />
+      <PortfolioDashboard />
     </PageContainer>
   );
 }
