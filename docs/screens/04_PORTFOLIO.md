@@ -119,6 +119,20 @@ the affected and aggregate values unavailable. Relevant ticker events update the
 and summary through narrow Zustand selectors without refetching `/portfolio`. Persisted realized
 P&L remains unavailable until K07; stale and partial valuation messaging remains K08.
 
+### K07 realized P&L
+
+The Realized P&L summary card aggregates the authoritative `realizedPnl` strings from every
+position in the authenticated `/portfolio` snapshot. Closed positions remain part of this total
+even when their zero quantity excludes them from the holdings table. Positive and negative totals
+include an explicit sign and matching tone; an account with no trading history shows a neutral
+`$0.00`.
+
+Aggregation uses signed scaled integers and does not change when market tickers update. The card
+does not invent a realized return percentage because the current API does not provide the required
+historical denominator. Order mutations continue to refresh the persisted portfolio snapshot
+through the existing query invalidation flow. Stale and richer empty-state presentation remains
+K08.
+
 ## 5. Data model
 
 REST provides:

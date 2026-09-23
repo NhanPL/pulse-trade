@@ -19,6 +19,7 @@ import {
   cashTotalUnits,
   holdingsUnrealizedPnlPercent,
   holdingsUnrealizedPnlUnits,
+  positionsRealizedPnlUnits,
   totalPortfolioValueUnits,
   unitsToDecimalString,
 } from "../model/portfolio-valuation";
@@ -45,9 +46,11 @@ function PortfolioPending() {
 function LivePortfolioSummary({
   cash,
   holdings,
+  positions,
 }: {
   cash: PortfolioResponse["data"]["cash"];
   holdings: readonly PortfolioHolding[];
+  positions: PortfolioResponse["data"]["positions"];
 }) {
   const totalValueSelector = useMemo(
     () => (state: TickerStore) => totalPortfolioValueUnits(cash, holdings, state.tickers),
@@ -65,15 +68,16 @@ function LivePortfolioSummary({
   const unrealizedPnl = useStore(tickerStore, unrealizedPnlSelector);
   const unrealizedPnlPercent = useStore(tickerStore, unrealizedPnlPercentSelector);
   const cashBalance = cashTotalUnits(cash);
+  const realizedPnl = positionsRealizedPnlUnits(positions);
   const values = useMemo(
     () => ({
       totalValue: unitsToDecimalString(totalValue),
       unrealizedPnl: unitsToDecimalString(unrealizedPnl),
       unrealizedPnlPercent,
-      realizedPnl: null,
+      realizedPnl: unitsToDecimalString(realizedPnl),
       cashBalance: unitsToDecimalString(cashBalance),
     }),
-    [cashBalance, totalValue, unrealizedPnl, unrealizedPnlPercent],
+    [cashBalance, realizedPnl, totalValue, unrealizedPnl, unrealizedPnlPercent],
   );
 
   return <PortfolioSummary values={values} />;
@@ -118,7 +122,11 @@ export function PortfolioDashboard() {
           Balances and positions come from your account. Market prices update live.
         </p>
       </div>
-      <LivePortfolioSummary cash={portfolio.data.cash} holdings={holdings} />
+      <LivePortfolioSummary
+        cash={portfolio.data.cash}
+        holdings={holdings}
+        positions={portfolio.data.positions}
+      />
       <BalancePanel cash={portfolio.data.cash} />
       <HoldingsSection holdings={holdings} />
     </>

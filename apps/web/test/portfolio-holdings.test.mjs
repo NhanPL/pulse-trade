@@ -21,6 +21,7 @@ const {
   holdingsUnrealizedPnlPercent,
   holdingsUnrealizedPnlUnits,
   multiplyDecimalUnits,
+  positionsRealizedPnlUnits,
   smallBalanceAssetKey,
   totalPortfolioValueUnits,
   unitsToDecimalString,
@@ -121,6 +122,19 @@ test("unrealized loss and break-even values retain explicit, neutral-safe signs"
   assert.equal(unitsToDecimalString(loss), "-500");
   assert.equal(formatPnlUnits(breakEven), "$0.00");
   assert.equal(holdingUnrealizedPnlPercent(bitcoin, { price: "60000" }), "0.00%");
+});
+
+test("aggregates persisted realized profit and loss including closed positions", () => {
+  const realizedPnl = positionsRealizedPnlUnits(positions);
+
+  assert.equal(unitsToDecimalString(realizedPnl), "98");
+  assert.equal(formatPnlUnits(realizedPnl), "+$98.00");
+  assert.equal(formatPnlUnits(positionsRealizedPnlUnits([])), "$0.00");
+  assert.equal(
+    formatPnlUnits(positionsRealizedPnlUnits([{ ...positions[0], realizedPnl: "-100.005" }])),
+    "-$100.01",
+  );
+  assert.equal(positionsRealizedPnlUnits([{ ...positions[0], realizedPnl: "1e3" }]), null);
 });
 
 test("formats API decimals without losing cents or quantity precision", () => {

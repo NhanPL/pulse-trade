@@ -123,9 +123,15 @@ test("combines one account snapshot with narrow live ticker subscriptions", asyn
   const unrealizedPnl = summary.locator("dl > div").filter({
     has: page.locator('summary[aria-label="About Unrealized P&L"]'),
   });
+  const realizedPnl = summary.locator("dl > div").filter({
+    has: page.locator('summary[aria-label="About Realized P&L"]'),
+  });
   await expect(totalValue.locator("dd").first()).toHaveText("$15,342.46");
   await expect(unrealizedPnl.locator("dd").first()).toHaveText("+$1,342.46");
   await expect(unrealizedPnl.locator("dd").nth(1)).toHaveText("+14.92%");
+  await expect(realizedPnl.locator("dd").first()).toHaveText("+$98.00");
+  await expect(realizedPnl.locator("dd").first()).toHaveClass(/text-positive/);
+  await expect(realizedPnl.locator("dd").nth(1)).toHaveText("Completed sells · USD");
   expect(runtime.portfolioRequestCount()).toBe(1);
   await expect.poll(() => runtime.commands.length).toBeGreaterThanOrEqual(1);
   expect(runtime.commands[0]).toMatchObject({
@@ -161,6 +167,7 @@ test("combines one account snapshot with narrow live ticker subscriptions", asyn
   await expect(unrealizedPnl.locator("dd").first()).toHaveText("-$1,500.00");
   await expect(unrealizedPnl.locator("dd").nth(1)).toHaveText("-16.67%");
   await expect(unrealizedPnl.locator("dd").first()).toHaveClass(/text-negative/);
+  await expect(realizedPnl.locator("dd").first()).toHaveText("+$98.00");
   expect(runtime.portfolioRequestCount()).toBe(1);
   await page.screenshot({
     path: testInfo.outputPath("portfolio-live-tickers-desktop.png"),
@@ -180,6 +187,11 @@ test("keeps live unrealized profit and loss readable on small mobile", async ({
   const bitcoin = cards.locator(":scope > li").filter({ hasText: "BTC" });
   await expect(bitcoin).toContainText("+$377.12");
   await expect(bitcoin).toContainText("+12.57%");
+  const realizedPnl = page
+    .getByRole("region", { name: "Portfolio summary", exact: true })
+    .locator("dl > div")
+    .filter({ has: page.locator('summary[aria-label="About Realized P&L"]') });
+  await expect(realizedPnl.locator("dd").first()).toHaveText("+$98.00");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 
   await page.screenshot({
