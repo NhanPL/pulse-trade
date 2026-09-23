@@ -10,6 +10,13 @@ const session = {
     session: { id: "123e4567-e89b-42d3-a456-426614174001", expiresAt: "2099-01-01T00:00:00.000Z" },
   },
 };
+const portfolio = {
+  data: {
+    cash: { available: "18642.30", locked: "0.00" },
+    positions: [],
+    quoteCurrency: "USD",
+  },
+};
 const metrics = [
   { label: "USD Available", amount: "$18,642.30", percentage: "(100.00%)" },
   { label: "USD Locked", amount: "$0.00", percentage: "(0.00%)" },
@@ -27,26 +34,28 @@ async function mockAuthenticatedSession(page: Page): Promise<void> {
       body: JSON.stringify({ data: { user } }),
     }),
   );
+  await page.route("**/api/v1/portfolio**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(portfolio),
+    }),
+  );
 }
 
-test("shows separate sample available and locked USD with a consistent cash total", async ({
+test("shows separate account available and locked USD with a consistent cash total", async ({
   page,
 }) => {
   await mockAuthenticatedSession(page);
-  let portfolioRequests = 0;
-  await page.route("**/api/v1/portfolio**", async (route) => {
-    portfolioRequests++;
-    await route.abort();
-  });
 
   await page.goto("/portfolio");
   const balances = page.getByRole("region", { name: "Cash balances", exact: true });
   await expect(
     balances.getByRole("heading", { name: "Balances (USD)", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Sample portfolio", { exact: true })).toBeVisible();
+  await expect(page.getByText("Paper account", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("Illustrative values only. These are not your account balances.", {
+    page.getByText("Balances and positions come from your account. Market prices update live.", {
       exact: true,
     }),
   ).toBeVisible();
@@ -80,7 +89,6 @@ test("shows separate sample available and locked USD with a consistent cash tota
   await expect(allocation).toBeVisible();
   await expect(allocation.getByText("100%", { exact: true })).toBeVisible();
   await expect(allocation.getByText("Available", { exact: true })).toBeVisible();
-  expect(portfolioRequests).toBe(0);
 });
 
 test("balance explanations support keyboard disclosure on desktop and small mobile", async ({

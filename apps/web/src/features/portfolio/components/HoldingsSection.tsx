@@ -2,19 +2,37 @@
 
 import Link from "next/link";
 import { useId, useMemo, useState } from "react";
+import { useStore } from "zustand";
 
 import { classNames } from "@/components/ui/class-names";
-
 import {
-  filterHoldingPreviews,
-  type HoldingPreview,
-  type HoldingPreviewTotals,
-  type HoldingTone,
-} from "../model/holding-preview";
+  tickerStore,
+  useTicker,
+  type MarketTicker,
+  type TickerStore,
+} from "@/features/realtime/stores/ticker-store";
+import { formatPercentChange } from "@/lib/format/market-value";
+
+import { filterHoldings, type PortfolioHolding } from "../model/holding";
+import {
+  allocationPercent,
+  formatHoldingQuantity,
+  formatUsdDecimal,
+  formatUsdUnits,
+  holdingsMarketValueUnits,
+  multiplyDecimalUnits,
+  smallBalanceAssetKey,
+} from "../model/portfolio-valuation";
 
 type HoldingsSectionProps = {
-  holdings: readonly HoldingPreview[];
-  totals: HoldingPreviewTotals;
+  holdings: readonly PortfolioHolding[];
+};
+
+type HoldingLiveValues = {
+  change: string;
+  marketValue: string;
+  price: string;
+  tone: "positive" | "negative" | "neutral";
 };
 
 const assetMarkStyles: Record<string, string> = {
@@ -22,6 +40,7 @@ const assetMarkStyles: Record<string, string> = {
   BTC: "border-orange-300/30 bg-orange-500 text-white",
   ETH: "border-indigo-300/30 bg-indigo-500/80 text-white",
   SOL: "border-purple-300/30 bg-slate-950 text-teal-300",
+  XRP: "border-slate-300/30 bg-slate-600 text-white",
 };
 
 const assetMarks: Record<string, string> = {
@@ -29,15 +48,31 @@ const assetMarks: Record<string, string> = {
   BTC: "₿",
   ETH: "◆",
   SOL: "≋",
+  XRP: "X",
 };
 
-function toneClass(tone: HoldingTone): string {
+function toneClass(tone: HoldingLiveValues["tone"]): string {
   if (tone === "positive") return "text-positive";
   if (tone === "negative") return "text-negative";
   return "text-foreground-secondary";
 }
 
-function AssetIdentity({ holding }: { holding: HoldingPreview }) {
+function currentValues(
+  holding: PortfolioHolding,
+  ticker: MarketTicker | undefined,
+): HoldingLiveValues {
+  if (!ticker) return { change: "—", marketValue: "—", price: "—", tone: "neutral" };
+  const marketValue = multiplyDecimalUnits(holding.quantity, ticker.price);
+
+  return {
+    change: formatPercentChange(ticker.change24hPercent),
+    marketValue: formatUsdUnits(marketValue),
+    price: formatUsdDecimal(ticker.price),
+    tone: ticker.change24hPercent.startsWith("-") ? "negative" : "positive",
+  };
+}
+
+function AssetIdentity({ holding }: { holding: PortfolioHolding }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
       <span
@@ -57,53 +92,84 @@ function AssetIdentity({ holding }: { holding: HoldingPreview }) {
   );
 }
 
-function Quantity({ holding }: { holding: HoldingPreview }) {
+function HoldingAllocation({
+  holding,
+  holdings,
+}: {
+  holding: PortfolioHolding;
+  holdings: readonly PortfolioHolding[];
+}) {
+  const allocationSelector = useMemo(
+    () => (state: TickerStore) => allocationPercent(holding, holdings, state.tickers),
+    [holding, holdings],
+  );
+  const allocation = useStore(tickerStore, allocationSelector);
+
+  return (
+    <span className="mt-1.5 flex items-center gap-2">
+      <span className="w-12 shrink-0 font-mono text-xs tabular-nums text-foreground-secondary">
+        {allocation ?? "—"}
+      </span>
+      <span aria-hidden="true" className="h-1.5 w-28 overflow-hidden rounded-full bg-border">
+        {allocation ? (
+          <span
+            className="block h-full rounded-full bg-linear-to-r from-teal-500 to-teal-300"
+            style={{ width: allocation }}
+          />
+        ) : null}
+      </span>
+    </span>
+  );
+}
+
+function Quantity({
+  holding,
+  holdings,
+}: {
+  holding: PortfolioHolding;
+  holdings: readonly PortfolioHolding[];
+}) {
   return (
     <div>
       <span className="block font-mono text-sm tabular-nums text-foreground">
-        {holding.quantity}
+        {formatHoldingQuantity(holding.quantity)}
       </span>
-      <span className="mt-1.5 flex items-center gap-2">
-        <span className="w-12 shrink-0 font-mono text-xs tabular-nums text-foreground-secondary">
-          {holding.allocation}
-        </span>
-        <span aria-hidden="true" className="h-1.5 w-28 overflow-hidden rounded-full bg-border">
-          <span
-            className="block h-full rounded-full bg-linear-to-r from-teal-500 to-teal-300"
-            style={{ width: holding.allocation }}
-          />
-        </span>
-      </span>
+      <HoldingAllocation holding={holding} holdings={holdings} />
     </div>
   );
 }
 
-function PriceWithChange({ holding }: { holding: HoldingPreview }) {
+function PriceWithChange({ values }: { values: HoldingLiveValues }) {
+  const unavailable = values.price === "—";
   return (
     <span className="flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1">
-      <span className="font-mono text-sm tabular-nums text-foreground">{holding.currentPrice}</span>
-      <span className={classNames("font-mono text-xs tabular-nums", toneClass(holding.changeTone))}>
-        {holding.change}
+      <span
+        aria-label={unavailable ? "Current price unavailable" : undefined}
+        className="font-mono text-sm tabular-nums text-foreground"
+      >
+        {values.price}
+      </span>
+      <span className={classNames("font-mono text-xs tabular-nums", toneClass(values.tone))}>
+        {values.change}
       </span>
     </span>
   );
 }
 
-function Pnl({ holding }: { holding: HoldingPreview }) {
+function UnavailablePnl() {
   return (
-    <span className={classNames("block font-mono tabular-nums", toneClass(holding.pnlTone))}>
-      <span className="block text-sm">{holding.unrealizedPnl}</span>
-      <span className="mt-1 block text-xs">{holding.unrealizedPnlPercent}</span>
+    <span aria-label="Unrealized profit and loss not available" className="text-foreground-muted">
+      —
     </span>
   );
 }
 
-function TradeLink({ asset }: { asset: string }) {
+function TradeLink({ holding }: { holding: PortfolioHolding }) {
   return (
     <Link
-      aria-label={`Open ${asset}-USD trading workspace`}
+      aria-label={`Open ${holding.symbol} trading workspace`}
       className="inline-grid size-9 place-items-center rounded-lg text-foreground-muted transition-colors hover:bg-surface-selected hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-      href={`/trade/${asset}-USD`}
+      href={`/trade/${holding.symbol}`}
     >
       <svg aria-hidden="true" className="size-4" fill="none" viewBox="0 0 24 24">
         <path d="m9 5 7 7-7 7" stroke="currentColor" strokeLinecap="round" strokeWidth="1.75" />
@@ -112,7 +178,50 @@ function TradeLink({ asset }: { asset: string }) {
   );
 }
 
-function HoldingsTable({ holdings }: { holdings: readonly HoldingPreview[] }) {
+function HoldingsTableRow({
+  holding,
+  holdings,
+}: {
+  holding: PortfolioHolding;
+  holdings: readonly PortfolioHolding[];
+}) {
+  const ticker = useTicker(holding.symbol);
+  const values = currentValues(holding, ticker);
+
+  return (
+    <tr className="border-b border-border-subtle transition-colors last:border-b-0 hover:bg-surface-hover/45">
+      <th className="px-6 py-3 text-left font-normal" scope="row">
+        <AssetIdentity holding={holding} />
+      </th>
+      <td className="px-3 py-3">
+        <Quantity holding={holding} holdings={holdings} />
+      </td>
+      <td className="px-3 py-3 text-right font-mono text-sm tabular-nums text-foreground">
+        {formatUsdDecimal(holding.averageCost)}
+      </td>
+      <td className="px-3 py-3 text-right" data-live-price={holding.symbol}>
+        <PriceWithChange values={values} />
+      </td>
+      <td className="px-3 py-3 text-right font-mono text-sm tabular-nums text-foreground">
+        {values.marketValue}
+      </td>
+      <td className="px-3 py-3 text-right">
+        <UnavailablePnl />
+      </td>
+      <td className="px-2 py-3 text-center">
+        <TradeLink holding={holding} />
+      </td>
+    </tr>
+  );
+}
+
+function HoldingsTable({
+  holdings,
+  valuationHoldings,
+}: {
+  holdings: readonly PortfolioHolding[];
+  valuationHoldings: readonly PortfolioHolding[];
+}) {
   return (
     <table
       aria-label="Holdings table"
@@ -152,115 +261,121 @@ function HoldingsTable({ holdings }: { holdings: readonly HoldingPreview[] }) {
       </thead>
       <tbody>
         {holdings.map((holding) => (
-          <tr
-            className="border-b border-border-subtle transition-colors last:border-b-0 hover:bg-surface-hover/45"
-            key={holding.asset}
-          >
-            <th className="px-6 py-3 text-left font-normal" scope="row">
-              <AssetIdentity holding={holding} />
-            </th>
-            <td className="px-3 py-3">
-              <Quantity holding={holding} />
-            </td>
-            <td className="px-3 py-3 text-right font-mono text-sm tabular-nums text-foreground">
-              {holding.averageCost}
-            </td>
-            <td className="px-3 py-3 text-right">
-              <PriceWithChange holding={holding} />
-            </td>
-            <td className="px-3 py-3 text-right font-mono text-sm tabular-nums text-foreground">
-              {holding.marketValue}
-            </td>
-            <td className="px-3 py-3 text-right">
-              <Pnl holding={holding} />
-            </td>
-            <td className="px-2 py-3 text-center">
-              <TradeLink asset={holding.asset} />
-            </td>
-          </tr>
+          <HoldingsTableRow holding={holding} holdings={valuationHoldings} key={holding.asset} />
         ))}
       </tbody>
     </table>
   );
 }
 
-function HoldingCards({ holdings }: { holdings: readonly HoldingPreview[] }) {
+function HoldingCard({
+  holding,
+  holdings,
+}: {
+  holding: PortfolioHolding;
+  holdings: readonly PortfolioHolding[];
+}) {
+  const ticker = useTicker(holding.symbol);
+  const values = currentValues(holding, ticker);
+
+  return (
+    <li className="rounded-lg border border-border-subtle bg-surface/35 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <AssetIdentity holding={holding} />
+        <TradeLink holding={holding} />
+      </div>
+      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border-subtle pt-4 text-sm">
+        <div className="col-span-2">
+          <dt className="mb-1 text-xs text-foreground-muted">Quantity</dt>
+          <dd>
+            <Quantity holding={holding} holdings={holdings} />
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-foreground-muted">Avg Cost (USD)</dt>
+          <dd className="mt-1 font-mono tabular-nums text-foreground">
+            {formatUsdDecimal(holding.averageCost)}
+          </dd>
+        </div>
+        <div className="text-right">
+          <dt className="text-xs text-foreground-muted">Market Value (USD)</dt>
+          <dd className="mt-1 font-mono tabular-nums text-foreground">{values.marketValue}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-foreground-muted">Current Price (USD)</dt>
+          <dd className="mt-1" data-live-price={holding.symbol}>
+            <PriceWithChange values={values} />
+          </dd>
+        </div>
+        <div className="text-right">
+          <dt className="text-xs text-foreground-muted">Unrealized P&amp;L (USD)</dt>
+          <dd className="mt-1">
+            <UnavailablePnl />
+          </dd>
+        </div>
+      </dl>
+    </li>
+  );
+}
+
+function HoldingCards({
+  holdings,
+  valuationHoldings,
+}: {
+  holdings: readonly PortfolioHolding[];
+  valuationHoldings: readonly PortfolioHolding[];
+}) {
   return (
     <ul aria-label="Holdings cards" className="grid gap-3 p-3 md:grid-cols-2 xl:hidden">
       {holdings.map((holding) => (
-        <li
-          className="rounded-lg border border-border-subtle bg-surface/35 p-4"
-          key={holding.asset}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <AssetIdentity holding={holding} />
-            <TradeLink asset={holding.asset} />
-          </div>
-          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border-subtle pt-4 text-sm">
-            <div className="col-span-2">
-              <dt className="mb-1 text-xs text-foreground-muted">Quantity</dt>
-              <dd>
-                <Quantity holding={holding} />
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-foreground-muted">Avg Cost (USD)</dt>
-              <dd className="mt-1 font-mono tabular-nums text-foreground">{holding.averageCost}</dd>
-            </div>
-            <div className="text-right">
-              <dt className="text-xs text-foreground-muted">Market Value (USD)</dt>
-              <dd className="mt-1 font-mono tabular-nums text-foreground">{holding.marketValue}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-foreground-muted">Current Price (USD)</dt>
-              <dd className="mt-1">
-                <PriceWithChange holding={holding} />
-              </dd>
-            </div>
-            <div className="text-right">
-              <dt className="text-xs text-foreground-muted">Unrealized P&amp;L (USD)</dt>
-              <dd className="mt-1">
-                <Pnl holding={holding} />
-              </dd>
-            </div>
-          </dl>
-        </li>
+        <HoldingCard holding={holding} holdings={valuationHoldings} key={holding.asset} />
       ))}
     </ul>
   );
 }
 
-function PortfolioTotals({ totals }: { totals: HoldingPreviewTotals }) {
+function PortfolioTotals({ holdings }: { holdings: readonly PortfolioHolding[] }) {
+  const marketValueSelector = useMemo(
+    () => (state: TickerStore) => holdingsMarketValueUnits(holdings, state.tickers),
+    [holdings],
+  );
+  const marketValue = useStore(tickerStore, marketValueSelector);
+
   return (
     <footer className="flex flex-col gap-3 border-t border-border-subtle px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
       <p className="text-foreground-secondary">
-        Total Assets{" "}
-        <span className="ml-4 font-mono tabular-nums text-foreground">{totals.assetCount}</span>
+        Total Assets
+        <span className="ml-4 font-mono tabular-nums text-foreground">{holdings.length}</span>
       </p>
       <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 sm:justify-end">
         <span className="text-foreground-secondary">Total Market Value</span>
         <span className="font-mono text-base tabular-nums text-foreground">
-          {totals.marketValue}
+          {formatUsdUnits(marketValue)}
         </span>
-        <span className={classNames("font-mono tabular-nums", toneClass(totals.pnlTone))}>
-          {totals.unrealizedPnl}
-        </span>
-        <span className={classNames("font-mono tabular-nums", toneClass(totals.pnlTone))}>
-          {totals.unrealizedPnlPercent}
-        </span>
+        <UnavailablePnl />
       </div>
     </footer>
   );
 }
 
-export function HoldingsSection({ holdings, totals }: HoldingsSectionProps) {
+export function HoldingsSection({ holdings }: HoldingsSectionProps) {
   const searchId = useId();
   const [searchTerm, setSearchTerm] = useState("");
   const [hideSmallBalances, setHideSmallBalances] = useState(true);
-  const visibleHoldings = useMemo(
-    () => filterHoldingPreviews(holdings, searchTerm, hideSmallBalances),
-    [hideSmallBalances, holdings, searchTerm],
+  const smallBalanceSelector = useMemo(
+    () => (state: TickerStore) => smallBalanceAssetKey(holdings, state.tickers),
+    [holdings],
   );
+  const smallBalanceKey = useStore(tickerStore, smallBalanceSelector);
+  const smallBalanceAssets = useMemo(
+    () => new Set(smallBalanceKey ? smallBalanceKey.split("|") : []),
+    [smallBalanceKey],
+  );
+  const visibleHoldings = useMemo(
+    () => filterHoldings(holdings, searchTerm, hideSmallBalances, smallBalanceAssets),
+    [hideSmallBalances, holdings, searchTerm, smallBalanceAssets],
+  );
+  const noPositions = holdings.length === 0;
 
   return (
     <section
@@ -329,7 +444,8 @@ export function HoldingsSection({ holdings, totals }: HoldingsSectionProps) {
               <path d="m16 16 4 4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
             </svg>
             <input
-              className="h-10 w-full rounded-lg border border-border bg-surface-interactive pl-10 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-foreground-muted hover:border-border-strong focus:border-brand focus:ring-2 focus:ring-focus/25"
+              className="h-10 w-full rounded-lg border border-border bg-surface-interactive pl-10 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-foreground-muted hover:border-border-strong focus:border-brand focus:ring-2 focus:ring-focus/25 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={noPositions}
               id={searchId}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search assets..."
@@ -342,17 +458,23 @@ export function HoldingsSection({ holdings, totals }: HoldingsSectionProps) {
 
       {visibleHoldings.length > 0 ? (
         <>
-          <HoldingsTable holdings={visibleHoldings} />
-          <HoldingCards holdings={visibleHoldings} />
+          <HoldingsTable holdings={visibleHoldings} valuationHoldings={holdings} />
+          <HoldingCards holdings={visibleHoldings} valuationHoldings={holdings} />
         </>
       ) : (
         <div className="px-6 py-12 text-center" role="status">
-          <p className="font-medium text-foreground">No matching holdings</p>
-          <p className="mt-1 text-sm text-foreground-muted">Try another asset name or symbol.</p>
+          <p className="font-medium text-foreground">
+            {noPositions ? "No crypto positions yet" : "No matching holdings"}
+          </p>
+          <p className="mt-1 text-sm text-foreground-muted">
+            {noPositions
+              ? "Your paper positions will appear here after a filled buy order."
+              : "Try another asset name or symbol."}
+          </p>
         </div>
       )}
 
-      <PortfolioTotals totals={totals} />
+      <PortfolioTotals holdings={holdings} />
     </section>
   );
 }

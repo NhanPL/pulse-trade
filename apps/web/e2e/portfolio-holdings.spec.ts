@@ -10,6 +10,18 @@ const session = {
     session: { id: "123e4567-e89b-42d3-a456-426614174001", expiresAt: "2099-01-01T00:00:00.000Z" },
   },
 };
+const portfolio = {
+  data: {
+    cash: { available: "18642.30", locked: "0.00" },
+    positions: [
+      { asset: "BTC", averageCost: "61450", quantity: "0.35", realizedPnl: "0" },
+      { asset: "ETH", averageCost: "3102.5", quantity: "2.5", realizedPnl: "0" },
+      { asset: "SOL", averageCost: "142.5", quantity: "15", realizedPnl: "0" },
+      { asset: "ADA", averageCost: "0.452", quantity: "10000", realizedPnl: "0" },
+    ],
+    quoteCurrency: "USD",
+  },
+};
 
 async function mockAuthenticatedSession(page: Page): Promise<void> {
   await page.route("**/auth/refresh", (route) =>
@@ -22,18 +34,20 @@ async function mockAuthenticatedSession(page: Page): Promise<void> {
       body: JSON.stringify({ data: { user } }),
     }),
   );
+  await page.route("**/api/v1/portfolio**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(portfolio),
+    }),
+  );
 }
 
-test("desktop holdings match the evidence hierarchy and keep sample data local", async ({
+test("desktop account holdings keep the evidence hierarchy before the first ticker", async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1586, height: 992 });
   await mockAuthenticatedSession(page);
-  let portfolioRequests = 0;
-  await page.route("**/api/v1/portfolio**", async (route) => {
-    portfolioRequests++;
-    await route.abort();
-  });
 
   await page.goto("/portfolio");
   const holdings = page.getByRole("region", { name: "Holdings", exact: true });
@@ -46,18 +60,16 @@ test("desktop holdings match the evidence hierarchy and keep sample data local",
   const bitcoin = table.getByRole("row", { name: /BTC Bitcoin/ });
   await expect(bitcoin).toContainText("0.350000");
   await expect(bitcoin).toContainText("$61,450.00");
-  await expect(bitcoin).toContainText("$67,542.21");
-  await expect(bitcoin).toContainText("+$2,132.77");
+  await expect(bitcoin.getByLabel("Current price unavailable")).toBeVisible();
+  await expect(bitcoin.getByLabel("Unrealized profit and loss not available")).toBeVisible();
   await expect(
     bitcoin.getByRole("link", { name: "Open BTC-USD trading workspace" }),
   ).toHaveAttribute("href", "/trade/BTC-USD");
 
   const cardano = table.getByRole("row", { name: /ADA Cardano/ });
-  await expect(cardano).toContainText("-0.73%");
-  await expect(cardano).toContainText("-$162.90");
-  await expect(holdings.getByText("$38,004.57", { exact: true })).toBeVisible();
-  await expect(holdings.getByText("+$2,945.84", { exact: true })).toBeVisible();
-  expect(portfolioRequests).toBe(0);
+  await expect(cardano).toContainText("10,000.000000");
+  await expect(cardano).toContainText("$0.4520");
+  await expect(holdings.getByText("Total Market Value", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 
   await page.screenshot({

@@ -30,3 +30,14 @@ test("unavailable or invalid amounts are never presented as a zero balance", () 
     assert.deepEqual(presentSummaryValue(value, true), { text: "—", tone: "neutral" });
   }
 });
+
+test("summary formatting preserves cents beyond the safe JavaScript integer range", () => {
+  assert.deepEqual(presentSummaryValue("99999999999999999999.99", false), {
+    text: "$99,999,999,999,999,999,999.99",
+    tone: "neutral",
+  });
+  assert.deepEqual(presentSummaryValue("-99999999999999999999.995", true), {
+    text: "-$100,000,000,000,000,000,000.00",
+    tone: "negative",
+  });
+});
