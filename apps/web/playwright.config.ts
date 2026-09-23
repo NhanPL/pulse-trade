@@ -10,6 +10,7 @@ export default defineConfig({
     "trading-order.spec.ts",
     "portfolio-summary.spec.ts",
     "portfolio-balances.spec.ts",
+    "portfolio-holdings.spec.ts",
   ],
   fullyParallel: true,
   use: {
