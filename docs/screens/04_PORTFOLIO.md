@@ -133,6 +133,24 @@ historical denominator. Order mutations continue to refresh the persisted portfo
 through the existing query invalidation flow. Stale and richer empty-state presentation remains
 K08.
 
+### K08 loading, empty, and valuation freshness states
+
+While the authenticated portfolio snapshot is pending, the page keeps its heading visible and
+shows contextual skeletons for the account label, summary cards, cash balances, and holdings. It
+does not render fabricated account values or replace the whole route with a generic spinner.
+
+An account with only virtual USD keeps its cash summary and balance details visible, then presents
+the documented `No crypto positions yet` state with an `Explore Markets` action. Search, the
+small-balance switch, and holdings totals are omitted when there are no crypto positions.
+
+After the snapshot loads, missing required tickers produce a `Waiting for live prices` notice and
+leave affected aggregate values unavailable. `market.stale` events and a disconnected/reconnecting
+client preserve last-known prices, mark the affected holding and aggregate valuation as `Delayed`,
+and explicitly state that delayed values are included in totals. A newer ticker or `market.live`
+event clears the symbol-level stale state. Freshness events are ordered by event timestamp so an
+older stale notification cannot overwrite a recovered market. None of these realtime states
+refetch `/portfolio`.
+
 ## 5. Data model
 
 REST provides:

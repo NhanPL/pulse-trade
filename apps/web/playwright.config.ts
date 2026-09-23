@@ -12,6 +12,7 @@ export default defineConfig({
     "portfolio-balances.spec.ts",
     "portfolio-holdings.spec.ts",
     "portfolio-live-tickers.spec.ts",
+    "portfolio-states.spec.ts",
   ],
   fullyParallel: true,
   use: {
