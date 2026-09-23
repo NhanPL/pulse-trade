@@ -20,7 +20,7 @@ const portfolio = {
 const metrics = [
   { label: "Total Value", amount: "$18,642.30" },
   { label: "Unrealized P&L", amount: "$0.00" },
-  { label: "Realized P&L", amount: "—" },
+  { label: "Realized P&L", amount: "$0.00" },
   { label: "Cash Balance", amount: "$18,642.30" },
 ];
 

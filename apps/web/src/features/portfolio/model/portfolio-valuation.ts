@@ -9,6 +9,7 @@ const SMALL_BALANCE_LIMIT = BigInt(10) * DECIMAL_SCALE;
 const wholeNumberFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
 type CashBalance = PortfolioResponse["data"]["cash"];
+type PortfolioPosition = PortfolioResponse["data"]["positions"][number];
 type TickerMap = Readonly<Record<string, MarketTicker>>;
 
 function absoluteUnits(units: bigint): bigint {
@@ -48,6 +49,13 @@ export function decimalUnits(value: string): bigint | null {
   return BigInt(whole!) * DECIMAL_SCALE + BigInt(fraction.padEnd(DECIMAL_PLACES, "0"));
 }
 
+function signedDecimalUnits(value: string): bigint | null {
+  const isNegative = value.startsWith("-");
+  const units = decimalUnits(isNegative ? value.slice(1) : value);
+  if (units === null) return null;
+  return isNegative ? -units : units;
+}
+
 export function multiplyDecimalUnits(left: string, right: string): bigint | null {
   const leftUnits = decimalUnits(left);
   const rightUnits = decimalUnits(right);
@@ -60,6 +68,18 @@ export function cashTotalUnits(cash: CashBalance): bigint | null {
   const available = decimalUnits(cash.available);
   const locked = decimalUnits(cash.locked);
   return available === null || locked === null ? null : available + locked;
+}
+
+export function positionsRealizedPnlUnits(positions: readonly PortfolioPosition[]): bigint | null {
+  let total = BigInt(0);
+
+  for (const position of positions) {
+    const realizedPnl = signedDecimalUnits(position.realizedPnl);
+    if (realizedPnl === null) return null;
+    total += realizedPnl;
+  }
+
+  return total;
 }
 
 export function holdingsMarketValueUnits(
