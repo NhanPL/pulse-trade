@@ -1,6 +1,7 @@
 export type PortfolioSummaryValues = {
   totalValue: string | null;
   unrealizedPnl: string | null;
+  unrealizedPnlPercent: string | null;
   realizedPnl: string | null;
   cashBalance: string | null;
 };

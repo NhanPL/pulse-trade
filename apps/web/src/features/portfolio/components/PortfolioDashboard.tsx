@@ -17,6 +17,8 @@ import {
 } from "../model/holding";
 import {
   cashTotalUnits,
+  holdingsUnrealizedPnlPercent,
+  holdingsUnrealizedPnlUnits,
   totalPortfolioValueUnits,
   unitsToDecimalString,
 } from "../model/portfolio-valuation";
@@ -51,16 +53,27 @@ function LivePortfolioSummary({
     () => (state: TickerStore) => totalPortfolioValueUnits(cash, holdings, state.tickers),
     [cash, holdings],
   );
+  const unrealizedPnlSelector = useMemo(
+    () => (state: TickerStore) => holdingsUnrealizedPnlUnits(holdings, state.tickers),
+    [holdings],
+  );
+  const unrealizedPnlPercentSelector = useMemo(
+    () => (state: TickerStore) => holdingsUnrealizedPnlPercent(holdings, state.tickers),
+    [holdings],
+  );
   const totalValue = useStore(tickerStore, totalValueSelector);
+  const unrealizedPnl = useStore(tickerStore, unrealizedPnlSelector);
+  const unrealizedPnlPercent = useStore(tickerStore, unrealizedPnlPercentSelector);
   const cashBalance = cashTotalUnits(cash);
   const values = useMemo(
     () => ({
       totalValue: unitsToDecimalString(totalValue),
-      unrealizedPnl: null,
+      unrealizedPnl: unitsToDecimalString(unrealizedPnl),
+      unrealizedPnlPercent,
       realizedPnl: null,
       cashBalance: unitsToDecimalString(cashBalance),
     }),
-    [cashBalance, totalValue],
+    [cashBalance, totalValue, unrealizedPnl, unrealizedPnlPercent],
   );
 
   return <PortfolioSummary values={values} />;

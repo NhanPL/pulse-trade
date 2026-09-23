@@ -106,6 +106,19 @@ cash aggregation use scaled integers. "Hide Small Balances" treats a live positi
 small. Unrealized and realized P&L intentionally remain unavailable until K06 and K07; richer
 empty/loading/stale valuation presentation remains K08.
 
+### K06 live unrealized P&L
+
+Each holding now derives its unrealized amount from `(current price - average cost) × quantity`
+and its percentage from that amount divided by the position cost basis. The summary and holdings
+footer aggregate the same amounts and divide by the combined cost basis, rather than averaging
+position percentages. Gains include `+`, losses include `-`, and break-even values remain neutral,
+so meaning never depends on color alone.
+
+All calculations use scaled integers and round only for presentation. Missing required tickers keep
+the affected and aggregate values unavailable. Relevant ticker events update the holding, footer,
+and summary through narrow Zustand selectors without refetching `/portfolio`. Persisted realized
+P&L remains unavailable until K07; stale and partial valuation messaging remains K08.
+
 ## 5. Data model
 
 REST provides:

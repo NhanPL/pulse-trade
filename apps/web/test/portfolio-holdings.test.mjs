@@ -12,12 +12,18 @@ const {
   allocationPercent,
   cashTotalUnits,
   formatHoldingQuantity,
+  formatPnlUnits,
   formatUsdDecimal,
   formatUsdUnits,
+  holdingUnrealizedPnlPercent,
+  holdingUnrealizedPnlUnits,
   holdingsMarketValueUnits,
+  holdingsUnrealizedPnlPercent,
+  holdingsUnrealizedPnlUnits,
   multiplyDecimalUnits,
   smallBalanceAssetKey,
   totalPortfolioValueUnits,
+  unitsToDecimalString,
 } = require("../.next/realtime-test/features/portfolio/model/portfolio-valuation.js");
 
 const positions = [
@@ -75,6 +81,8 @@ test("combines position quantities with ticker prices using decimal arithmetic",
 
 test("requires every held asset price before presenting a combined valuation", () => {
   const holdings = createPortfolioHoldings(positions, "USD");
+  assert.equal(formatPnlUnits(holdingsUnrealizedPnlUnits([], {})), "$0.00");
+  assert.equal(holdingsUnrealizedPnlPercent([], {}), null);
   assert.equal(holdingsMarketValueUnits(holdings, { "BTC-USD": tickers["BTC-USD"] }), null);
   assert.equal(
     totalPortfolioValueUnits({ available: "4000", locked: "1000" }, holdings, {
@@ -82,6 +90,37 @@ test("requires every held asset price before presenting a combined valuation", (
     }),
     null,
   );
+  assert.equal(holdingsUnrealizedPnlUnits(holdings, { "BTC-USD": tickers["BTC-USD"] }), null);
+  assert.equal(holdingsUnrealizedPnlPercent(holdings, { "BTC-USD": tickers["BTC-USD"] }), null);
+});
+
+test("derives live unrealized profit and loss from cost basis without floating point", () => {
+  const holdings = createPortfolioHoldings(positions, "USD");
+
+  assert.equal(
+    formatPnlUnits(holdingUnrealizedPnlUnits(holdings[0], tickers["BTC-USD"])),
+    "+$377.12",
+  );
+  assert.equal(holdingUnrealizedPnlPercent(holdings[0], tickers["BTC-USD"]), "+12.57%");
+  assert.equal(
+    formatPnlUnits(holdingUnrealizedPnlUnits(holdings[1], tickers["ETH-USD"])),
+    "+$965.34",
+  );
+  assert.equal(holdingUnrealizedPnlPercent(holdings[1], tickers["ETH-USD"]), "+16.09%");
+  assert.equal(formatPnlUnits(holdingsUnrealizedPnlUnits(holdings, tickers)), "+$1,342.46");
+  assert.equal(holdingsUnrealizedPnlPercent(holdings, tickers), "+14.92%");
+});
+
+test("unrealized loss and break-even values retain explicit, neutral-safe signs", () => {
+  const [bitcoin] = createPortfolioHoldings(positions, "USD");
+  const loss = holdingUnrealizedPnlUnits(bitcoin, { price: "50000" });
+  const breakEven = holdingUnrealizedPnlUnits(bitcoin, { price: "60000" });
+
+  assert.equal(formatPnlUnits(loss), "-$500.00");
+  assert.equal(holdingUnrealizedPnlPercent(bitcoin, { price: "50000" }), "-16.67%");
+  assert.equal(unitsToDecimalString(loss), "-500");
+  assert.equal(formatPnlUnits(breakEven), "$0.00");
+  assert.equal(holdingUnrealizedPnlPercent(bitcoin, { price: "60000" }), "0.00%");
 });
 
 test("formats API decimals without losing cents or quantity precision", () => {

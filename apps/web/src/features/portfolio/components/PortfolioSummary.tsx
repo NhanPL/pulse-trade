@@ -15,10 +15,11 @@ export function PortfolioSummary({ values }: { values: PortfolioSummaryValues })
         <PortfolioSummaryCard
           amount={values.unrealizedPnl}
           description="The difference between the current market value and cost basis of the crypto you still hold."
+          highlightNote={values.unrealizedPnlPercent !== null}
           icon="trend"
           isPnl
           label="Unrealized P&L"
-          note="Open positions · USD"
+          note={values.unrealizedPnlPercent ?? "Open positions · USD"}
         />
         <PortfolioSummaryCard
           amount={values.realizedPnl}

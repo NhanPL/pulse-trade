@@ -124,7 +124,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] K03 Build balances section.
 - [x] K04 Build holdings table/cards.
 - [x] K05 Combine position snapshot with live tickers.
-- [ ] K06 Display unrealized P&L live.
+- [x] K06 Display unrealized P&L live.
 - [ ] K07 Display realized P&L.
 - [ ] K08 Add empty/loading/stale valuation states.
 
