@@ -23,7 +23,9 @@ export function BrandLink({ compact = false }: { compact?: boolean }) {
       </span>
       <span
         className={
-          compact ? "text-base font-bold tracking-tight" : "text-lg font-bold tracking-tight"
+          compact
+            ? "hidden text-base font-bold tracking-tight min-[360px]:inline"
+            : "text-lg font-bold tracking-tight"
         }
       >
         Pulse<span className="text-brand">Trade</span>
