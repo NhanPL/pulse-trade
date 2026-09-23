@@ -74,6 +74,18 @@ This step covers the USD breakdown documented by the screen and existing `/portf
 The broader per-asset balance requirement remains: `positions.quantity` alone cannot supply
 crypto available/locked balances. K03 does not extend that API or implement reservations.
 
+### K04 holdings presentation
+
+The holdings panel follows `docs/design/desktop/portfolio.png`: desktop uses a six-metric table
+with allocation bars and a portfolio totals footer, while narrower layouts use readable cards.
+Search and the small-balance switch are local presentation controls with keyboard-accessible
+semantics. Each holding also links to its public trading workspace.
+
+K04 continues to use the page's explicitly labeled sample portfolio. The fixture supplies
+presentation-ready quantity, cost, price, value, and P&L strings so this step does not imply
+live account valuation. Combining the authenticated position snapshot with tickers, calculating
+live unrealized P&L, and presenting stale/empty/loading states remain K05, K06, and K08.
+
 ## 5. Data model
 
 REST provides:
