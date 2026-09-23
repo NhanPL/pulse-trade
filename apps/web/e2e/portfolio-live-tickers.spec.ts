@@ -105,15 +105,27 @@ test("combines one account snapshot with narrow live ticker subscriptions", asyn
   const ethereum = table.getByRole("row", { name: /ETH Ethereum/ });
   await expect(bitcoin).toContainText("$67,542.31");
   await expect(bitcoin).toContainText("$3,377.12");
+  await expect(bitcoin).toContainText("+$377.12");
+  await expect(bitcoin).toContainText("+12.57%");
   await expect(ethereum).toContainText("$3,482.67");
   await expect(ethereum).toContainText("$6,965.34");
+  await expect(ethereum).toContainText("+$965.34");
+  await expect(ethereum).toContainText("+16.09%");
   await expect(holdings.getByText("$10,342.46", { exact: true })).toBeVisible();
+  const holdingsTotals = holdings.locator("footer");
+  await expect(holdingsTotals).toContainText("+$1,342.46");
+  await expect(holdingsTotals).toContainText("+14.92%");
 
   const summary = page.getByRole("region", { name: "Portfolio summary", exact: true });
   const totalValue = summary.locator("dl > div").filter({
     has: page.locator('summary[aria-label="About Total Value"]'),
   });
+  const unrealizedPnl = summary.locator("dl > div").filter({
+    has: page.locator('summary[aria-label="About Unrealized P&L"]'),
+  });
   await expect(totalValue.locator("dd").first()).toHaveText("$15,342.46");
+  await expect(unrealizedPnl.locator("dd").first()).toHaveText("+$1,342.46");
+  await expect(unrealizedPnl.locator("dd").nth(1)).toHaveText("+14.92%");
   expect(runtime.portfolioRequestCount()).toBe(1);
   await expect.poll(() => runtime.commands.length).toBeGreaterThanOrEqual(1);
   expect(runtime.commands[0]).toMatchObject({
@@ -125,16 +137,53 @@ test("combines one account snapshot with narrow live ticker subscriptions", asyn
   runtime.sendTicker("BTC-USD", "70000", "3.10");
   await expect(bitcoin).toContainText("$70,000.00");
   await expect(bitcoin).toContainText("$3,500.00");
+  await expect(bitcoin).toContainText("+$500.00");
+  await expect(bitcoin).toContainText("+16.67%");
   await expect(holdings.getByText("$10,465.34", { exact: true })).toBeVisible();
+  await expect(holdingsTotals).toContainText("+$1,465.34");
+  await expect(holdingsTotals).toContainText("+16.28%");
   await expect(totalValue.locator("dd").first()).toHaveText("$15,465.34");
+  await expect(unrealizedPnl.locator("dd").first()).toHaveText("+$1,465.34");
+  await expect(unrealizedPnl.locator("dd").nth(1)).toHaveText("+16.28%");
   const search = holdings.getByRole("searchbox", { name: "Search holdings", exact: true });
   await search.fill("ETH");
   await expect(table.locator("tbody > tr")).toHaveCount(1);
   await expect(table.getByRole("row", { name: /ETH Ethereum/ })).toContainText("66.56%");
   await search.fill("");
+
+  runtime.sendTicker("BTC-USD", "50000", "-4.25");
+  runtime.sendTicker("ETH-USD", "2500", "-5.10");
+  await expect(bitcoin).toContainText("-$500.00");
+  await expect(bitcoin).toContainText("-16.67%");
+  await expect(ethereum).toContainText("-$1,000.00");
+  await expect(holdingsTotals).toContainText("-$1,500.00");
+  await expect(holdingsTotals).toContainText("-16.67%");
+  await expect(unrealizedPnl.locator("dd").first()).toHaveText("-$1,500.00");
+  await expect(unrealizedPnl.locator("dd").nth(1)).toHaveText("-16.67%");
+  await expect(unrealizedPnl.locator("dd").first()).toHaveClass(/text-negative/);
   expect(runtime.portfolioRequestCount()).toBe(1);
   await page.screenshot({
     path: testInfo.outputPath("portfolio-live-tickers-desktop.png"),
+    fullPage: true,
+  });
+});
+
+test("keeps live unrealized profit and loss readable on small mobile", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await mockPortfolioRuntime(page);
+  await page.goto("/portfolio");
+
+  const holdings = page.getByRole("region", { name: "Holdings", exact: true });
+  const cards = holdings.getByRole("list", { name: "Holdings cards", exact: true });
+  const bitcoin = cards.locator(":scope > li").filter({ hasText: "BTC" });
+  await expect(bitcoin).toContainText("+$377.12");
+  await expect(bitcoin).toContainText("+12.57%");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+
+  await page.screenshot({
+    path: testInfo.outputPath("portfolio-live-pnl-small-mobile.png"),
     fullPage: true,
   });
 });

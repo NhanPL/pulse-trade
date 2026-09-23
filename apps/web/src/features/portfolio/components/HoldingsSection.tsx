@@ -17,9 +17,14 @@ import { filterHoldings, type PortfolioHolding } from "../model/holding";
 import {
   allocationPercent,
   formatHoldingQuantity,
+  formatPnlUnits,
   formatUsdDecimal,
   formatUsdUnits,
+  holdingUnrealizedPnlPercent,
+  holdingUnrealizedPnlUnits,
   holdingsMarketValueUnits,
+  holdingsUnrealizedPnlPercent,
+  holdingsUnrealizedPnlUnits,
   multiplyDecimalUnits,
   smallBalanceAssetKey,
 } from "../model/portfolio-valuation";
@@ -28,11 +33,16 @@ type HoldingsSectionProps = {
   holdings: readonly PortfolioHolding[];
 };
 
+type ValueTone = "positive" | "negative" | "neutral";
+
 type HoldingLiveValues = {
   change: string;
   marketValue: string;
+  pnl: string;
+  pnlPercent: string;
+  pnlTone: ValueTone;
   price: string;
-  tone: "positive" | "negative" | "neutral";
+  priceTone: ValueTone;
 };
 
 const assetMarkStyles: Record<string, string> = {
@@ -51,7 +61,7 @@ const assetMarks: Record<string, string> = {
   XRP: "X",
 };
 
-function toneClass(tone: HoldingLiveValues["tone"]): string {
+function toneClass(tone: ValueTone): string {
   if (tone === "positive") return "text-positive";
   if (tone === "negative") return "text-negative";
   return "text-foreground-secondary";
@@ -61,14 +71,33 @@ function currentValues(
   holding: PortfolioHolding,
   ticker: MarketTicker | undefined,
 ): HoldingLiveValues {
-  if (!ticker) return { change: "—", marketValue: "—", price: "—", tone: "neutral" };
+  if (!ticker) {
+    return {
+      change: "—",
+      marketValue: "—",
+      pnl: "—",
+      pnlPercent: "—",
+      pnlTone: "neutral",
+      price: "—",
+      priceTone: "neutral",
+    };
+  }
   const marketValue = multiplyDecimalUnits(holding.quantity, ticker.price);
+  const pnlUnits = holdingUnrealizedPnlUnits(holding, ticker);
 
   return {
     change: formatPercentChange(ticker.change24hPercent),
     marketValue: formatUsdUnits(marketValue),
+    pnl: formatPnlUnits(pnlUnits),
+    pnlPercent: holdingUnrealizedPnlPercent(holding, ticker) ?? "—",
+    pnlTone:
+      pnlUnits === null || pnlUnits === BigInt(0)
+        ? "neutral"
+        : pnlUnits < BigInt(0)
+          ? "negative"
+          : "positive",
     price: formatUsdDecimal(ticker.price),
-    tone: ticker.change24hPercent.startsWith("-") ? "negative" : "positive",
+    priceTone: ticker.change24hPercent.startsWith("-") ? "negative" : "positive",
   };
 }
 
@@ -149,17 +178,23 @@ function PriceWithChange({ values }: { values: HoldingLiveValues }) {
       >
         {values.price}
       </span>
-      <span className={classNames("font-mono text-xs tabular-nums", toneClass(values.tone))}>
+      <span className={classNames("font-mono text-xs tabular-nums", toneClass(values.priceTone))}>
         {values.change}
       </span>
     </span>
   );
 }
 
-function UnavailablePnl() {
+function PnlWithPercent({ values }: { values: HoldingLiveValues }) {
+  const unavailable = values.pnl === "—";
+
   return (
-    <span aria-label="Unrealized profit and loss not available" className="text-foreground-muted">
-      —
+    <span
+      aria-label={unavailable ? "Unrealized profit and loss not available" : undefined}
+      className={classNames("block font-mono tabular-nums", toneClass(values.pnlTone))}
+    >
+      <span className="block text-sm">{values.pnl}</span>
+      <span className="mt-1 block text-xs">{values.pnlPercent}</span>
     </span>
   );
 }
@@ -206,7 +241,7 @@ function HoldingsTableRow({
         {values.marketValue}
       </td>
       <td className="px-3 py-3 text-right">
-        <UnavailablePnl />
+        <PnlWithPercent values={values} />
       </td>
       <td className="px-2 py-3 text-center">
         <TradeLink holding={holding} />
@@ -310,7 +345,7 @@ function HoldingCard({
         <div className="text-right">
           <dt className="text-xs text-foreground-muted">Unrealized P&amp;L (USD)</dt>
           <dd className="mt-1">
-            <UnavailablePnl />
+            <PnlWithPercent values={values} />
           </dd>
         </div>
       </dl>
@@ -339,7 +374,20 @@ function PortfolioTotals({ holdings }: { holdings: readonly PortfolioHolding[] }
     () => (state: TickerStore) => holdingsMarketValueUnits(holdings, state.tickers),
     [holdings],
   );
+  const pnlSelector = useMemo(
+    () => (state: TickerStore) => holdingsUnrealizedPnlUnits(holdings, state.tickers),
+    [holdings],
+  );
+  const pnlPercentSelector = useMemo(
+    () => (state: TickerStore) => holdingsUnrealizedPnlPercent(holdings, state.tickers),
+    [holdings],
+  );
   const marketValue = useStore(tickerStore, marketValueSelector);
+  const pnl = useStore(tickerStore, pnlSelector);
+  const pnlPercent = useStore(tickerStore, pnlPercentSelector);
+  const pnlText = formatPnlUnits(pnl);
+  const pnlTone =
+    pnl === null || pnl === BigInt(0) ? "neutral" : pnl < BigInt(0) ? "negative" : "positive";
 
   return (
     <footer className="flex flex-col gap-3 border-t border-border-subtle px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -352,7 +400,10 @@ function PortfolioTotals({ holdings }: { holdings: readonly PortfolioHolding[] }
         <span className="font-mono text-base tabular-nums text-foreground">
           {formatUsdUnits(marketValue)}
         </span>
-        <UnavailablePnl />
+        <span className={classNames("font-mono tabular-nums", toneClass(pnlTone))}>{pnlText}</span>
+        <span className={classNames("font-mono tabular-nums", toneClass(pnlTone))}>
+          {pnlPercent ?? "—"}
+        </span>
       </div>
     </footer>
   );

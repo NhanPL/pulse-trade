@@ -11,6 +11,37 @@ const wholeNumberFormatter = new Intl.NumberFormat("en-US", { maximumFractionDig
 type CashBalance = PortfolioResponse["data"]["cash"];
 type TickerMap = Readonly<Record<string, MarketTicker>>;
 
+function absoluteUnits(units: bigint): bigint {
+  return units < BigInt(0) ? -units : units;
+}
+
+function multiplyScaledUnits(left: bigint, right: bigint): bigint {
+  const product = left * right;
+  const rounded = (absoluteUnits(product) + DECIMAL_SCALE / BigInt(2)) / DECIMAL_SCALE;
+  return product < BigInt(0) ? -rounded : rounded;
+}
+
+function formatMoneyUnits(units: bigint, showPositiveSign: boolean): string {
+  const cents =
+    (absoluteUnits(units) + DECIMAL_SCALE / BigInt(200)) / (DECIMAL_SCALE / BigInt(100));
+  const sign = cents === BigInt(0) ? "" : units < BigInt(0) ? "-" : showPositiveSign ? "+" : "";
+
+  return `${sign}$${wholeNumberFormatter.format(cents / BigInt(100))}.${String(
+    cents % BigInt(100),
+  ).padStart(2, "0")}`;
+}
+
+function formatPnlPercent(pnl: bigint | null, costBasis: bigint | null): string | null {
+  if (pnl === null || costBasis === null || costBasis <= BigInt(0)) return null;
+  const absoluteBasisPoints =
+    (absoluteUnits(pnl) * BigInt(10_000) + costBasis / BigInt(2)) / costBasis;
+  const sign = absoluteBasisPoints === BigInt(0) ? "" : pnl < BigInt(0) ? "-" : "+";
+
+  return `${sign}${absoluteBasisPoints / BigInt(100)}.${String(
+    absoluteBasisPoints % BigInt(100),
+  ).padStart(2, "0")}%`;
+}
+
 export function decimalUnits(value: string): bigint | null {
   if (!/^(?:0|[1-9]\d{0,19})(?:\.\d{1,18})?$/.test(value)) return null;
   const [whole, fraction = ""] = value.split(".");
@@ -22,7 +53,7 @@ export function multiplyDecimalUnits(left: string, right: string): bigint | null
   const rightUnits = decimalUnits(right);
   if (leftUnits === null || rightUnits === null) return null;
 
-  return (leftUnits * rightUnits + DECIMAL_SCALE / BigInt(2)) / DECIMAL_SCALE;
+  return multiplyScaledUnits(leftUnits, rightUnits);
 }
 
 export function cashTotalUnits(cash: CashBalance): bigint | null {
@@ -58,6 +89,63 @@ export function totalPortfolioValueUnits(
   return cashValue === null || holdingsValue === null ? null : cashValue + holdingsValue;
 }
 
+function holdingCostBasisUnits(holding: PortfolioHolding): bigint | null {
+  return multiplyDecimalUnits(holding.quantity, holding.averageCost);
+}
+
+export function holdingUnrealizedPnlUnits(
+  holding: PortfolioHolding,
+  ticker: MarketTicker | undefined,
+): bigint | null {
+  if (!ticker) return null;
+  const quantity = decimalUnits(holding.quantity);
+  const averageCost = decimalUnits(holding.averageCost);
+  const currentPrice = decimalUnits(ticker.price);
+  if (quantity === null || averageCost === null || currentPrice === null) return null;
+
+  return multiplyScaledUnits(currentPrice - averageCost, quantity);
+}
+
+export function holdingUnrealizedPnlPercent(
+  holding: PortfolioHolding,
+  ticker: MarketTicker | undefined,
+): string | null {
+  return formatPnlPercent(
+    holdingUnrealizedPnlUnits(holding, ticker),
+    holdingCostBasisUnits(holding),
+  );
+}
+
+export function holdingsUnrealizedPnlUnits(
+  holdings: readonly PortfolioHolding[],
+  tickers: TickerMap,
+): bigint | null {
+  let total = BigInt(0);
+
+  for (const holding of holdings) {
+    const pnl = holdingUnrealizedPnlUnits(holding, tickers[holding.symbol]);
+    if (pnl === null) return null;
+    total += pnl;
+  }
+
+  return total;
+}
+
+export function holdingsUnrealizedPnlPercent(
+  holdings: readonly PortfolioHolding[],
+  tickers: TickerMap,
+): string | null {
+  let costBasis = BigInt(0);
+
+  for (const holding of holdings) {
+    const holdingCostBasis = holdingCostBasisUnits(holding);
+    if (holdingCostBasis === null) return null;
+    costBasis += holdingCostBasis;
+  }
+
+  return formatPnlPercent(holdingsUnrealizedPnlUnits(holdings, tickers), costBasis);
+}
+
 export function allocationPercent(
   holding: PortfolioHolding,
   holdings: readonly PortfolioHolding[],
@@ -90,9 +178,11 @@ export function smallBalanceAssetKey(
 }
 
 export function formatUsdUnits(units: bigint | null): string {
-  if (units === null) return "—";
-  const cents = (units + DECIMAL_SCALE / BigInt(200)) / (DECIMAL_SCALE / BigInt(100));
-  return `$${wholeNumberFormatter.format(cents / BigInt(100))}.${String(cents % BigInt(100)).padStart(2, "0")}`;
+  return units === null ? "—" : formatMoneyUnits(units, false);
+}
+
+export function formatPnlUnits(units: bigint | null): string {
+  return units === null ? "—" : formatMoneyUnits(units, true);
 }
 
 export function formatUsdDecimal(value: string): string {
@@ -116,9 +206,11 @@ export function formatHoldingQuantity(value: string): string {
 
 export function unitsToDecimalString(units: bigint | null): string | null {
   if (units === null) return null;
-  const whole = units / DECIMAL_SCALE;
-  const fraction = String(units % DECIMAL_SCALE)
+  const unsignedUnits = absoluteUnits(units);
+  const whole = unsignedUnits / DECIMAL_SCALE;
+  const fraction = String(unsignedUnits % DECIMAL_SCALE)
     .padStart(DECIMAL_PLACES, "0")
     .replace(/0+$/, "");
-  return fraction ? `${whole}.${fraction}` : String(whole);
+  const sign = units < BigInt(0) ? "-" : "";
+  return fraction ? `${sign}${whole}.${fraction}` : `${sign}${whole}`;
 }

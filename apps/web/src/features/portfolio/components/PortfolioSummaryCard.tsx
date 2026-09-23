@@ -9,6 +9,7 @@ type PortfolioSummaryCardProps = {
   amount: string | null;
   description: string;
   icon: SummaryIcon;
+  highlightNote?: boolean;
   isPnl?: boolean;
   label: string;
   note: string;
@@ -26,6 +27,7 @@ export const PortfolioSummaryCard = memo(function PortfolioSummaryCard({
   amount,
   description,
   icon,
+  highlightNote = false,
   isPnl = false,
   label,
   note,
@@ -83,7 +85,13 @@ export const PortfolioSummaryCard = memo(function PortfolioSummaryCard({
       >
         {text === "—" ? <span aria-label="Not available">{text}</span> : text}
       </dd>
-      <dd className="mt-2 text-xs text-foreground-muted">
+      <dd
+        className={classNames(
+          "mt-2 text-xs text-foreground-muted",
+          highlightNote && tone === "positive" && "text-positive",
+          highlightNote && tone === "negative" && "text-negative",
+        )}
+      >
         {text === "—" ? "Not available" : note}
       </dd>
     </div>
