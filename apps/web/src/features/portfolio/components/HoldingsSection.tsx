@@ -4,9 +4,12 @@ import Link from "next/link";
 import { useId, useMemo, useState } from "react";
 import { useStore } from "zustand";
 
+import { Badge } from "@/components/ui/Badge";
 import { classNames } from "@/components/ui/class-names";
+import { EmptyState } from "@/components/ui/EmptyState";
 import {
   tickerStore,
+  useMarketIsStale,
   useTicker,
   type MarketTicker,
   type TickerStore,
@@ -31,6 +34,8 @@ import {
 
 type HoldingsSectionProps = {
   holdings: readonly PortfolioHolding[];
+  isRealtimeDelayed?: boolean;
+  isValuationDelayed?: boolean;
 };
 
 type ValueTone = "positive" | "negative" | "neutral";
@@ -168,7 +173,7 @@ function Quantity({
   );
 }
 
-function PriceWithChange({ values }: { values: HoldingLiveValues }) {
+function PriceWithChange({ isDelayed, values }: { isDelayed: boolean; values: HoldingLiveValues }) {
   const unavailable = values.price === "—";
   return (
     <span className="flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1">
@@ -181,6 +186,7 @@ function PriceWithChange({ values }: { values: HoldingLiveValues }) {
       <span className={classNames("font-mono text-xs tabular-nums", toneClass(values.priceTone))}>
         {values.change}
       </span>
+      {isDelayed ? <span className="text-xs font-medium text-warning">Delayed</span> : null}
     </span>
   );
 }
@@ -216,11 +222,15 @@ function TradeLink({ holding }: { holding: PortfolioHolding }) {
 function HoldingsTableRow({
   holding,
   holdings,
+  isRealtimeDelayed,
 }: {
   holding: PortfolioHolding;
   holdings: readonly PortfolioHolding[];
+  isRealtimeDelayed: boolean;
 }) {
   const ticker = useTicker(holding.symbol);
+  const isMarketStale = useMarketIsStale(holding.symbol);
+  const isDelayed = isRealtimeDelayed || isMarketStale;
   const values = currentValues(holding, ticker);
 
   return (
@@ -235,10 +245,11 @@ function HoldingsTableRow({
         {formatUsdDecimal(holding.averageCost)}
       </td>
       <td className="px-3 py-3 text-right" data-live-price={holding.symbol}>
-        <PriceWithChange values={values} />
+        <PriceWithChange isDelayed={isDelayed} values={values} />
       </td>
       <td className="px-3 py-3 text-right font-mono text-sm tabular-nums text-foreground">
         {values.marketValue}
+        {isDelayed ? <span className="sr-only"> (delayed)</span> : null}
       </td>
       <td className="px-3 py-3 text-right">
         <PnlWithPercent values={values} />
@@ -252,9 +263,11 @@ function HoldingsTableRow({
 
 function HoldingsTable({
   holdings,
+  isRealtimeDelayed,
   valuationHoldings,
 }: {
   holdings: readonly PortfolioHolding[];
+  isRealtimeDelayed: boolean;
   valuationHoldings: readonly PortfolioHolding[];
 }) {
   return (
@@ -296,7 +309,12 @@ function HoldingsTable({
       </thead>
       <tbody>
         {holdings.map((holding) => (
-          <HoldingsTableRow holding={holding} holdings={valuationHoldings} key={holding.asset} />
+          <HoldingsTableRow
+            holding={holding}
+            holdings={valuationHoldings}
+            isRealtimeDelayed={isRealtimeDelayed}
+            key={holding.asset}
+          />
         ))}
       </tbody>
     </table>
@@ -306,11 +324,15 @@ function HoldingsTable({
 function HoldingCard({
   holding,
   holdings,
+  isRealtimeDelayed,
 }: {
   holding: PortfolioHolding;
   holdings: readonly PortfolioHolding[];
+  isRealtimeDelayed: boolean;
 }) {
   const ticker = useTicker(holding.symbol);
+  const isMarketStale = useMarketIsStale(holding.symbol);
+  const isDelayed = isRealtimeDelayed || isMarketStale;
   const values = currentValues(holding, ticker);
 
   return (
@@ -334,12 +356,15 @@ function HoldingCard({
         </div>
         <div className="text-right">
           <dt className="text-xs text-foreground-muted">Market Value (USD)</dt>
-          <dd className="mt-1 font-mono tabular-nums text-foreground">{values.marketValue}</dd>
+          <dd className="mt-1 font-mono tabular-nums text-foreground">
+            {values.marketValue}
+            {isDelayed ? <span className="sr-only"> (delayed)</span> : null}
+          </dd>
         </div>
         <div>
           <dt className="text-xs text-foreground-muted">Current Price (USD)</dt>
           <dd className="mt-1" data-live-price={holding.symbol}>
-            <PriceWithChange values={values} />
+            <PriceWithChange isDelayed={isDelayed} values={values} />
           </dd>
         </div>
         <div className="text-right">
@@ -355,21 +380,34 @@ function HoldingCard({
 
 function HoldingCards({
   holdings,
+  isRealtimeDelayed,
   valuationHoldings,
 }: {
   holdings: readonly PortfolioHolding[];
+  isRealtimeDelayed: boolean;
   valuationHoldings: readonly PortfolioHolding[];
 }) {
   return (
     <ul aria-label="Holdings cards" className="grid gap-3 p-3 md:grid-cols-2 xl:hidden">
       {holdings.map((holding) => (
-        <HoldingCard holding={holding} holdings={valuationHoldings} key={holding.asset} />
+        <HoldingCard
+          holding={holding}
+          holdings={valuationHoldings}
+          isRealtimeDelayed={isRealtimeDelayed}
+          key={holding.asset}
+        />
       ))}
     </ul>
   );
 }
 
-function PortfolioTotals({ holdings }: { holdings: readonly PortfolioHolding[] }) {
+function PortfolioTotals({
+  holdings,
+  isDelayed,
+}: {
+  holdings: readonly PortfolioHolding[];
+  isDelayed: boolean;
+}) {
   const marketValueSelector = useMemo(
     () => (state: TickerStore) => holdingsMarketValueUnits(holdings, state.tickers),
     [holdings],
@@ -397,6 +435,7 @@ function PortfolioTotals({ holdings }: { holdings: readonly PortfolioHolding[] }
       </p>
       <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 sm:justify-end">
         <span className="text-foreground-secondary">Total Market Value</span>
+        {isDelayed ? <Badge variant="warning">Delayed</Badge> : null}
         <span className="font-mono text-base tabular-nums text-foreground">
           {formatUsdUnits(marketValue)}
         </span>
@@ -409,7 +448,11 @@ function PortfolioTotals({ holdings }: { holdings: readonly PortfolioHolding[] }
   );
 }
 
-export function HoldingsSection({ holdings }: HoldingsSectionProps) {
+export function HoldingsSection({
+  holdings,
+  isRealtimeDelayed = false,
+  isValuationDelayed = false,
+}: HoldingsSectionProps) {
   const searchId = useId();
   const [searchTerm, setSearchTerm] = useState("");
   const [hideSmallBalances, setHideSmallBalances] = useState(true);
@@ -454,78 +497,103 @@ export function HoldingsSection({ holdings }: HoldingsSectionProps) {
           Holdings
         </h2>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <button
-            aria-checked={hideSmallBalances}
-            className="flex min-h-10 items-center justify-between gap-3 rounded-lg px-1 text-sm text-foreground-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus sm:justify-start"
-            onClick={() => setHideSmallBalances((current) => !current)}
-            role="switch"
-            type="button"
-          >
-            <span>Hide Small Balances</span>
-            <span
-              aria-hidden="true"
-              className={classNames(
-                "relative h-5 w-9 rounded-full border transition-colors",
-                hideSmallBalances
-                  ? "border-brand/60 bg-brand"
-                  : "border-border-strong bg-surface-interactive",
-              )}
+        {!noPositions ? (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <button
+              aria-checked={hideSmallBalances}
+              className="flex min-h-10 items-center justify-between gap-3 rounded-lg px-1 text-sm text-foreground-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus sm:justify-start"
+              onClick={() => setHideSmallBalances((current) => !current)}
+              role="switch"
+              type="button"
             >
+              <span>Hide Small Balances</span>
               <span
+                aria-hidden="true"
                 className={classNames(
-                  "absolute left-0 top-0.5 size-3.5 rounded-full bg-white shadow-sm transition-transform",
-                  hideSmallBalances ? "translate-x-[17px]" : "translate-x-0.5",
+                  "relative h-5 w-9 rounded-full border transition-colors",
+                  hideSmallBalances
+                    ? "border-brand/60 bg-brand"
+                    : "border-border-strong bg-surface-interactive",
                 )}
-              />
-            </span>
-          </button>
+              >
+                <span
+                  className={classNames(
+                    "absolute left-0 top-0.5 size-3.5 rounded-full bg-white shadow-sm transition-transform",
+                    hideSmallBalances ? "translate-x-[17px]" : "translate-x-0.5",
+                  )}
+                />
+              </span>
+            </button>
 
-          <div className="relative sm:w-72">
-            <label className="sr-only" htmlFor={searchId}>
-              Search holdings
-            </label>
-            <svg
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-foreground-muted"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.5" />
-              <path d="m16 16 4 4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
-            </svg>
-            <input
-              className="h-10 w-full rounded-lg border border-border bg-surface-interactive pl-10 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-foreground-muted hover:border-border-strong focus:border-brand focus:ring-2 focus:ring-focus/25 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={noPositions}
-              id={searchId}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search assets..."
-              type="search"
-              value={searchTerm}
-            />
+            <div className="relative sm:w-72">
+              <label className="sr-only" htmlFor={searchId}>
+                Search holdings
+              </label>
+              <svg
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-foreground-muted"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.5" />
+                <path
+                  d="m16 16 4 4"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeWidth="1.5"
+                />
+              </svg>
+              <input
+                className="h-10 w-full rounded-lg border border-border bg-surface-interactive pl-10 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-foreground-muted hover:border-border-strong focus:border-brand focus:ring-2 focus:ring-focus/25 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={noPositions}
+                id={searchId}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search assets..."
+                type="search"
+                value={searchTerm}
+              />
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
 
       {visibleHoldings.length > 0 ? (
         <>
-          <HoldingsTable holdings={visibleHoldings} valuationHoldings={holdings} />
-          <HoldingCards holdings={visibleHoldings} valuationHoldings={holdings} />
+          <HoldingsTable
+            holdings={visibleHoldings}
+            isRealtimeDelayed={isRealtimeDelayed}
+            valuationHoldings={holdings}
+          />
+          <HoldingCards
+            holdings={visibleHoldings}
+            isRealtimeDelayed={isRealtimeDelayed}
+            valuationHoldings={holdings}
+          />
         </>
+      ) : noPositions ? (
+        <div className="p-4 sm:p-6">
+          <EmptyState
+            action={
+              <Link
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-brand px-4 text-sm font-semibold text-foreground-inverse shadow-brand transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                href="/"
+              >
+                Explore Markets
+              </Link>
+            }
+            description="Start paper trading to build your portfolio."
+            size="compact"
+            title="No crypto positions yet"
+          />
+        </div>
       ) : (
         <div className="px-6 py-12 text-center" role="status">
-          <p className="font-medium text-foreground">
-            {noPositions ? "No crypto positions yet" : "No matching holdings"}
-          </p>
-          <p className="mt-1 text-sm text-foreground-muted">
-            {noPositions
-              ? "Your paper positions will appear here after a filled buy order."
-              : "Try another asset name or symbol."}
-          </p>
+          <p className="font-medium text-foreground">No matching holdings</p>
+          <p className="mt-1 text-sm text-foreground-muted">Try another asset name or symbol.</p>
         </div>
       )}
 
-      <PortfolioTotals holdings={holdings} />
+      {!noPositions ? <PortfolioTotals holdings={holdings} isDelayed={isValuationDelayed} /> : null}
     </section>
   );
 }

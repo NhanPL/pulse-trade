@@ -126,7 +126,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] K05 Combine position snapshot with live tickers.
 - [x] K06 Display unrealized P&L live.
 - [x] K07 Display realized P&L.
-- [ ] K08 Add empty/loading/stale valuation states.
+- [x] K08 Add empty/loading/stale valuation states.
 
 ## Epic L — Limit orders
 

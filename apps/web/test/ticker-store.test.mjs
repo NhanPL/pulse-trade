@@ -5,6 +5,7 @@ import test from "node:test";
 const require = createRequire(import.meta.url);
 const {
   bindTickerStore,
+  selectMarketIsStale,
   selectTicker,
   tickerFromEvent,
   tickerStore,
@@ -46,7 +47,7 @@ function createTickerEvent({
 }
 
 function resetStore() {
-  tickerStore.setState({ tickers: {} });
+  tickerStore.setState({ marketFreshness: {}, tickers: {} });
 }
 
 test("stores the latest ticker by symbol without replacing other symbol entries", () => {
@@ -89,7 +90,7 @@ test("binds only ticker events from the validated event router and cleans up", (
   const source = new FakeRealtimeEventSource();
   const unbind = bindTickerStore(source);
 
-  source.emit({ event: "market.live" });
+  source.emit({ event: "connection.ready" });
   assert.equal(tickerStore.getState().tickers["BTC-USD"], undefined);
 
   source.emit(createTickerEvent({ price: "101" }));
@@ -99,5 +100,60 @@ test("binds only ticker events from the validated event router and cleans up", (
   source.emit(createTickerEvent({ marketTs: 2_000, price: "102" }));
   assert.equal(tickerStore.getState().tickers["BTC-USD"].price, "101");
   assert.equal(source.listeners.size, 0);
+  resetStore();
+});
+
+test("marks delayed markets stale while retaining prices and recovers on fresh data", () => {
+  resetStore();
+  const source = new FakeRealtimeEventSource();
+  const unbind = bindTickerStore(source);
+
+  source.emit(createTickerEvent({ marketTs: 100, price: "101", ts: 100 }));
+  source.emit({
+    data: { lastUpdateTs: 100, reason: "UPSTREAM_DISCONNECTED" },
+    event: "market.stale",
+    symbol: "BTC-USD",
+    ts: 101,
+    v: 1,
+  });
+
+  assert.equal(selectMarketIsStale("BTC-USD")(tickerStore.getState()), true);
+  assert.equal(tickerStore.getState().tickers["BTC-USD"].price, "101");
+
+  source.emit(createTickerEvent({ marketTs: 102, price: "102", ts: 102 }));
+  assert.equal(selectMarketIsStale("BTC-USD")(tickerStore.getState()), false);
+  assert.equal(tickerStore.getState().tickers["BTC-USD"].price, "102");
+
+  source.emit({
+    data: { lastUpdateTs: 102, reason: "UPSTREAM_DISCONNECTED" },
+    event: "market.stale",
+    symbol: "BTC-USD",
+    ts: 103,
+    v: 1,
+  });
+  source.emit({ data: {}, event: "market.live", symbol: "BTC-USD", ts: 104, v: 1 });
+  assert.equal(selectMarketIsStale("BTC-USD")(tickerStore.getState()), false);
+
+  unbind();
+  resetStore();
+});
+
+test("ignores out-of-order freshness events", () => {
+  resetStore();
+  const source = new FakeRealtimeEventSource();
+  const unbind = bindTickerStore(source);
+
+  source.emit({ data: {}, event: "market.live", symbol: "BTC-USD", ts: 200, v: 1 });
+  source.emit({
+    data: { lastUpdateTs: 100, reason: "UPSTREAM_DISCONNECTED" },
+    event: "market.stale",
+    symbol: "BTC-USD",
+    ts: 199,
+    v: 1,
+  });
+
+  assert.equal(selectMarketIsStale("BTC-USD")(tickerStore.getState()), false);
+
+  unbind();
   resetStore();
 });

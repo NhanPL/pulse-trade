@@ -1,16 +1,28 @@
 import type { PortfolioSummaryValues } from "../model/portfolio-summary";
 import { PortfolioSummaryCard } from "./PortfolioSummaryCard";
 
-export function PortfolioSummary({ values }: { values: PortfolioSummaryValues }) {
+export type PortfolioValuationStatus = "delayed" | "live" | "waiting";
+
+export function PortfolioSummary({
+  valuationStatus = "live",
+  values,
+}: {
+  valuationStatus?: PortfolioValuationStatus;
+  values: PortfolioSummaryValues;
+}) {
   return (
-    <section aria-label="Portfolio summary">
+    <section aria-label="Portfolio summary" data-valuation-status={valuationStatus}>
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <PortfolioSummaryCard
           amount={values.totalValue}
           description="The USD value of your cash and crypto holdings, including funds reserved for open orders."
           icon="wallet"
           label="Total Value"
-          note="Cash and crypto · USD"
+          note={
+            valuationStatus === "delayed"
+              ? "Includes delayed prices · USD"
+              : "Cash and crypto · USD"
+          }
         />
         <PortfolioSummaryCard
           amount={values.unrealizedPnl}
