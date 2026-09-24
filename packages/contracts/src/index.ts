@@ -5,6 +5,7 @@ export * from "./auth/refresh.schema.js";
 export * from "./auth/logout.schema.js";
 export * from "./auth/me.schema.js";
 export * from "./markets/historical-candles.schema.js";
+export * from "./orders/limit-buy-order.schema.js";
 export * from "./orders/market-order.schema.js";
 export * from "./portfolio/portfolio.schema.js";
 export * from "./realtime/commands.schema.js";

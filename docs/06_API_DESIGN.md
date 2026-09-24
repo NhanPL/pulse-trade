@@ -372,6 +372,26 @@ Response:
 }
 ```
 
+LIMIT BUY reservation response:
+
+```json
+{
+  "data": {
+    "id": "uuid",
+    "status": "PENDING",
+    "symbol": "BTC-USD",
+    "side": "BUY",
+    "type": "LIMIT",
+    "quantity": "0.01000000",
+    "limitPrice": "65000.00"
+  }
+}
+```
+
+Creating a LIMIT BUY atomically moves `limitPrice × quantity` from the quote wallet's available
+balance to its locked balance and persists the PENDING order. It does not create a trade or update a
+position until a later fill. LIMIT SELL placement is introduced separately by L02.
+
 Common errors:
 
 - `UNAUTHENTICATED`

@@ -28,6 +28,31 @@ export function parseMarketOrderQuantity(quantity: string): string {
   }
 }
 
+export function parseLimitOrderPrice(limitPrice: string): string {
+  try {
+    return requirePositiveDecimal(limitPrice, "limit price");
+  } catch (error) {
+    if (error instanceof TradingDomainError) {
+      throw new MarketOrderError("INVALID_LIMIT_PRICE", "Limit price must be greater than zero.");
+    }
+    throw error;
+  }
+}
+
+export function calculateLimitBuyReservation(limitPrice: string, quantity: string): string {
+  try {
+    return calculateQuoteAmount(limitPrice, quantity);
+  } catch (error) {
+    if (error instanceof TradingDomainError) {
+      throw new MarketOrderError(
+        "INVALID_LIMIT_PRICE",
+        "Limit price and quantity produce an unsupported reservation amount.",
+      );
+    }
+    throw error;
+  }
+}
+
 export function parseMarketExecutionPrice(price: string | undefined): string {
   if (!price) {
     throw new MarketOrderError(
