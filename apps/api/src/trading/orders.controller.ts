@@ -9,13 +9,18 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import {
+  limitBuyOrderRequestSchema,
+  limitBuyOrderResponseSchema,
   marketOrderRequestSchema,
   marketOrderResponseSchema,
+  type LimitBuyOrderRequest,
+  type LimitBuyOrderResponse,
   type MarketOrderRequest,
   type MarketOrderResponse,
 } from "@pulse-trade/contracts";
 
 import { CurrentUserService } from "../auth/current-user.service";
+import { LimitBuyService } from "./limit-buy.service";
 import { MarketBuyService } from "./market-buy.service";
 import { MarketOrderError } from "./market-order.error";
 import { MarketSellService } from "./market-sell.service";
@@ -26,19 +31,40 @@ export class OrdersController {
     private readonly currentUser: CurrentUserService,
     private readonly marketBuy: MarketBuyService,
     private readonly marketSell: MarketSellService,
+    private readonly limitBuy: LimitBuyService,
   ) {}
 
   @Post()
   @Header("Cache-Control", "no-store")
-  async createMarketOrder(
+  async createOrder(
     @Body() body: unknown,
     @Headers("authorization") authorization: string | undefined,
-  ): Promise<MarketOrderResponse> {
+  ): Promise<LimitBuyOrderResponse | MarketOrderResponse> {
     const user = await this.currentUser.resolve(authorization);
-    const order = parseMarketOrder(body);
-    const executionInput = { quantity: order.quantity, symbol: order.symbol, userId: user.id };
+    const order = parseOrder(body);
 
     try {
+      if (order.type === "LIMIT") {
+        const reservation = await this.limitBuy.reserve({
+          limitPrice: order.limitPrice,
+          quantity: order.quantity,
+          symbol: order.symbol,
+          userId: user.id,
+        });
+        return limitBuyOrderResponseSchema.parse({
+          data: {
+            id: reservation.orderId,
+            limitPrice: reservation.limitPrice,
+            quantity: reservation.quantity,
+            side: "BUY",
+            status: "PENDING",
+            symbol: reservation.symbol,
+            type: "LIMIT",
+          },
+        });
+      }
+
+      const executionInput = { quantity: order.quantity, symbol: order.symbol, userId: user.id };
       const execution =
         order.side === "BUY"
           ? await this.marketBuy.execute(executionInput)
@@ -60,17 +86,40 @@ export class OrdersController {
   }
 }
 
-function parseMarketOrder(body: unknown): MarketOrderRequest {
-  const result = marketOrderRequestSchema.safeParse(body);
-  if (result.success) return result.data;
+function parseOrder(body: unknown): LimitBuyOrderRequest | MarketOrderRequest {
+  if (isRecord(body) && body.type === "LIMIT" && body.side === "BUY") {
+    const limitResult = limitBuyOrderRequestSchema.safeParse(body);
+    if (limitResult.success) return limitResult.data;
 
-  const fieldErrors = result.error.flatten().fieldErrors;
+    const fieldErrors = limitResult.error.flatten().fieldErrors;
+    const code = fieldErrors.quantity
+      ? "INVALID_QUANTITY"
+      : fieldErrors.limitPrice
+        ? "INVALID_LIMIT_PRICE"
+        : "INVALID_ORDER";
+    const message =
+      code === "INVALID_QUANTITY"
+        ? "Quantity must be a positive decimal string."
+        : code === "INVALID_LIMIT_PRICE"
+          ? "Limit price must be a positive decimal string."
+          : "Provide a valid order request.";
+    throw new BadRequestException({ error: { code, details: null, message } });
+  }
+
+  const marketResult = marketOrderRequestSchema.safeParse(body);
+  if (marketResult.success) return marketResult.data;
+
+  const fieldErrors = marketResult.error.flatten().fieldErrors;
   const code = fieldErrors.quantity ? "INVALID_QUANTITY" : "INVALID_ORDER";
   const message =
     code === "INVALID_QUANTITY"
       ? "Quantity must be a positive decimal string."
       : "Provide a valid MARKET order request.";
   throw new BadRequestException({ error: { code, details: null, message } });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function throwOrderError(error: unknown): never {
@@ -84,6 +133,7 @@ function throwOrderError(error: unknown): never {
       case "MARKET_DATA_UNAVAILABLE":
         throw new ServiceUnavailableException(body);
       case "INVALID_QUANTITY":
+      case "INVALID_LIMIT_PRICE":
       case "UNSUPPORTED_SYMBOL":
         throw new BadRequestException(body);
     }
@@ -104,6 +154,8 @@ function messageFor(code: MarketOrderError["code"]): string {
       return "Insufficient available balance for this order.";
     case "INVALID_QUANTITY":
       return "Quantity must be a positive decimal string.";
+    case "INVALID_LIMIT_PRICE":
+      return "Limit price must be a positive decimal string.";
     case "MARKET_DATA_STALE":
       return "Current market data is stale. Please wait for a live update.";
     case "MARKET_DATA_UNAVAILABLE":
