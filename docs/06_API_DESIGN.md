@@ -390,7 +390,12 @@ LIMIT BUY reservation response:
 
 Creating a LIMIT BUY atomically moves `limitPrice × quantity` from the quote wallet's available
 balance to its locked balance and persists the PENDING order. It does not create a trade or update a
-position until a later fill. LIMIT SELL placement is introduced separately by L02.
+position until a later fill.
+
+Creating a LIMIT SELL returns the same PENDING response shape with `side: "SELL"`. It atomically
+moves `quantity` from the base wallet's available balance to its locked balance and stores the base
+asset and quantity as the order reservation. It does not create proceeds, a trade, or a position
+update until a later fill.
 
 Common errors:
 

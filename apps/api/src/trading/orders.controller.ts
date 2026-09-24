@@ -11,16 +11,21 @@ import {
 import {
   limitBuyOrderRequestSchema,
   limitBuyOrderResponseSchema,
+  limitSellOrderRequestSchema,
+  limitSellOrderResponseSchema,
   marketOrderRequestSchema,
   marketOrderResponseSchema,
   type LimitBuyOrderRequest,
   type LimitBuyOrderResponse,
+  type LimitSellOrderRequest,
+  type LimitSellOrderResponse,
   type MarketOrderRequest,
   type MarketOrderResponse,
 } from "@pulse-trade/contracts";
 
 import { CurrentUserService } from "../auth/current-user.service";
 import { LimitBuyService } from "./limit-buy.service";
+import { LimitSellService } from "./limit-sell.service";
 import { MarketBuyService } from "./market-buy.service";
 import { MarketOrderError } from "./market-order.error";
 import { MarketSellService } from "./market-sell.service";
@@ -32,6 +37,7 @@ export class OrdersController {
     private readonly marketBuy: MarketBuyService,
     private readonly marketSell: MarketSellService,
     private readonly limitBuy: LimitBuyService,
+    private readonly limitSell: LimitSellService,
   ) {}
 
   @Post()
@@ -39,24 +45,44 @@ export class OrdersController {
   async createOrder(
     @Body() body: unknown,
     @Headers("authorization") authorization: string | undefined,
-  ): Promise<LimitBuyOrderResponse | MarketOrderResponse> {
+  ): Promise<LimitBuyOrderResponse | LimitSellOrderResponse | MarketOrderResponse> {
     const user = await this.currentUser.resolve(authorization);
     const order = parseOrder(body);
 
     try {
       if (order.type === "LIMIT") {
-        const reservation = await this.limitBuy.reserve({
+        if (order.side === "BUY") {
+          const reservation = await this.limitBuy.reserve({
+            limitPrice: order.limitPrice,
+            quantity: order.quantity,
+            symbol: order.symbol,
+            userId: user.id,
+          });
+          return limitBuyOrderResponseSchema.parse({
+            data: {
+              id: reservation.orderId,
+              limitPrice: reservation.limitPrice,
+              quantity: reservation.quantity,
+              side: "BUY",
+              status: "PENDING",
+              symbol: reservation.symbol,
+              type: "LIMIT",
+            },
+          });
+        }
+
+        const reservation = await this.limitSell.reserve({
           limitPrice: order.limitPrice,
           quantity: order.quantity,
           symbol: order.symbol,
           userId: user.id,
         });
-        return limitBuyOrderResponseSchema.parse({
+        return limitSellOrderResponseSchema.parse({
           data: {
             id: reservation.orderId,
             limitPrice: reservation.limitPrice,
             quantity: reservation.quantity,
-            side: "BUY",
+            side: "SELL",
             status: "PENDING",
             symbol: reservation.symbol,
             type: "LIMIT",
@@ -86,9 +112,21 @@ export class OrdersController {
   }
 }
 
-function parseOrder(body: unknown): LimitBuyOrderRequest | MarketOrderRequest {
-  if (isRecord(body) && body.type === "LIMIT" && body.side === "BUY") {
-    const limitResult = limitBuyOrderRequestSchema.safeParse(body);
+function parseOrder(
+  body: unknown,
+): LimitBuyOrderRequest | LimitSellOrderRequest | MarketOrderRequest {
+  if (isRecord(body) && body.type === "LIMIT") {
+    const limitResult =
+      body.side === "BUY"
+        ? limitBuyOrderRequestSchema.safeParse(body)
+        : body.side === "SELL"
+          ? limitSellOrderRequestSchema.safeParse(body)
+          : undefined;
+    if (!limitResult) {
+      throw new BadRequestException({
+        error: { code: "INVALID_ORDER", details: null, message: "Provide a valid order request." },
+      });
+    }
     if (limitResult.success) return limitResult.data;
 
     const fieldErrors = limitResult.error.flatten().fieldErrors;
