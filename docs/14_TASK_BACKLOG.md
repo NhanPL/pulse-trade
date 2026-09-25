@@ -132,7 +132,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 
 - [x] L01 Implement limit BUY reservation.
 - [x] L02 Implement limit SELL reservation.
-- [ ] L03 Implement pending-order evaluator.
+- [x] L03 Implement pending-order evaluator.
 - [ ] L04 Implement atomic fill.
 - [ ] L05 Implement cancellation/release.
 - [ ] L06 Prevent double fill.

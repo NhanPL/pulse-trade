@@ -186,6 +186,26 @@ test("deduplicates shared subscriptions and releases upstream on the final clien
   assert.equal(gateway.activeConnectionCount, 1);
 });
 
+test("retains an internal upstream subscription independently of browser clients", () => {
+  const { gateway, provider, registry } = createHarness();
+  const release = registry.retainProviderSubscription({
+    channels: ["ticker"],
+    symbols: ["BTC-USD", "BTC-USD"],
+  });
+  const client = new FakeClient();
+  gateway.handleConnection(client);
+
+  gateway.handleSubscribe(client, subscribeCommand());
+  gateway.handleUnsubscribe(client, unsubscribeCommand());
+
+  assert.deepEqual(provider.subscriptions, [{ channels: ["ticker"], symbols: ["BTC-USD"] }]);
+  assert.equal(provider.unsubscriptions.length, 0);
+
+  release();
+  release();
+  assert.deepEqual(provider.unsubscriptions, [{ channels: ["ticker"], symbols: ["BTC-USD"] }]);
+});
+
 test("ignores malformed commands and reports unsupported symbols", () => {
   const { broadcaster, gateway, provider } = createHarness();
   const client = new FakeClient();
