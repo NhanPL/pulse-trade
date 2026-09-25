@@ -7,6 +7,8 @@ const require = createRequire(import.meta.url);
 const {
   limitBuyOrderRequestSchema,
   limitBuyOrderResponseSchema,
+  limitSellOrderRequestSchema,
+  limitSellOrderResponseSchema,
   marketOrderRequestSchema,
   marketOrderResponseSchema,
 } = require("@pulse-trade/contracts");
@@ -16,6 +18,7 @@ const { OrdersController } = require("../dist/trading/orders.controller.js");
 
 const user = { email: "trader@example.com", id: randomUUID() };
 const limitOrderId = randomUUID();
+const limitSellOrderId = randomUUID();
 
 function execution({ price = "67542.31", quantity = "0.01", symbol = "BTC-USD" } = {}) {
   return {
@@ -29,7 +32,7 @@ function execution({ price = "67542.31", quantity = "0.01", symbol = "BTC-USD" }
   };
 }
 
-function createController({ buy, currentUser, limitBuy, sell } = {}) {
+function createController({ buy, currentUser, limitBuy, limitSell, sell } = {}) {
   return new OrdersController(
     currentUser ?? {
       async resolve() {
@@ -54,6 +57,18 @@ function createController({ buy, currentUser, limitBuy, sell } = {}) {
           quantity: "0.01",
           reservedAmount: "650",
           reservedAsset: "USD",
+          symbol: "BTC-USD",
+        };
+      },
+    },
+    limitSell ?? {
+      async reserve() {
+        return {
+          limitPrice: "70000",
+          orderId: limitSellOrderId,
+          quantity: "0.5",
+          reservedAmount: "0.5",
+          reservedAsset: "BTC",
           symbol: "BTC-USD",
         };
       },
@@ -125,6 +140,42 @@ test("limit-BUY contracts accept only strict positive LIMIT payloads and pending
     { ...request, userId: randomUUID() },
   ]) {
     assert.equal(limitBuyOrderRequestSchema.safeParse(invalid).success, false);
+  }
+});
+
+test("limit-SELL contracts accept only strict positive LIMIT payloads and pending responses", () => {
+  const request = {
+    limitPrice: "70000",
+    quantity: "0.5",
+    side: "SELL",
+    symbol: "BTC-USD",
+    type: "LIMIT",
+  };
+  assert.deepEqual(limitSellOrderRequestSchema.parse(request), request);
+  assert.equal(
+    limitSellOrderResponseSchema.safeParse({
+      data: {
+        id: randomUUID(),
+        limitPrice: "70000",
+        quantity: "0.5",
+        side: "SELL",
+        status: "PENDING",
+        symbol: "BTC-USD",
+        type: "LIMIT",
+      },
+    }).success,
+    true,
+  );
+
+  for (const invalid of [
+    { ...request, limitPrice: "0" },
+    { ...request, limitPrice: "1e3" },
+    { ...request, quantity: "0" },
+    { ...request, side: "BUY" },
+    { ...request, type: "MARKET" },
+    { ...request, userId: randomUUID() },
+  ]) {
+    assert.equal(limitSellOrderRequestSchema.safeParse(invalid).success, false);
   }
 });
 
@@ -249,6 +300,65 @@ test("creates a pending limit BUY through the reservation service", async () => 
   );
 });
 
+test("creates a pending limit SELL through the reservation service", async () => {
+  const controller = createController({
+    buy: {
+      execute() {
+        assert.fail("must not execute a market buy");
+      },
+    },
+    limitBuy: {
+      reserve() {
+        assert.fail("must not reserve a limit buy");
+      },
+    },
+    limitSell: {
+      async reserve(input) {
+        assert.deepEqual(input, {
+          limitPrice: "70000",
+          quantity: "0.5",
+          symbol: "BTC-USD",
+          userId: user.id,
+        });
+        return {
+          limitPrice: "70000",
+          orderId: limitSellOrderId,
+          quantity: "0.5",
+          reservedAmount: "0.5",
+          reservedAsset: "BTC",
+          symbol: "BTC-USD",
+        };
+      },
+    },
+    sell: {
+      execute() {
+        assert.fail("must not execute a market sell");
+      },
+    },
+  });
+
+  assert.deepEqual(
+    await controller.createOrder({
+      limitPrice: "70000",
+      quantity: "0.5",
+      side: "SELL",
+      symbol: "BTC-USD",
+      type: "LIMIT",
+    }),
+    {
+      data: {
+        id: limitSellOrderId,
+        limitPrice: "70000",
+        quantity: "0.5",
+        side: "SELL",
+        status: "PENDING",
+        symbol: "BTC-USD",
+        type: "LIMIT",
+      },
+    },
+  );
+});
+
 test("authenticates before validation and rejects invalid market-order bodies", async () => {
   const controller = createController({
     currentUser: {
@@ -275,7 +385,7 @@ test("authenticates before validation and rejects invalid market-order bodies", 
     [{ quantity: "0", side: "BUY", symbol: "BTC-USD", type: "MARKET" }, "INVALID_QUANTITY"],
     [{ quantity: "0.01", side: "BUY", symbol: "BTC-USD", type: "LIMIT" }, "INVALID_LIMIT_PRICE"],
     [
-      { limitPrice: "65000", quantity: "0.01", side: "SELL", symbol: "BTC-USD", type: "LIMIT" },
+      { limitPrice: "65000", quantity: "0.01", side: "HOLD", symbol: "BTC-USD", type: "LIMIT" },
       "INVALID_ORDER",
     ],
     [

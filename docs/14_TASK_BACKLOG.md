@@ -131,7 +131,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 ## Epic L — Limit orders
 
 - [x] L01 Implement limit BUY reservation.
-- [ ] L02 Implement limit SELL reservation.
+- [x] L02 Implement limit SELL reservation.
 - [ ] L03 Implement pending-order evaluator.
 - [ ] L04 Implement atomic fill.
 - [ ] L05 Implement cancellation/release.
