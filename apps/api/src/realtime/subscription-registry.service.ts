@@ -11,6 +11,7 @@ import {
   MARKET_DATA_PROVIDER,
   type MarketDataProvider,
   type ProviderChannel,
+  type ProviderSubscription,
 } from "../markets/provider/market-data-provider";
 
 export type SubscriptionQuery = Readonly<{
@@ -21,10 +22,12 @@ export type SubscriptionQuery = Readonly<{
 
 type ClientSubscription = SubscriptionQuery;
 
-type UpstreamReference = Readonly<{
+type UpstreamSubscription = Readonly<{
   channel: ProviderChannel;
   symbol: string;
-}> & {
+}>;
+
+type UpstreamReference = UpstreamSubscription & {
   count: number;
 };
 
@@ -51,8 +54,30 @@ export class SubscriptionRegistry {
     for (const subscription of subscriptions.values()) {
       this.removeClientFromSubscription(client, subscription);
     }
-    const stoppedSubscriptions = this.removeUpstreamReferences(subscriptions.values());
+    const stoppedSubscriptions = this.removeUpstreamReferences(
+      [...subscriptions.values()].map(toUpstreamSubscription),
+    );
     this.notifyProvider("unsubscribe", stoppedSubscriptions);
+  }
+
+  retainProviderSubscription(request: ProviderSubscription): () => void {
+    const subscriptions = expandProviderSubscription(request);
+    const startedSubscriptions = this.addUpstreamReferences(subscriptions);
+
+    try {
+      this.notifyProvider("subscribe", startedSubscriptions);
+    } catch (error) {
+      this.removeUpstreamReferences(subscriptions);
+      throw error;
+    }
+
+    let retained = true;
+    return () => {
+      if (!retained) return;
+      retained = false;
+      const stoppedSubscriptions = this.removeUpstreamReferences(subscriptions);
+      this.notifyProvider("unsubscribe", stoppedSubscriptions);
+    };
   }
 
   subscribe(client: WebSocket, command: SubscribeCommand): void {
@@ -68,7 +93,8 @@ export class SubscriptionRegistry {
       this.addClientToSubscription(client, subscription);
     }
 
-    const startedSubscriptions = this.addUpstreamReferences(addedSubscriptions);
+    const upstreamSubscriptions = addedSubscriptions.map(toUpstreamSubscription);
+    const startedSubscriptions = this.addUpstreamReferences(upstreamSubscriptions);
     if (startedSubscriptions.length === 0) return;
 
     try {
@@ -78,7 +104,7 @@ export class SubscriptionRegistry {
         subscriptions.delete(createSubscriptionKey(subscription));
         this.removeClientFromSubscription(client, subscription);
       }
-      this.removeUpstreamReferences(addedSubscriptions);
+      this.removeUpstreamReferences(upstreamSubscriptions);
       throw error;
     }
   }
@@ -98,7 +124,9 @@ export class SubscriptionRegistry {
       this.removeClientFromSubscription(client, subscription);
     }
 
-    const stoppedSubscriptions = this.removeUpstreamReferences(removedSubscriptions);
+    const stoppedSubscriptions = this.removeUpstreamReferences(
+      removedSubscriptions.map(toUpstreamSubscription),
+    );
     this.notifyProvider("unsubscribe", stoppedSubscriptions);
   }
 
@@ -149,13 +177,12 @@ export class SubscriptionRegistry {
   }
 
   private addUpstreamReferences(
-    subscriptions: readonly ClientSubscription[],
+    subscriptions: readonly UpstreamSubscription[],
   ): readonly UpstreamReference[] {
     const startedSubscriptions: UpstreamReference[] = [];
 
     for (const subscription of subscriptions) {
-      const providerChannel = toProviderChannel(subscription.channel);
-      const key = createUpstreamKey({ channel: providerChannel, symbol: subscription.symbol });
+      const key = createUpstreamKey(subscription);
       const reference = this.upstreamReferences.get(key);
 
       if (reference) {
@@ -164,7 +191,7 @@ export class SubscriptionRegistry {
       }
 
       const startedSubscription: UpstreamReference = {
-        channel: providerChannel,
+        channel: subscription.channel,
         count: 1,
         symbol: subscription.symbol,
       };
@@ -218,15 +245,12 @@ export class SubscriptionRegistry {
   }
 
   private removeUpstreamReferences(
-    subscriptions: Iterable<ClientSubscription>,
+    subscriptions: Iterable<UpstreamSubscription>,
   ): readonly UpstreamReference[] {
     const stoppedSubscriptions: UpstreamReference[] = [];
 
     for (const subscription of subscriptions) {
-      const key = createUpstreamKey({
-        channel: toProviderChannel(subscription.channel),
-        symbol: subscription.symbol,
-      });
+      const key = createUpstreamKey(subscription);
       const reference = this.upstreamReferences.get(key);
       if (!reference) continue;
 
@@ -239,6 +263,25 @@ export class SubscriptionRegistry {
 
     return stoppedSubscriptions;
   }
+}
+
+function toUpstreamSubscription(subscription: ClientSubscription): UpstreamSubscription {
+  return { channel: toProviderChannel(subscription.channel), symbol: subscription.symbol };
+}
+
+function expandProviderSubscription(
+  request: ProviderSubscription,
+): readonly UpstreamSubscription[] {
+  const subscriptions = new Map<string, UpstreamSubscription>();
+
+  for (const symbol of new Set(request.symbols)) {
+    for (const channel of new Set(request.channels)) {
+      const subscription = { channel, symbol };
+      subscriptions.set(createUpstreamKey(subscription), subscription);
+    }
+  }
+
+  return [...subscriptions.values()];
 }
 
 function createSubscriptionKey(subscription: ClientSubscription): string {

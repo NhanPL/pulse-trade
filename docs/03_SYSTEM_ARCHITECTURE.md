@@ -195,6 +195,12 @@ PendingOrderEvaluator
 
 The browser is a viewer/command client, not the order execution engine.
 
+The evaluator retains backend ticker subscriptions for supported markets independently of browser
+subscriptions. It ignores replayed/out-of-order tickers, coalesces concurrent updates per symbol,
+bounds database evaluation cadence, and reads a bounded oldest-first batch of eligible PENDING
+orders. Evaluation only emits fill candidates; the atomic balance/order/trade mutation belongs to
+the fill transaction.
+
 ## 9. Scalability path
 
 ### MVP
