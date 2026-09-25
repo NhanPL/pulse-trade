@@ -201,6 +201,13 @@ bounds database evaluation cadence, and reads a bounded oldest-first batch of el
 orders. Evaluation only emits fill candidates; the atomic balance/order/trade mutation belongs to
 the fill transaction.
 
+The limit-order filler re-reads each candidate inside a database transaction and ignores candidates
+whose order is no longer PENDING or whose current fields no longer satisfy the trigger. A BUY fill
+consumes its full quote reservation, returns price improvement to available quote funds, credits the
+base asset, and updates weighted-average cost. A SELL fill consumes locked base assets, credits the
+execution proceeds, and updates the position and realized P&L. The trade record and FILLED order
+transition commit with those balance changes, so a failed step rolls back the whole fill.
+
 ## 9. Scalability path
 
 ### MVP

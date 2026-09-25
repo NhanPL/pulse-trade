@@ -5,6 +5,7 @@ import { MarketModule } from "../markets/market.module";
 import { RealtimeModule } from "../realtime/realtime.module";
 import { AuthModule } from "../auth/auth.module";
 import { LimitBuyService } from "./limit-buy.service";
+import { LimitOrderFillService } from "./limit-order-fill.service";
 import { LimitSellService } from "./limit-sell.service";
 import { MarketBuyService } from "./market-buy.service";
 import { MarketExecutionPriceService } from "./market-execution-price.service";
@@ -18,6 +19,7 @@ import { PendingOrderEvaluator } from "./pending-order-evaluator.service";
   imports: [AuthModule, DatabaseModule, MarketModule, RealtimeModule],
   providers: [
     LimitBuyService,
+    LimitOrderFillService,
     LimitSellService,
     MarketBuyService,
     MarketExecutionPriceService,
