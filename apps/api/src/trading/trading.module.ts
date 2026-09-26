@@ -10,6 +10,7 @@ import { LimitSellService } from "./limit-sell.service";
 import { MarketBuyService } from "./market-buy.service";
 import { MarketExecutionPriceService } from "./market-execution-price.service";
 import { MarketSellService } from "./market-sell.service";
+import { OrderCancellationService } from "./order-cancellation.service";
 import { OrdersController } from "./orders.controller";
 import { PendingOrderEvaluator } from "./pending-order-evaluator.service";
 
@@ -24,6 +25,7 @@ import { PendingOrderEvaluator } from "./pending-order-evaluator.service";
     MarketBuyService,
     MarketExecutionPriceService,
     MarketSellService,
+    OrderCancellationService,
     PendingOrderEvaluator,
   ],
 })

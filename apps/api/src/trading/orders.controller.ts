@@ -5,16 +5,23 @@ import {
   Controller,
   Header,
   Headers,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
   Post,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import {
+  cancelOrderParamsSchema,
+  cancelOrderResponseSchema,
   limitBuyOrderRequestSchema,
   limitBuyOrderResponseSchema,
   limitSellOrderRequestSchema,
   limitSellOrderResponseSchema,
   marketOrderRequestSchema,
   marketOrderResponseSchema,
+  type CancelOrderResponse,
   type LimitBuyOrderRequest,
   type LimitBuyOrderResponse,
   type LimitSellOrderRequest,
@@ -29,6 +36,8 @@ import { LimitSellService } from "./limit-sell.service";
 import { MarketBuyService } from "./market-buy.service";
 import { MarketOrderError } from "./market-order.error";
 import { MarketSellService } from "./market-sell.service";
+import { OrderCancellationError } from "./order-cancellation.error";
+import { OrderCancellationService } from "./order-cancellation.service";
 
 @Controller("orders")
 export class OrdersController {
@@ -38,7 +47,33 @@ export class OrdersController {
     private readonly marketSell: MarketSellService,
     private readonly limitBuy: LimitBuyService,
     private readonly limitSell: LimitSellService,
+    private readonly orderCancellation: OrderCancellationService,
   ) {}
+
+  @Post(":id/cancel")
+  @HttpCode(HttpStatus.OK)
+  @Header("Cache-Control", "no-store")
+  async cancelOrder(
+    @Param("id") id: string,
+    @Headers("authorization") authorization: string | undefined,
+  ): Promise<CancelOrderResponse> {
+    const user = await this.currentUser.resolve(authorization);
+    const params = cancelOrderParamsSchema.safeParse({ id });
+    if (!params.success) throwOrderNotFound();
+
+    try {
+      const cancellation = await this.orderCancellation.cancel(params.data.id, user.id);
+      return cancelOrderResponseSchema.parse({
+        data: {
+          cancelledAt: cancellation.cancelledAt.toISOString(),
+          id: cancellation.orderId,
+          status: "CANCELLED",
+        },
+      });
+    } catch (error) {
+      throwCancellationError(error);
+    }
+  }
 
   @Post()
   @Header("Cache-Control", "no-store")
@@ -183,6 +218,33 @@ function throwOrderError(error: unknown): never {
       details: null,
       message: "Order placement is temporarily unavailable. Please try again later.",
     },
+  });
+}
+
+function throwCancellationError(error: unknown): never {
+  if (error instanceof OrderCancellationError) {
+    if (error.code === "ORDER_NOT_FOUND") throwOrderNotFound();
+    throw new ConflictException({
+      error: {
+        code: "ORDER_NOT_CANCELLABLE",
+        details: null,
+        message: "Only a pending limit order can be cancelled.",
+      },
+    });
+  }
+
+  throw new ServiceUnavailableException({
+    error: {
+      code: "ORDER_UNAVAILABLE",
+      details: null,
+      message: "Order cancellation is temporarily unavailable. Please try again later.",
+    },
+  });
+}
+
+function throwOrderNotFound(): never {
+  throw new NotFoundException({
+    error: { code: "ORDER_NOT_FOUND", details: null, message: "Order was not found." },
   });
 }
 

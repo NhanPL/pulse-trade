@@ -134,7 +134,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] L02 Implement limit SELL reservation.
 - [x] L03 Implement pending-order evaluator.
 - [x] L04 Implement atomic fill.
-- [ ] L05 Implement cancellation/release.
+- [x] L05 Implement cancellation/release.
 - [ ] L06 Prevent double fill.
 - [ ] L07 Add Market/Limit form tabs.
 - [ ] L08 Add limit-price field and validation.
