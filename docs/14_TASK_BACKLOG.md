@@ -135,7 +135,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] L03 Implement pending-order evaluator.
 - [x] L04 Implement atomic fill.
 - [x] L05 Implement cancellation/release.
-- [ ] L06 Prevent double fill.
+- [x] L06 Prevent double fill.
 - [ ] L07 Add Market/Limit form tabs.
 - [ ] L08 Add limit-price field and validation.
 - [ ] L09 Show available/locked balance preview.

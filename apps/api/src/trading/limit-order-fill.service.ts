@@ -21,6 +21,8 @@ import {
   isLimitOrderEligible,
 } from "./pending-order-evaluator.service";
 
+const MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS = 3;
+
 export type LimitOrderFillExecution = Readonly<{
   executedAt: Date;
   executionPrice: string;
@@ -69,10 +71,21 @@ export class LimitOrderFillService implements OnModuleInit, OnModuleDestroy {
   async fill(candidate: EligibleLimitOrder): Promise<LimitOrderFillExecution | undefined> {
     const executionPrice = requirePositiveDecimal(candidate.marketPrice, "execution price");
 
-    return this.prisma.client.$transaction(
-      (transaction) => this.fillTransaction(transaction, candidate, executionPrice),
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+    for (let attempt = 1; attempt <= MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS; attempt++) {
+      try {
+        return await this.prisma.client.$transaction(
+          (transaction) => this.fillTransaction(transaction, candidate, executionPrice),
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (error) {
+        if (isSerializationConflict(error) && attempt < MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    return undefined;
   }
 
   private async fillTransaction(
@@ -131,11 +144,24 @@ export class LimitOrderFillService implements OnModuleInit, OnModuleDestroy {
       userId: row.userId,
     };
 
+    const executedAt = new Date();
+    // The conditional transition is the transaction's ownership claim: only one evaluator may
+    // proceed to mutate balances, positions, and trades for this pending order.
+    const claimedOrder = await transaction.order.updateMany({
+      data: {
+        avgFillPrice: executionPrice,
+        filledAt: executedAt,
+        filledQuantity: order.quantity,
+        status: "FILLED",
+      },
+      where: { id: order.id, status: "PENDING", type: "LIMIT" },
+    });
+    if (claimedOrder.count !== 1) return undefined;
+
     const quoteAmount =
       order.side === "BUY"
         ? await this.fillBuy(transaction, order, executionPrice)
         : await this.fillSell(transaction, order, executionPrice);
-    const executedAt = new Date();
     const trade = await transaction.trade.create({
       data: {
         executedAt,
@@ -148,16 +174,6 @@ export class LimitOrderFillService implements OnModuleInit, OnModuleDestroy {
         userId: order.userId,
       },
       select: { id: true },
-    });
-
-    await transaction.order.update({
-      data: {
-        avgFillPrice: executionPrice,
-        filledAt: executedAt,
-        filledQuantity: order.quantity,
-        status: "FILLED",
-      },
-      where: { id: order.id },
     });
 
     return {
@@ -313,4 +329,8 @@ export class LimitOrderFillService implements OnModuleInit, OnModuleDestroy {
 
 function invalidReservation(orderId: string): TradingDomainError {
   return new TradingDomainError(`Limit order ${orderId} has an inconsistent reservation.`);
+}
+
+function isSerializationConflict(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2034";
 }

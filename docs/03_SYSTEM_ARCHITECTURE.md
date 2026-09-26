@@ -208,6 +208,11 @@ base asset, and updates weighted-average cost. A SELL fill consumes locked base 
 execution proceeds, and updates the position and realized P&L. The trade record and FILLED order
 transition commit with those balance changes, so a failed step rolls back the whole fill.
 
+Before applying any financial mutation, the filler conditionally transitions the order from PENDING
+to FILLED inside the same serializable transaction. Only the transaction whose conditional update
+affects one row owns the fill. A concurrent evaluator retries serialization conflicts, then observes
+the committed non-PENDING state and exits without changing balances or creating another trade.
+
 ## 9. Scalability path
 
 ### MVP
