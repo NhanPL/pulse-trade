@@ -41,14 +41,16 @@ function order(overrides = {}) {
 }
 
 function createService({
+  claimCount = 1,
   currentOrder = order(),
   currentPosition = null,
   positionUpdateCount = 1,
   reservationUpdateCount = 1,
+  transactionFailures = [],
 } = {}) {
   const calls = {
+    orderClaim: [],
     orderFind: [],
-    orderUpdate: [],
     positionFind: [],
     positionUpdate: [],
     positionUpsert: [],
@@ -63,9 +65,9 @@ function createService({
         calls.orderFind.push(args);
         return currentOrder;
       },
-      async update(args) {
-        calls.orderUpdate.push(args);
-        return currentOrder;
+      async updateMany(args) {
+        calls.orderClaim.push(args);
+        return { count: claimCount };
       },
     },
     position: {
@@ -103,6 +105,8 @@ function createService({
     client: {
       async $transaction(callback, options) {
         calls.transactionOptions.push(options);
+        const failure = transactionFailures.shift();
+        if (failure) throw failure;
         return callback(transaction);
       },
     },
@@ -176,11 +180,14 @@ test("fills a limit BUY atomically and releases price improvement", async () => 
   ]);
   assert.equal(calls.tradeCreate[0].data.orderId, "order-1");
   assert.equal(calls.tradeCreate[0].data.quoteAmount, "45");
-  assert.deepEqual(calls.orderUpdate[0].data, {
-    avgFillPrice: "90",
-    filledAt: result.executedAt,
-    filledQuantity: "0.5",
-    status: "FILLED",
+  assert.deepEqual(calls.orderClaim[0], {
+    data: {
+      avgFillPrice: "90",
+      filledAt: result.executedAt,
+      filledQuantity: "0.5",
+      status: "FILLED",
+    },
+    where: { id: "order-1", status: "PENDING", type: "LIMIT" },
   });
 });
 
@@ -222,7 +229,7 @@ test("fills a limit SELL from locked assets and realizes P&L", async () => {
     },
   ]);
   assert.equal(calls.tradeCreate[0].data.side, "SELL");
-  assert.equal(calls.orderUpdate[0].data.status, "FILLED");
+  assert.equal(calls.orderClaim[0].data.status, "FILLED");
 });
 
 test("ignores a candidate when the order is no longer fillable", async () => {
@@ -233,7 +240,17 @@ test("ignores a candidate when the order is no longer fillable", async () => {
   assert.equal(await service.fill(candidate()), undefined);
   assert.equal(calls.walletUpdate.length, 0);
   assert.equal(calls.tradeCreate.length, 0);
-  assert.equal(calls.orderUpdate.length, 0);
+  assert.equal(calls.orderClaim.length, 0);
+});
+
+test("stops before financial mutations when another evaluator already claimed the order", async () => {
+  const { calls, service } = createService({ claimCount: 0 });
+
+  assert.equal(await service.fill(candidate()), undefined);
+  assert.equal(calls.orderClaim.length, 1);
+  assert.equal(calls.walletUpdate.length, 0);
+  assert.equal(calls.positionUpsert.length, 0);
+  assert.equal(calls.tradeCreate.length, 0);
 });
 
 test("fails the transaction when the persisted reservation is inconsistent", async () => {
@@ -246,5 +263,17 @@ test("fails the transaction when the persisted reservation is inconsistent", asy
       error.message === "Limit order order-1 has an inconsistent reservation.",
   );
   assert.equal(calls.tradeCreate.length, 0);
-  assert.equal(calls.orderUpdate.length, 0);
+  assert.equal(calls.orderClaim.length, 1);
+});
+
+test("retries serialization conflicts so the loser can observe the committed fill", async () => {
+  const retry = createService({ transactionFailures: [{ code: "P2034" }] });
+  await retry.service.fill(candidate());
+  assert.equal(retry.calls.transactionOptions.length, 2);
+
+  const exhausted = createService({
+    transactionFailures: [{ code: "P2034" }, { code: "P2034" }, { code: "P2034" }],
+  });
+  await assert.rejects(exhausted.service.fill(candidate()), (error) => error.code === "P2034");
+  assert.equal(exhausted.calls.transactionOptions.length, 3);
 });
