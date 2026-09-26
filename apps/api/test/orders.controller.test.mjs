@@ -5,6 +5,8 @@ import test from "node:test";
 
 const require = createRequire(import.meta.url);
 const {
+  cancelOrderParamsSchema,
+  cancelOrderResponseSchema,
   limitBuyOrderRequestSchema,
   limitBuyOrderResponseSchema,
   limitSellOrderRequestSchema,
@@ -14,6 +16,7 @@ const {
 } = require("@pulse-trade/contracts");
 const { UnauthorizedException } = require("@nestjs/common");
 const { MarketOrderError } = require("../dist/trading/market-order.error.js");
+const { OrderCancellationError } = require("../dist/trading/order-cancellation.error.js");
 const { OrdersController } = require("../dist/trading/orders.controller.js");
 
 const user = { email: "trader@example.com", id: randomUUID() };
@@ -32,7 +35,7 @@ function execution({ price = "67542.31", quantity = "0.01", symbol = "BTC-USD" }
   };
 }
 
-function createController({ buy, currentUser, limitBuy, limitSell, sell } = {}) {
+function createController({ buy, cancellation, currentUser, limitBuy, limitSell, sell } = {}) {
   return new OrdersController(
     currentUser ?? {
       async resolve() {
@@ -73,8 +76,92 @@ function createController({ buy, currentUser, limitBuy, limitSell, sell } = {}) 
         };
       },
     },
+    cancellation ?? {
+      async cancel(orderId) {
+        return { cancelledAt: new Date(), orderId, releasedAmount: "650", releasedAsset: "USD" };
+      },
+    },
   );
 }
+
+test("cancel-order contracts validate UUID params and cancelled responses", () => {
+  assert.deepEqual(cancelOrderParamsSchema.parse({ id: limitOrderId }), { id: limitOrderId });
+  assert.equal(cancelOrderParamsSchema.safeParse({ id: "not-a-uuid" }).success, false);
+  assert.equal(
+    cancelOrderResponseSchema.safeParse({
+      data: {
+        cancelledAt: "2026-09-26T00:00:00.000Z",
+        id: limitOrderId,
+        status: "CANCELLED",
+      },
+    }).success,
+    true,
+  );
+});
+
+test("cancels only the authenticated user's order", async () => {
+  const cancelledAt = new Date("2026-09-26T00:00:00.000Z");
+  const controller = createController({
+    cancellation: {
+      async cancel(orderId, userId) {
+        assert.equal(orderId, limitOrderId);
+        assert.equal(userId, user.id);
+        return { cancelledAt, orderId, releasedAmount: "650", releasedAsset: "USD" };
+      },
+    },
+    currentUser: {
+      async resolve(authorization) {
+        assert.equal(authorization, "Bearer access-token");
+        return user;
+      },
+    },
+  });
+
+  assert.deepEqual(await controller.cancelOrder(limitOrderId, "Bearer access-token"), {
+    data: {
+      cancelledAt: "2026-09-26T00:00:00.000Z",
+      id: limitOrderId,
+      status: "CANCELLED",
+    },
+  });
+});
+
+test("maps invalid, missing, and non-cancellable orders to stable HTTP errors", async () => {
+  let calls = 0;
+  const invalid = createController({
+    cancellation: {
+      cancel() {
+        calls++;
+        assert.fail("must not submit an invalid order id");
+      },
+    },
+  });
+  await assert.rejects(invalid.cancelOrder("not-a-uuid"), (error) => {
+    assert.equal(error.getStatus(), 404);
+    assert.equal(error.getResponse().error.code, "ORDER_NOT_FOUND");
+    return true;
+  });
+  assert.equal(calls, 0);
+
+  for (const [code, status] of [
+    ["ORDER_NOT_FOUND", 404],
+    ["ORDER_NOT_CANCELLABLE", 409],
+  ]) {
+    const controller = createController({
+      cancellation: {
+        async cancel() {
+          throw new OrderCancellationError(code, "private persistence detail");
+        },
+      },
+    });
+    await assert.rejects(controller.cancelOrder(limitOrderId), (error) => {
+      assert.equal(error.getStatus(), status);
+      assert.equal(error.getResponse().error.code, code);
+      assert.equal(JSON.stringify(error.getResponse()).includes("persistence"), false);
+      return true;
+    });
+  }
+});
 
 test("market-order contracts accept only strict MARKET BUY/SELL payloads and response data", () => {
   const request = { quantity: "0.01", side: "BUY", symbol: "BTC-USD", type: "MARKET" };

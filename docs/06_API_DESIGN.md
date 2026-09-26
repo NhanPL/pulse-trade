@@ -420,6 +420,18 @@ Rules:
 - Order must be PENDING.
 - Releases locked funds atomically.
 
+Response:
+
+```json
+{
+  "data": {
+    "id": "uuid",
+    "status": "CANCELLED",
+    "cancelledAt": "2026-09-26T00:00:00.000Z"
+  }
+}
+```
+
 Common errors:
 
 - `ORDER_NOT_FOUND`
