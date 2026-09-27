@@ -3,6 +3,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Get,
   Header,
   Headers,
   HttpCode,
@@ -10,6 +11,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import {
@@ -21,6 +23,8 @@ import {
   limitSellOrderResponseSchema,
   marketOrderRequestSchema,
   marketOrderResponseSchema,
+  ordersListQuerySchema,
+  ordersListResponseSchema,
   type CancelOrderResponse,
   type LimitBuyOrderRequest,
   type LimitBuyOrderResponse,
@@ -28,6 +32,7 @@ import {
   type LimitSellOrderResponse,
   type MarketOrderRequest,
   type MarketOrderResponse,
+  type OrdersListResponse,
 } from "@pulse-trade/contracts";
 
 import { CurrentUserService } from "../auth/current-user.service";
@@ -38,6 +43,8 @@ import { MarketOrderError } from "./market-order.error";
 import { MarketSellService } from "./market-sell.service";
 import { OrderCancellationError } from "./order-cancellation.error";
 import { OrderCancellationService } from "./order-cancellation.service";
+import { OrdersQueryError } from "./orders-query.error";
+import { OrdersQueryService } from "./orders-query.service";
 
 @Controller("orders")
 export class OrdersController {
@@ -48,7 +55,44 @@ export class OrdersController {
     private readonly limitBuy: LimitBuyService,
     private readonly limitSell: LimitSellService,
     private readonly orderCancellation: OrderCancellationService,
+    private readonly ordersQuery: OrdersQueryService,
   ) {}
+
+  @Get()
+  @Header("Cache-Control", "no-store")
+  async listOrders(
+    @Query() query: unknown,
+    @Headers("authorization") authorization: string | undefined,
+  ): Promise<OrdersListResponse> {
+    const user = await this.currentUser.resolve(authorization);
+    const parsedQuery = ordersListQuerySchema.safeParse(query);
+    if (!parsedQuery.success) {
+      throw new BadRequestException({
+        error: {
+          code: "INVALID_ORDERS_QUERY",
+          details: null,
+          message: "Provide valid order filters and pagination parameters.",
+        },
+      });
+    }
+
+    try {
+      return ordersListResponseSchema.parse({
+        data: await this.ordersQuery.list(user.id, parsedQuery.data),
+      });
+    } catch (error) {
+      if (error instanceof OrdersQueryError) {
+        throw new BadRequestException({
+          error: {
+            code: "INVALID_CURSOR",
+            details: null,
+            message: "The orders cursor is invalid or no longer available.",
+          },
+        });
+      }
+      throw error;
+    }
+  }
 
   @Post(":id/cancel")
   @HttpCode(HttpStatus.OK)

@@ -447,6 +447,8 @@ Common errors:
 
 ### GET `/orders`
 
+Authenticated.
+
 Query parameters:
 
 ```text
@@ -458,6 +460,44 @@ limit=20
 ```
 
 Use pagination even if MVP data is small; cursor pagination is preferred for time-ordered history.
+
+Response:
+
+```json
+{
+  "data": {
+    "items": [
+      {
+        "id": "uuid",
+        "symbol": "BTC-USD",
+        "side": "BUY",
+        "type": "LIMIT",
+        "status": "PENDING",
+        "quantity": "0.01000000",
+        "filledQuantity": "0",
+        "limitPrice": "65000.00",
+        "avgFillPrice": null,
+        "createdAt": "2026-09-27T00:00:00.000Z",
+        "filledAt": null,
+        "cancelledAt": null
+      }
+    ],
+    "nextCursor": "uuid-or-null"
+  }
+}
+```
+
+Orders are sorted by `createdAt DESC, id DESC`. `cursor` is the opaque order ID returned in
+`nextCursor`; it is exclusive and scoped to the authenticated user. `limit` defaults to 20 and is
+bounded to 1â€“100. All filters are combined, and clients must restart pagination when filters
+change.
+
+Common errors:
+
+- `UNAUTHENTICATED`
+- `INVALID_ORDERS_QUERY`
+- `INVALID_CURSOR`
+- `ORDERS_UNAVAILABLE`
 
 ### GET `/orders/:id`
 
