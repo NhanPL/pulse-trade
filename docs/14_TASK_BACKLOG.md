@@ -139,7 +139,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] L07 Add Market/Limit form tabs.
 - [x] L08 Add limit-price field and validation.
 - [x] L09 Show available/locked balance preview.
-- [ ] L10 Add full limit-order integration tests.
+- [x] L10 Add full limit-order integration tests.
 
 ## Epic M — Orders page
 
