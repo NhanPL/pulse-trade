@@ -10,6 +10,10 @@ const {
 
 const response = {
   data: {
+    balances: [
+      { asset: "BTC", available: "0.04", locked: "0.01" },
+      { asset: "USD", available: "4000", locked: "1000" },
+    ],
     cash: { available: "4000", locked: "1000" },
     positions: [{ asset: "BTC", averageCost: "60000", quantity: "0.05", realizedPnl: "100" }],
     quoteCurrency: "USD",

@@ -1,19 +1,31 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { limitBuyOrderRequestSchema, marketOrderRequestSchema } from "@pulse-trade/contracts";
+import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/Button";
 import { classNames } from "@/components/ui/class-names";
 import { Input } from "@/components/ui/Input";
-import { useAuthSession } from "@/features/auth/components/AuthSessionProvider";
+import { useAuthSession, type AuthStatus } from "@/features/auth/components/AuthSessionProvider";
+import { usePortfolio } from "@/features/portfolio/hooks/usePortfolio";
+import { portfolioQueryKeys } from "@/features/portfolio/model/query-keys";
 import { formatMarketPrice } from "@/lib/format/market-value";
 import { CreateLimitOrderError, createLimitOrder } from "../../api/create-limit-order";
 import { CreateMarketOrderError, createMarketOrder } from "../../api/create-market-order";
+import { findOrderBalance, formatOrderBalance, type OrderBalance } from "../../model/order-balance";
 
 type OrderSide = "BUY" | "SELL";
 type OrderType = "MARKET" | "LIMIT";
@@ -206,9 +218,89 @@ function BuySellTabs({ controlsId, disabled = false, idPrefix, onChange, side }:
   );
 }
 
+type BalancePreviewProps = {
+  asset: string;
+  balance: OrderBalance | null;
+  className?: string;
+  isAuthenticated: boolean;
+  isError: boolean;
+  isPending: boolean;
+  onRetry: () => void;
+  quoteAsset: string;
+  sessionStatus: AuthStatus;
+};
+
+function BalancePreview({
+  asset,
+  balance,
+  className,
+  isAuthenticated,
+  isError,
+  isPending,
+  onRetry,
+  quoteAsset,
+  sessionStatus,
+}: BalancePreviewProps) {
+  let state: ReactNode;
+  if (sessionStatus === "checking") {
+    state = <p className="font-medium text-foreground-secondary">Checking session…</p>;
+  } else if (!isAuthenticated) {
+    state = (
+      <p className="font-medium text-foreground-secondary">
+        {sessionStatus === "unavailable" ? "Session unavailable" : "Sign in to view"}
+      </p>
+    );
+  } else if (isPending) {
+    state = <p className="font-medium text-foreground-secondary">Loading balances…</p>;
+  } else if (isError || !balance) {
+    state = (
+      <p className="font-medium text-negative">
+        Balance unavailable ·{" "}
+        <button
+          className="rounded font-semibold underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          onClick={onRetry}
+          type="button"
+        >
+          Retry
+        </button>
+      </p>
+    );
+  } else {
+    state = (
+      <dl className="flex flex-wrap gap-x-3 gap-y-1 font-medium text-foreground-secondary">
+        <div className="flex gap-1">
+          <dt className="text-foreground-muted">Available</dt>
+          <dd className="font-mono tabular-nums">
+            {formatOrderBalance(balance.available, asset, quoteAsset)}
+          </dd>
+        </div>
+        <div className="flex gap-1">
+          <dt className="text-foreground-muted">Locked</dt>
+          <dd className="font-mono tabular-nums">
+            {formatOrderBalance(balance.locked, asset, quoteAsset)}
+          </dd>
+        </div>
+      </dl>
+    );
+  }
+
+  return (
+    <div
+      aria-label={`${asset} balance preview`}
+      className={classNames("min-w-0 text-xs", className)}
+      role="group"
+    >
+      <p className="mb-1 text-foreground-muted">{asset} balance</p>
+      {state}
+    </div>
+  );
+}
+
 export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: OrderFormProps) {
   const router = useRouter();
   const session = useAuthSession();
+  const portfolio = usePortfolio();
+  const queryClient = useQueryClient();
   const formId = useId();
   const [side, setSide] = useState<OrderSide>("BUY");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -230,6 +322,8 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
   const quantity = useWatch({ control, name: "quantity" });
   const limitPrice = useWatch({ control, name: "limitPrice" });
   const type = useWatch({ control, name: "type" });
+  const balanceAsset = side === "BUY" ? quoteAsset : baseAsset;
+  const balance = portfolio.data ? findOrderBalance(portfolio.data, balanceAsset) : null;
   const estimatePrice = type === "MARKET" ? currentPrice : limitPrice;
   const reservesBaseAsset = type === "LIMIT" && side === "SELL";
   const estimateLabel = type === "LIMIT" ? "Estimated reserved" : "Estimated notional";
@@ -277,6 +371,7 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
         setSuccessMessage(
           `Limit ${order.side.toLowerCase()} order placed at ${formatMarketPrice(order.limitPrice)} ${quoteAsset}.`,
         );
+        void queryClient.invalidateQueries({ queryKey: portfolioQueryKeys.all });
         return;
       }
 
@@ -291,6 +386,7 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
       setSuccessMessage(
         `Market ${order.side.toLowerCase()} order filled at ${formatMarketPrice(order.avgFillPrice)} ${quoteAsset}.`,
       );
+      void queryClient.invalidateQueries({ queryKey: portfolioQueryKeys.all });
     } catch (error) {
       if (controller.signal.aborted) return;
 
@@ -380,12 +476,17 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
           }}
           side={side}
         />
-        <p className="hidden self-center text-right text-xs text-foreground-muted sm:block">
-          Available / locked
-          <span className="block font-medium text-foreground-secondary">
-            {isAuthenticated ? "Checked when you submit" : "Sign in to view"}
-          </span>
-        </p>
+        <BalancePreview
+          asset={balanceAsset}
+          balance={balance}
+          className="hidden self-center text-right sm:block"
+          isAuthenticated={isAuthenticated}
+          isError={portfolio.isError}
+          isPending={portfolio.isPending}
+          onRetry={() => void portfolio.refetch()}
+          quoteAsset={quoteAsset}
+          sessionStatus={session.status}
+        />
       </header>
 
       <form
@@ -406,6 +507,18 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
             clearOrderFeedback();
           }}
           type={type}
+        />
+
+        <BalancePreview
+          asset={balanceAsset}
+          balance={balance}
+          className="rounded-lg border border-border-subtle bg-surface/65 p-3 sm:hidden"
+          isAuthenticated={isAuthenticated}
+          isError={portfolio.isError}
+          isPending={portfolio.isPending}
+          onRetry={() => void portfolio.refetch()}
+          quoteAsset={quoteAsset}
+          sessionStatus={session.status}
         />
 
         <div

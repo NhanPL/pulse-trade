@@ -9,13 +9,13 @@ function decimal(value) {
   return { toString: () => value };
 }
 
-function createService({ cash, failure, positions = [] } = {}) {
-  const calls = { cash: [], positions: [], transactions: [] };
+function createService({ balances = [], failure, positions = [] } = {}) {
+  const calls = { balances: [], positions: [], transactions: [] };
   const transaction = {
     walletBalance: {
-      async findUnique(args) {
-        calls.cash.push(args);
-        return cash;
+      async findMany(args) {
+        calls.balances.push(args);
+        return balances;
       },
     },
     position: {
@@ -38,7 +38,10 @@ function createService({ cash, failure, positions = [] } = {}) {
 
 test("returns a repeatable persisted portfolio snapshot scoped to one user", async () => {
   const { calls, service } = createService({
-    cash: { available: decimal("4500"), locked: decimal("1000") },
+    balances: [
+      { asset: "BTC", available: decimal("0.04"), locked: decimal("0.01") },
+      { asset: "USD", available: decimal("4500"), locked: decimal("1000") },
+    ],
     positions: [
       {
         asset: "BTC",
@@ -56,6 +59,10 @@ test("returns a repeatable persisted portfolio snapshot scoped to one user", asy
   });
 
   assert.deepEqual(await service.getSnapshot("user-1"), {
+    balances: [
+      { asset: "BTC", available: "0.04", locked: "0.01" },
+      { asset: "USD", available: "4500", locked: "1000" },
+    ],
     quoteCurrency: "USD",
     cash: { available: "4500", locked: "1000" },
     positions: [
@@ -64,10 +71,11 @@ test("returns a repeatable persisted portfolio snapshot scoped to one user", asy
     ],
   });
   assert.deepEqual(calls.transactions, [{ isolationLevel: "RepeatableRead" }]);
-  assert.deepEqual(calls.cash, [
+  assert.deepEqual(calls.balances, [
     {
-      where: { userId_asset: { asset: "USD", userId: "user-1" } },
-      select: { available: true, locked: true },
+      where: { userId: "user-1" },
+      orderBy: { asset: "asc" },
+      select: { asset: true, available: true, locked: true },
     },
   ]);
   assert.deepEqual(calls.positions, [
@@ -80,9 +88,10 @@ test("returns a repeatable persisted portfolio snapshot scoped to one user", asy
 });
 
 test("returns an empty zero-cash snapshot when no persisted portfolio rows exist", async () => {
-  const { service } = createService({ cash: null });
+  const { service } = createService();
 
   assert.deepEqual(await service.getSnapshot("user-without-wallet"), {
+    balances: [],
     quoteCurrency: "USD",
     cash: { available: "0", locked: "0" },
     positions: [],

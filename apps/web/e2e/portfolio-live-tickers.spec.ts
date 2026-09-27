@@ -12,6 +12,11 @@ const session = {
 };
 const portfolio = {
   data: {
+    balances: [
+      { asset: "BTC", available: "0.05", locked: "0" },
+      { asset: "ETH", available: "2", locked: "0" },
+      { asset: "USD", available: "4000", locked: "1000" },
+    ],
     cash: { available: "4000", locked: "1000" },
     positions: [
       { asset: "BTC", averageCost: "60000", quantity: "0.05", realizedPnl: "100" },

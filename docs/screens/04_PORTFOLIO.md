@@ -74,6 +74,10 @@ This step covers the USD breakdown documented by the screen and existing `/portf
 The broader per-asset balance requirement remains: `positions.quantity` alone cannot supply
 crypto available/locked balances. K03 does not extend that API or implement reservations.
 
+L09 closes that later dependency by adding a `balances` collection to the portfolio snapshot.
+It exposes persisted wallet available/locked values per asset for the trading order form while the
+existing `cash` object remains the USD summary used by this screen.
+
 ### K04 holdings presentation
 
 The holdings panel follows `docs/design/desktop/portfolio.png`: desktop uses a six-metric table

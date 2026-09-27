@@ -104,7 +104,7 @@ test("portfolio endpoint returns the authenticated user's persisted snapshot", a
     }),
   ]);
 
-  await t.test("serializes only the caller's cash and persisted positions", async () => {
+  await t.test("serializes only the caller's wallet balances and persisted positions", async () => {
     const response = await getPortfolio(session.accessToken, `?userId=${other.id}`);
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("cache-control"), "no-store");
@@ -112,6 +112,10 @@ test("portfolio endpoint returns the authenticated user's persisted snapshot", a
     portfolioResponseSchema.parse(body);
     assert.deepEqual(body, {
       data: {
+        balances: [
+          { asset: "BTC", available: "0.05", locked: "0" },
+          { asset: "USD", available: "4500", locked: "1000" },
+        ],
         quoteCurrency: "USD",
         cash: { available: "4500", locked: "1000" },
         positions: [

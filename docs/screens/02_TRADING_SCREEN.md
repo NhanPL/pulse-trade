@@ -223,6 +223,11 @@ Displays:
 - Estimated reserved amount.
 - Available/locked balance.
 
+The balance preview uses the authenticated portfolio snapshot. BUY shows the quote asset wallet;
+SELL shows the base asset wallet. Missing wallet rows display zero, while loading or failed balance
+requests remain visibly distinct from a real zero balance. A successful order invalidates the
+portfolio query so the server-authoritative available/locked values refresh.
+
 ### Guest behavior
 
 User can inspect form but submit action should route/open sign-in requirement clearly.

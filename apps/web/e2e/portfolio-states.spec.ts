@@ -15,6 +15,11 @@ const session = {
 };
 const fundedPortfolio = {
   data: {
+    balances: [
+      { asset: "BTC", available: "0.05", locked: "0" },
+      { asset: "ETH", available: "2", locked: "0" },
+      { asset: "USD", available: "5000", locked: "0" },
+    ],
     cash: { available: "5000", locked: "0" },
     positions: [
       { asset: "BTC", averageCost: "60000", quantity: "0.05", realizedPnl: "100" },
@@ -25,6 +30,7 @@ const fundedPortfolio = {
 };
 const emptyPortfolio = {
   data: {
+    balances: [{ asset: "USD", available: "10000", locked: "0" }],
     cash: { available: "10000", locked: "0" },
     positions: [],
     quoteCurrency: "USD",
