@@ -13,6 +13,7 @@ export default defineConfig({
     "portfolio-holdings.spec.ts",
     "portfolio-live-tickers.spec.ts",
     "portfolio-states.spec.ts",
+    "orders-open.spec.ts",
   ],
   fullyParallel: true,
   use: {

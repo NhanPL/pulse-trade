@@ -13,10 +13,14 @@ const positiveDecimalStringSchema = unsignedDecimalStringSchema.refine(
 const ordersPageLimitSchema = z.preprocess(
   (value) => (value === undefined ? "20" : value),
   z
-    .string()
-    .regex(/^[1-9]\d*$/)
-    .transform(Number)
-    .pipe(z.number().int().max(100)),
+    .union([
+      z
+        .string()
+        .regex(/^[1-9]\d*$/)
+        .transform(Number),
+      z.number().int(),
+    ])
+    .pipe(z.number().int().min(1).max(100)),
 );
 
 export const orderSideSchema = z.enum(["BUY", "SELL"]);
