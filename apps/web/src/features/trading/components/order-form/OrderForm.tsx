@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { marketOrderRequestSchema, type MarketOrderRequest } from "@pulse-trade/contracts";
@@ -25,68 +25,6 @@ export type OrderFormProps = {
   quoteAsset: string;
   symbol: string;
 };
-
-type SegmentedOption<TValue extends string> = {
-  label: string;
-  value: TValue;
-};
-
-type SegmentedControlProps<TValue extends string> = {
-  disabled?: boolean;
-  label: string;
-  name: string;
-  onChange: (value: TValue) => void;
-  options: readonly SegmentedOption<TValue>[];
-  value: TValue;
-};
-
-function SegmentedControl<TValue extends string>({
-  disabled = false,
-  label,
-  name,
-  onChange,
-  options,
-  value,
-}: SegmentedControlProps<TValue>) {
-  return (
-    <fieldset>
-      <legend className="sr-only">{label}</legend>
-      <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-surface p-1 lg:max-w-56">
-        {options.map((option) => {
-          const selected = option.value === value;
-
-          return (
-            <label
-              key={option.value}
-              className={classNames(
-                "relative flex min-h-10 cursor-pointer items-center justify-center rounded-md px-4 text-sm font-semibold transition-colors lg:min-h-9 disabled:cursor-not-allowed disabled:opacity-50",
-                "has-focus-visible:outline-none has-focus-visible:ring-2 has-focus-visible:ring-focus",
-                selected
-                  ? option.value === "BUY"
-                    ? "bg-positive-subtle text-positive"
-                    : option.value === "SELL"
-                      ? "bg-negative-subtle text-negative"
-                      : "bg-surface-selected text-brand"
-                  : "text-foreground-muted hover:bg-surface-hover hover:text-foreground",
-              )}
-            >
-              <input
-                checked={selected}
-                className="sr-only"
-                disabled={disabled}
-                name={name}
-                onChange={() => onChange(option.value)}
-                type="radio"
-                value={option.value}
-              />
-              {option.label}
-            </label>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
-}
 
 function formatEstimate(quantity: string, price: string, quoteAsset: string): string {
   const numericQuantity = Number(quantity);
@@ -124,6 +62,81 @@ const TYPE_OPTIONS = [
   { label: "LIMIT", value: "LIMIT" },
   { label: "MARKET", value: "MARKET" },
 ] as const;
+
+type OrderTypeTabsProps = {
+  controlsId: string;
+  disabled?: boolean;
+  idPrefix: string;
+  onChange: (type: OrderType) => void;
+  type: OrderType;
+};
+
+function OrderTypeTabs({
+  controlsId,
+  disabled = false,
+  idPrefix,
+  onChange,
+  type,
+}: OrderTypeTabsProps) {
+  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number): void {
+    let nextIndex: number | undefined;
+    if (event.key === "ArrowLeft") {
+      nextIndex = (index - 1 + TYPE_OPTIONS.length) % TYPE_OPTIONS.length;
+    }
+    if (event.key === "ArrowRight") nextIndex = (index + 1) % TYPE_OPTIONS.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = TYPE_OPTIONS.length - 1;
+    if (nextIndex === undefined) return;
+
+    event.preventDefault();
+    const tabs = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+      '[role="tab"]:not(:disabled)',
+    );
+    const nextTab = tabs?.[nextIndex];
+    const nextType = TYPE_OPTIONS[nextIndex]?.value;
+    if (!nextTab || !nextType) return;
+
+    onChange(nextType);
+    nextTab.focus();
+  }
+
+  return (
+    <div
+      aria-label="Order type"
+      className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-surface p-1 lg:max-w-56"
+      role="tablist"
+    >
+      {TYPE_OPTIONS.map((option, index) => {
+        const selected = option.value === type;
+
+        return (
+          <button
+            key={option.value}
+            aria-controls={controlsId}
+            aria-selected={selected}
+            className={classNames(
+              "relative flex min-h-10 items-center justify-center rounded-md px-4 text-sm font-semibold transition-colors lg:min-h-9",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              selected
+                ? "bg-surface-selected text-brand"
+                : "text-foreground-muted hover:bg-surface-hover hover:text-foreground",
+            )}
+            disabled={disabled}
+            id={`${idPrefix}-${option.value.toLowerCase()}-type-tab`}
+            onClick={() => onChange(option.value)}
+            onKeyDown={(event) => handleKeyDown(event, index)}
+            role="tab"
+            tabIndex={selected ? 0 : -1}
+            type="button"
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 type BuySellTabsProps = {
   controlsId: string;
@@ -198,6 +211,7 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
     ? formatQuantityEstimate(quantity, baseAsset)
     : formatEstimate(quantity, estimatePrice, quoteAsset);
   const orderFieldsId = `${formId}-order-fields`;
+  const orderTypePanelId = `${formId}-order-type-panel`;
   const isAuthenticated = session.status === "authenticated";
   const checkingSession = session.status === "checking";
   const isMarketOrder = type === "MARKET";
@@ -334,19 +348,24 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
         onSubmit={handleFormSubmit}
         role="tabpanel"
       >
-        <SegmentedControl
+        <OrderTypeTabs
+          controlsId={orderTypePanelId}
           disabled={pending}
-          label="Order type"
-          name={`${formId}-type`}
+          idPrefix={formId}
           onChange={(value) => {
             setType(value);
             clearOrderFeedback();
           }}
-          options={TYPE_OPTIONS}
-          value={type}
+          type={type}
         />
 
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div
+          aria-labelledby={`${formId}-${type.toLowerCase()}-type-tab`}
+          className="grid gap-3 lg:grid-cols-2"
+          id={orderTypePanelId}
+          role="tabpanel"
+          tabIndex={0}
+        >
           {type === "LIMIT" ? (
             <Input
               inputMode="decimal"
