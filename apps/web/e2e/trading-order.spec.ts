@@ -34,6 +34,35 @@ function quantityInput(page: Page) {
   return page.getByRole("spinbutton", { name: /^Quantity/ });
 }
 
+test("LIMIT and MARKET are keyboard-accessible order type tabs", async ({ page }) => {
+  await page.route("**/auth/refresh", (route) =>
+    route.fulfill({ contentType: "application/json", status: 401, body: "{}" }),
+  );
+  await page.goto("/trade/BTC-USD");
+
+  const typeTabs = page.getByRole("tablist", { name: "Order type" });
+  const limitTab = typeTabs.getByRole("tab", { name: "LIMIT", exact: true });
+  const marketTab = typeTabs.getByRole("tab", { name: "MARKET", exact: true });
+
+  await expect(limitTab).toHaveAttribute("aria-selected", "true");
+  await expect(limitTab).toHaveAttribute("tabindex", "0");
+  await expect(marketTab).toHaveAttribute("aria-selected", "false");
+  await expect(marketTab).toHaveAttribute("tabindex", "-1");
+  await expect(page.getByRole("spinbutton", { name: /^Limit price/ })).toBeVisible();
+
+  await limitTab.focus();
+  await limitTab.press("ArrowRight");
+  await expect(marketTab).toBeFocused();
+  await expect(marketTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByText("Indicative price", { exact: true })).toBeVisible();
+  await expect(page.getByRole("spinbutton", { name: /^Limit price/ })).toHaveCount(0);
+
+  await marketTab.press("Home");
+  await expect(limitTab).toBeFocused();
+  await expect(limitTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("spinbutton", { name: /^Limit price/ })).toBeVisible();
+});
+
 test("authenticated market buy submits the shared request and confirms the fill", async ({
   page,
 }) => {
