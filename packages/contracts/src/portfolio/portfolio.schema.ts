@@ -11,6 +11,15 @@ export const portfolioResponseSchema = z
   .object({
     data: z
       .object({
+        balances: z.array(
+          z
+            .object({
+              asset: assetSchema,
+              available: unsignedDecimalStringSchema,
+              locked: unsignedDecimalStringSchema,
+            })
+            .strict(),
+        ),
         cash: z
           .object({
             available: unsignedDecimalStringSchema,

@@ -307,6 +307,10 @@ Response shape:
       "available": "4500.00",
       "locked": "1000.00"
     },
+    "balances": [
+      { "asset": "BTC", "available": "0.04000000", "locked": "0.01000000" },
+      { "asset": "USD", "available": "4500.00", "locked": "1000.00" }
+    ],
     "positions": [
       {
         "asset": "BTC",
@@ -318,6 +322,10 @@ Response shape:
   }
 }
 ```
+
+`balances` contains the persisted available/locked wallet state for each funded asset and is used
+by the trading order form. `cash` remains the USD summary used by the portfolio screen and mirrors
+the USD wallet entry. An asset without a wallet row has zero available and zero locked balance.
 
 Current market value/unrealized P&L may be returned as a snapshot, but frontend can update display from realtime prices afterwards.
 

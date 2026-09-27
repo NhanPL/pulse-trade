@@ -14,10 +14,11 @@ export class PortfolioService {
     try {
       return await this.prisma.client.$transaction(
         async (transaction) => {
-          const [cash, positions] = await Promise.all([
-            transaction.walletBalance.findUnique({
-              where: { userId_asset: { asset: QUOTE_CURRENCY, userId } },
-              select: { available: true, locked: true },
+          const [walletBalances, positions] = await Promise.all([
+            transaction.walletBalance.findMany({
+              where: { userId },
+              orderBy: { asset: "asc" },
+              select: { asset: true, available: true, locked: true },
             }),
             transaction.position.findMany({
               where: { userId },
@@ -30,12 +31,19 @@ export class PortfolioService {
               },
             }),
           ]);
+          const balances = walletBalances.map((balance) => ({
+            asset: balance.asset,
+            available: balance.available.toString(),
+            locked: balance.locked.toString(),
+          }));
+          const cash = balances.find((balance) => balance.asset === QUOTE_CURRENCY);
 
           return {
+            balances,
             quoteCurrency: QUOTE_CURRENCY,
             cash: {
-              available: cash?.available.toString() ?? "0",
-              locked: cash?.locked.toString() ?? "0",
+              available: cash?.available ?? "0",
+              locked: cash?.locked ?? "0",
             },
             // Closed positions retain realized P&L; the later holdings UI filters zero quantities.
             positions: positions.map((position) => ({

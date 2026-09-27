@@ -10,6 +10,10 @@ const { PortfolioController } = require("../dist/portfolio/portfolio.controller.
 
 const user = { email: "portfolio@example.com", id: randomUUID() };
 const snapshot = {
+  balances: [
+    { asset: "BTC", available: "0.04", locked: "0.01" },
+    { asset: "USD", available: "4500", locked: "1000" },
+  ],
   quoteCurrency: "USD",
   cash: { available: "4500", locked: "1000" },
   positions: [{ asset: "BTC", averageCost: "60000", quantity: "0.05", realizedPnl: "100" }],
@@ -36,6 +40,8 @@ test("portfolio contract keeps persisted financial values as strict decimal stri
   for (const invalid of [
     { data: { ...snapshot, quoteCurrency: "EUR" } },
     { data: { ...snapshot, cash: { available: "-1", locked: "0" } } },
+    { data: { ...snapshot, balances: [{ asset: "btc", available: "1", locked: "0" }] } },
+    { data: { ...snapshot, balances: [{ asset: "BTC", available: "-1", locked: "0" }] } },
     { data: { ...snapshot, positions: [{ ...snapshot.positions[0], realizedPnl: "1e2" }] } },
     { data: { ...snapshot, positions: [{ ...snapshot.positions[0], asset: "btc" }] } },
     { data: { ...snapshot, injected: true } },

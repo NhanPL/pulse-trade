@@ -12,6 +12,7 @@ const session = {
 };
 const portfolio = {
   data: {
+    balances: [{ asset: "USD", available: "18642.30", locked: "0.00" }],
     cash: { available: "18642.30", locked: "0.00" },
     positions: [],
     quoteCurrency: "USD",
