@@ -13,11 +13,14 @@ const {
   limitSellOrderResponseSchema,
   marketOrderRequestSchema,
   marketOrderResponseSchema,
+  ordersListQuerySchema,
+  ordersListResponseSchema,
 } = require("@pulse-trade/contracts");
 const { UnauthorizedException } = require("@nestjs/common");
 const { MarketOrderError } = require("../dist/trading/market-order.error.js");
 const { OrderCancellationError } = require("../dist/trading/order-cancellation.error.js");
 const { OrdersController } = require("../dist/trading/orders.controller.js");
+const { OrdersQueryError } = require("../dist/trading/orders-query.error.js");
 
 const user = { email: "trader@example.com", id: randomUUID() };
 const limitOrderId = randomUUID();
@@ -35,7 +38,15 @@ function execution({ price = "67542.31", quantity = "0.01", symbol = "BTC-USD" }
   };
 }
 
-function createController({ buy, cancellation, currentUser, limitBuy, limitSell, sell } = {}) {
+function createController({
+  buy,
+  cancellation,
+  currentUser,
+  limitBuy,
+  limitSell,
+  ordersQuery,
+  sell,
+} = {}) {
   return new OrdersController(
     currentUser ?? {
       async resolve() {
@@ -81,8 +92,137 @@ function createController({ buy, cancellation, currentUser, limitBuy, limitSell,
         return { cancelledAt: new Date(), orderId, releasedAmount: "650", releasedAsset: "USD" };
       },
     },
+    ordersQuery ?? {
+      async list() {
+        return { items: [], nextCursor: null };
+      },
+    },
   );
 }
+
+test("orders-list contracts validate filters, pagination, and financial strings", () => {
+  assert.deepEqual(ordersListQuerySchema.parse({}), { limit: 20 });
+  assert.deepEqual(
+    ordersListQuerySchema.parse({
+      cursor: limitOrderId,
+      limit: "50",
+      side: "BUY",
+      status: "PENDING",
+      symbol: "BTC-USD",
+    }),
+    {
+      cursor: limitOrderId,
+      limit: 50,
+      side: "BUY",
+      status: "PENDING",
+      symbol: "BTC-USD",
+    },
+  );
+
+  const item = {
+    avgFillPrice: null,
+    cancelledAt: null,
+    createdAt: "2026-09-27T00:00:00.000Z",
+    filledAt: null,
+    filledQuantity: "0",
+    id: limitOrderId,
+    limitPrice: "65000",
+    quantity: "0.01",
+    side: "BUY",
+    status: "PENDING",
+    symbol: "BTC-USD",
+    type: "LIMIT",
+  };
+  assert.deepEqual(
+    ordersListResponseSchema.parse({ data: { items: [item], nextCursor: limitOrderId } }),
+    { data: { items: [item], nextCursor: limitOrderId } },
+  );
+
+  for (const query of [
+    { limit: "0" },
+    { limit: "101" },
+    { limit: "2.5" },
+    { cursor: "not-a-uuid" },
+    { side: "HOLD" },
+    { status: "OPEN" },
+    { symbol: "btc-usd" },
+    { injected: "true" },
+  ]) {
+    assert.equal(ordersListQuerySchema.safeParse(query).success, false);
+  }
+  assert.equal(
+    ordersListResponseSchema.safeParse({
+      data: { items: [{ ...item, quantity: 0.01 }], nextCursor: null },
+    }).success,
+    false,
+  );
+});
+
+test("lists only the authenticated user's orders with validated query parameters", async () => {
+  const calls = [];
+  const controller = createController({
+    currentUser: {
+      async resolve(authorization) {
+        calls.push({ authorization, operation: "authenticate" });
+        return user;
+      },
+    },
+    ordersQuery: {
+      async list(userId, query) {
+        calls.push({ operation: "list", query, userId });
+        return { items: [], nextCursor: null };
+      },
+    },
+  });
+
+  assert.deepEqual(
+    await controller.listOrders(
+      { limit: "10", side: "SELL", status: "FILLED", symbol: "ETH-USD" },
+      "Bearer access-token",
+    ),
+    { data: { items: [], nextCursor: null } },
+  );
+  assert.deepEqual(calls, [
+    { authorization: "Bearer access-token", operation: "authenticate" },
+    {
+      operation: "list",
+      query: { limit: 10, side: "SELL", status: "FILLED", symbol: "ETH-USD" },
+      userId: user.id,
+    },
+  ]);
+});
+
+test("rejects invalid list queries and cursors without leaking persistence details", async () => {
+  let listCalls = 0;
+  const invalid = createController({
+    ordersQuery: {
+      list() {
+        listCalls++;
+        assert.fail("must not query orders with invalid input");
+      },
+    },
+  });
+  await assert.rejects(invalid.listOrders({ limit: "0" }), (error) => {
+    assert.equal(error.getStatus(), 400);
+    assert.equal(error.getResponse().error.code, "INVALID_ORDERS_QUERY");
+    return true;
+  });
+  assert.equal(listCalls, 0);
+
+  const invalidCursor = createController({
+    ordersQuery: {
+      async list() {
+        throw new OrdersQueryError("private cursor ownership detail");
+      },
+    },
+  });
+  await assert.rejects(invalidCursor.listOrders({ cursor: limitOrderId }), (error) => {
+    assert.equal(error.getStatus(), 400);
+    assert.equal(error.getResponse().error.code, "INVALID_CURSOR");
+    assert.equal(JSON.stringify(error.getResponse()).includes("ownership"), false);
+    return true;
+  });
+});
 
 test("cancel-order contracts validate UUID params and cancelled responses", () => {
   assert.deepEqual(cancelOrderParamsSchema.parse({ id: limitOrderId }), { id: limitOrderId });

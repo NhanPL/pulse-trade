@@ -24,6 +24,7 @@ const { MarketBuyService } = require("../../dist/trading/market-buy.service.js")
 const { MarketSellService } = require("../../dist/trading/market-sell.service.js");
 const { OrderCancellationService } = require("../../dist/trading/order-cancellation.service.js");
 const { OrdersController } = require("../../dist/trading/orders.controller.js");
+const { OrdersQueryService } = require("../../dist/trading/orders-query.service.js");
 
 class LimitOrderApiTestModule {}
 
@@ -42,6 +43,7 @@ Module({
       provide: MarketSellService,
       useValue: { execute: () => assert.fail("limit-order tests must not execute a market SELL") },
     },
+    { provide: OrdersQueryService, useValue: {} },
   ],
 })(LimitOrderApiTestModule);
 

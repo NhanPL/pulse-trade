@@ -12,6 +12,7 @@ import { MarketExecutionPriceService } from "./market-execution-price.service";
 import { MarketSellService } from "./market-sell.service";
 import { OrderCancellationService } from "./order-cancellation.service";
 import { OrdersController } from "./orders.controller";
+import { OrdersQueryService } from "./orders-query.service";
 import { PendingOrderEvaluator } from "./pending-order-evaluator.service";
 
 @Module({
@@ -26,6 +27,7 @@ import { PendingOrderEvaluator } from "./pending-order-evaluator.service";
     MarketExecutionPriceService,
     MarketSellService,
     OrderCancellationService,
+    OrdersQueryService,
     PendingOrderEvaluator,
   ],
 })

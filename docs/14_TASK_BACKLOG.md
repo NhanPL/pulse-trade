@@ -143,7 +143,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 
 ## Epic M — Orders page
 
-- [ ] M01 Implement paginated orders endpoint.
+- [x] M01 Implement paginated orders endpoint.
 - [ ] M02 Build open-orders table.
 - [ ] M03 Build history table.
 - [ ] M04 Add filters.

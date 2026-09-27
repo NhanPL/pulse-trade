@@ -9,6 +9,7 @@ export * from "./orders/cancel-order.schema.js";
 export * from "./orders/limit-buy-order.schema.js";
 export * from "./orders/limit-sell-order.schema.js";
 export * from "./orders/market-order.schema.js";
+export * from "./orders/orders-list.schema.js";
 export * from "./portfolio/portfolio.schema.js";
 export * from "./realtime/commands.schema.js";
 export * from "./realtime/envelope.schema.js";
