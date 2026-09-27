@@ -63,6 +63,68 @@ test("LIMIT and MARKET are keyboard-accessible order type tabs", async ({ page }
   await expect(page.getByRole("spinbutton", { name: /^Limit price/ })).toBeVisible();
 });
 
+test("LIMIT validates its price locally and submits a pending order", async ({ page }) => {
+  await mockAuthenticatedSession(page);
+  let requests = 0;
+  await page.route("**/orders", async (route) => {
+    requests++;
+    expect(route.request().method()).toBe("POST");
+    expect((await route.request().allHeaders()).authorization).toBe(
+      "Bearer synthetic-market-order-token",
+    );
+    expect(route.request().postDataJSON()).toEqual({
+      limitPrice: "65000",
+      quantity: "0.01",
+      side: "BUY",
+      symbol: "BTC-USD",
+      type: "LIMIT",
+    });
+    await route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: {
+          id: "123e4567-e89b-42d3-a456-426614174003",
+          limitPrice: "65000",
+          quantity: "0.01",
+          side: "BUY",
+          status: "PENDING",
+          symbol: "BTC-USD",
+          type: "LIMIT",
+        },
+      }),
+    });
+  });
+
+  await page.goto("/trade/BTC-USD");
+  const limitPrice = page.getByRole("spinbutton", { name: /^Limit price/ });
+  const quantity = quantityInput(page);
+  const submit = page.getByRole("button", { name: "Buy BTC", exact: true });
+
+  await quantity.fill("0.01");
+  await limitPrice.fill("0");
+  await submit.click();
+  await expect(limitPrice).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByText("Enter a positive limit price.", { exact: true })).toBeVisible();
+  expect(requests).toBe(0);
+
+  await limitPrice.fill("1.0000000000000000001");
+  await submit.click();
+  await expect(
+    page.getByText("Use at most 20 whole-number digits and 18 decimal places.", { exact: true }),
+  ).toBeVisible();
+  expect(requests).toBe(0);
+
+  await limitPrice.fill("65000");
+  await submit.click();
+  await expect(
+    page.getByText("Limit buy order placed at $65,000.00 USD.", { exact: true }),
+  ).toBeVisible();
+  await expect(quantity).toHaveValue("");
+  await expect(limitPrice).toHaveValue("65000");
+  expect(requests).toBe(1);
+});
+
 test("authenticated market buy submits the shared request and confirms the fill", async ({
   page,
 }) => {

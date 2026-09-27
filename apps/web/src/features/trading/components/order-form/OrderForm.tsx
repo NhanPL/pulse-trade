@@ -4,20 +4,45 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { marketOrderRequestSchema, type MarketOrderRequest } from "@pulse-trade/contracts";
+import { limitBuyOrderRequestSchema, marketOrderRequestSchema } from "@pulse-trade/contracts";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/Button";
 import { classNames } from "@/components/ui/class-names";
 import { Input } from "@/components/ui/Input";
 import { useAuthSession } from "@/features/auth/components/AuthSessionProvider";
 import { formatMarketPrice } from "@/lib/format/market-value";
+import { CreateLimitOrderError, createLimitOrder } from "../../api/create-limit-order";
 import { CreateMarketOrderError, createMarketOrder } from "../../api/create-market-order";
 
 type OrderSide = "BUY" | "SELL";
 type OrderType = "MARKET" | "LIMIT";
-type MarketOrderFormValues = Pick<MarketOrderRequest, "quantity">;
 
-const marketOrderFormSchema = marketOrderRequestSchema.pick({ quantity: true });
+const quantitySchema = marketOrderRequestSchema.shape.quantity;
+const limitPriceContractSchema = limitBuyOrderRequestSchema.shape.limitPrice;
+const limitPriceFormSchema = z.string().superRefine((value, context) => {
+  if (!limitPriceContractSchema.safeParse(value).success) {
+    context.addIssue({ code: "custom", message: "Enter a positive limit price." });
+    return;
+  }
+
+  const [whole = "", fraction = ""] = value.split(".");
+  if (whole.length > 20 || fraction.length > 18) {
+    context.addIssue({
+      code: "custom",
+      message: "Use at most 20 whole-number digits and 18 decimal places.",
+    });
+  }
+});
+const orderFormSchema = z.discriminatedUnion("type", [
+  z.object({ limitPrice: z.string(), quantity: quantitySchema, type: z.literal("MARKET") }),
+  z.object({
+    limitPrice: limitPriceFormSchema,
+    quantity: quantitySchema,
+    type: z.literal("LIMIT"),
+  }),
+]);
+type OrderFormValues = z.infer<typeof orderFormSchema>;
 
 export type OrderFormProps = {
   baseAsset: string;
@@ -186,8 +211,6 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
   const session = useAuthSession();
   const formId = useId();
   const [side, setSide] = useState<OrderSide>("BUY");
-  const [type, setType] = useState<OrderType>("LIMIT");
-  const [limitPrice, setLimitPrice] = useState(currentPrice);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const request = useRef<AbortController | null>(null);
   const submitting = useRef(false);
@@ -198,12 +221,15 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
     register,
     reset,
     setError,
+    setValue,
     formState: { errors, isSubmitting },
-  } = useForm<MarketOrderFormValues>({
-    defaultValues: { quantity: "" },
-    resolver: zodResolver(marketOrderFormSchema),
+  } = useForm<OrderFormValues>({
+    defaultValues: { limitPrice: currentPrice, quantity: "", type: "LIMIT" },
+    resolver: zodResolver(orderFormSchema),
   });
   const quantity = useWatch({ control, name: "quantity" });
+  const limitPrice = useWatch({ control, name: "limitPrice" });
+  const type = useWatch({ control, name: "type" });
   const estimatePrice = type === "MARKET" ? currentPrice : limitPrice;
   const reservesBaseAsset = type === "LIMIT" && side === "SELL";
   const estimateLabel = type === "LIMIT" ? "Estimated reserved" : "Estimated notional";
@@ -214,7 +240,6 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
   const orderTypePanelId = `${formId}-order-type-panel`;
   const isAuthenticated = session.status === "authenticated";
   const checkingSession = session.status === "checking";
-  const isMarketOrder = type === "MARKET";
   const pending = isSubmitting;
 
   useEffect(() => () => request.current?.abort(), []);
@@ -228,7 +253,7 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
     router.push(`/login?returnTo=${encodeURIComponent(`/trade/${symbol}`)}`);
   }
 
-  async function submitMarketOrder(values: MarketOrderFormValues): Promise<void> {
+  async function submitOrder(values: OrderFormValues): Promise<void> {
     const accessToken = session.getAccessToken();
     if (!accessToken) {
       routeToLogin();
@@ -240,6 +265,21 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
     clearOrderFeedback();
 
     try {
+      if (values.type === "LIMIT") {
+        const order = await createLimitOrder(
+          { limitPrice: values.limitPrice, quantity: values.quantity, side, symbol, type: "LIMIT" },
+          accessToken,
+          controller.signal,
+        );
+        if (controller.signal.aborted) return;
+
+        reset({ limitPrice: values.limitPrice, quantity: "", type: "LIMIT" });
+        setSuccessMessage(
+          `Limit ${order.side.toLowerCase()} order placed at ${formatMarketPrice(order.limitPrice)} ${quoteAsset}.`,
+        );
+        return;
+      }
+
       const order = await createMarketOrder(
         { quantity: values.quantity, side, symbol, type: "MARKET" },
         accessToken,
@@ -247,7 +287,7 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
       );
       if (controller.signal.aborted) return;
 
-      reset({ quantity: "" });
+      reset({ limitPrice: values.limitPrice, quantity: "", type: "MARKET" });
       setSuccessMessage(
         `Market ${order.side.toLowerCase()} order filled at ${formatMarketPrice(order.avgFillPrice)} ${quoteAsset}.`,
       );
@@ -258,7 +298,22 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
         routeToLogin();
         return;
       }
-      if (error instanceof CreateMarketOrderError && error.code === "INSUFFICIENT_BALANCE") {
+      if (error instanceof CreateLimitOrderError && error.code === "UNAUTHENTICATED") {
+        routeToLogin();
+        return;
+      }
+      if (error instanceof CreateLimitOrderError && error.code === "INVALID_LIMIT_PRICE") {
+        setError("limitPrice", { type: "server", message: error.message }, { shouldFocus: true });
+        return;
+      }
+      if (error instanceof CreateLimitOrderError && error.code === "INVALID_QUANTITY") {
+        setError("quantity", { type: "server", message: error.message }, { shouldFocus: true });
+        return;
+      }
+      if (
+        (error instanceof CreateMarketOrderError || error instanceof CreateLimitOrderError) &&
+        error.code === "INSUFFICIENT_BALANCE"
+      ) {
         const availableAsset = side === "BUY" ? quoteAsset : baseAsset;
         setError(
           "quantity",
@@ -292,13 +347,8 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
       routeToLogin();
       return;
     }
-    if (!isMarketOrder) {
-      setError("root", { message: "Limit orders are not available yet." });
-      return;
-    }
-
     submitting.current = true;
-    void handleSubmit(submitMarketOrder)(event).finally(() => {
+    void handleSubmit(submitOrder)(event).finally(() => {
       submitting.current = false;
     });
   }
@@ -307,11 +357,9 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
     ? "Checking session…"
     : !isAuthenticated
       ? `Sign in to ${side === "BUY" ? "buy" : "sell"} ${baseAsset}`
-      : !isMarketOrder
-        ? "Limit orders coming soon"
-        : pending
-          ? `${side === "BUY" ? "Buying" : "Selling"} ${baseAsset}…`
-          : `${side === "BUY" ? "Buy" : "Sell"} ${baseAsset}`;
+      : pending
+        ? `${side === "BUY" ? "Buying" : "Selling"} ${baseAsset}…`
+        : `${side === "BUY" ? "Buy" : "Sell"} ${baseAsset}`;
 
   return (
     <section
@@ -324,6 +372,7 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
         </h2>
         <BuySellTabs
           controlsId={orderFieldsId}
+          disabled={pending}
           idPrefix={formId}
           onChange={(value) => {
             setSide(value);
@@ -353,7 +402,7 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
           disabled={pending}
           idPrefix={formId}
           onChange={(value) => {
-            setType(value);
+            setValue("type", value);
             clearOrderFeedback();
           }}
           type={type}
@@ -370,15 +419,19 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
             <Input
               inputMode="decimal"
               label="Limit price"
-              min="0.00000001"
-              name="limitPrice"
-              onChange={(event) => setLimitPrice(event.target.value)}
+              min="0.000000000000000001"
               required
-              step="0.00000001"
+              step="0.000000000000000001"
               trailingElement={<span className="text-xs font-semibold">{quoteAsset}</span>}
               type="number"
-              value={limitPrice}
+              error={errors.limitPrice?.message}
               readOnly={pending}
+              {...register("limitPrice", {
+                onChange: () => {
+                  clearErrors("limitPrice");
+                  setSuccessMessage(null);
+                },
+              })}
             />
           ) : (
             <div className="grid gap-1.5">
@@ -420,7 +473,7 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
 
         <Button
           className="w-full lg:sticky lg:bottom-0 lg:z-10"
-          disabled={checkingSession || (isAuthenticated && !isMarketOrder)}
+          disabled={checkingSession}
           isLoading={pending}
           size="lg"
           type="submit"
