@@ -14,6 +14,7 @@ export default defineConfig({
     "portfolio-live-tickers.spec.ts",
     "portfolio-states.spec.ts",
     "orders-open.spec.ts",
+    "orders-history.spec.ts",
   ],
   fullyParallel: true,
   use: {

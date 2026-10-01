@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { PageContainer } from "@/components/layout/PageContainer";
-import { OpenOrdersTable } from "@/features/orders/components/OpenOrdersTable";
+import { OrdersDashboard } from "@/features/orders/components/OrdersDashboard";
 
 export const metadata: Metadata = { title: "Orders | PulseTrade" };
 
@@ -14,11 +14,11 @@ export default function OrdersPage() {
       <header>
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">Orders</h1>
         <p className="mt-2 text-base text-foreground-secondary">
-          Review your pending paper orders and reserved balances.
+          Review pending paper orders, reserved balances, and your trading history.
         </p>
       </header>
 
-      <OpenOrdersTable />
+      <OrdersDashboard />
     </PageContainer>
   );
 }
