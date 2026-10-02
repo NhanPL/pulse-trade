@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { formatMarketPrice } from "@/lib/format/market-value";
 
 import { useOrderHistory } from "../hooks/useOrderHistory";
+import { hasOrderFilters, type OrderFilters } from "../model/order-filters";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "2-digit",
@@ -165,12 +166,13 @@ function HistoryData({ orders }: { orders: readonly OrderListItem[] }) {
   );
 }
 
-export function OrderHistoryTable() {
+export function OrderHistoryTable({ filters = {} }: { filters?: OrderFilters }) {
   const [pageCursors, setPageCursors] = useState<(string | undefined)[]>([undefined]);
   const currentCursor = pageCursors.at(-1);
   const currentPage = pageCursors.length;
-  const query = useOrderHistory(currentCursor);
+  const query = useOrderHistory(currentCursor, filters);
   const orders = query.data?.items ?? [];
+  const isFiltered = hasOrderFilters(filters);
 
   function showPreviousPage(): void {
     setPageCursors((cursors) => (cursors.length > 1 ? cursors.slice(0, -1) : cursors));
@@ -258,9 +260,15 @@ export function OrderHistoryTable() {
                 Browse markets
               </Link>
             }
-            description="Place a paper order from any trading workspace and it will appear here."
+            description={
+              isFiltered
+                ? "Try changing or resetting the filters above."
+                : "Place a paper order from any trading workspace and it will appear here."
+            }
             size="compact"
-            title="You haven't placed any orders yet."
+            title={
+              isFiltered ? "No orders match these filters." : "You haven't placed any orders yet."
+            }
           />
         </div>
       )}

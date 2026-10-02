@@ -3,11 +3,12 @@ import type { OrdersListResponse } from "@pulse-trade/contracts";
 
 import { useAuthSession } from "../../auth/components/AuthSessionProvider";
 import { fetchOrders, OrdersRequestError } from "../api/orders";
+import type { OrderFilters } from "../model/order-filters";
 import { ordersQueryKeys } from "../model/query-keys";
 
 export const ORDER_HISTORY_PAGE_SIZE = 20;
 
-export function useOrderHistory(cursor: string | undefined) {
+export function useOrderHistory(cursor: string | undefined, filters: OrderFilters = {}) {
   const session = useAuthSession();
 
   return useQuery<OrdersListResponse["data"], OrdersRequestError>({
@@ -25,12 +26,13 @@ export function useOrderHistory(cursor: string | undefined) {
       return fetchOrders(
         accessToken,
         {
+          ...filters,
           cursor,
           limit: ORDER_HISTORY_PAGE_SIZE,
         },
         signal,
       );
     },
-    queryKey: ordersQueryKeys.list({ cursor }),
+    queryKey: ordersQueryKeys.list({ ...filters, cursor }),
   });
 }

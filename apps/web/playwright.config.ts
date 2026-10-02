@@ -15,6 +15,7 @@ export default defineConfig({
     "portfolio-states.spec.ts",
     "orders-open.spec.ts",
     "orders-history.spec.ts",
+    "orders-filters.spec.ts",
   ],
   fullyParallel: true,
   use: {

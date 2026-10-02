@@ -12,6 +12,9 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { formatMarketPrice } from "@/lib/format/market-value";
 
 import { useOpenOrders } from "../hooks/useOpenOrders";
+import { hasOrderFilters, type OrderFilters } from "../model/order-filters";
+
+type OpenOrderFilters = Pick<OrderFilters, "side" | "symbol">;
 
 const createdAtFormatter = new Intl.DateTimeFormat("en-US", {
   day: "2-digit",
@@ -125,9 +128,10 @@ function OpenOrdersData({ orders }: { orders: readonly OrderListItem[] }) {
   );
 }
 
-export function OpenOrdersTable() {
-  const query = useOpenOrders();
+export function OpenOrdersTable({ filters = {} }: { filters?: OpenOrderFilters }) {
+  const query = useOpenOrders(filters);
   const orders = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
+  const isFiltered = hasOrderFilters(filters, false);
 
   if (query.isPending) return <OpenOrdersLoading />;
   if (query.isError && orders.length === 0) {
@@ -191,9 +195,13 @@ export function OpenOrdersTable() {
                 Browse markets
               </Link>
             }
-            description="Create a limit order from a trading workspace and it will appear here while pending."
+            description={
+              isFiltered
+                ? "Try changing or resetting the filters above."
+                : "Create a limit order from a trading workspace and it will appear here while pending."
+            }
             size="compact"
-            title="You have no open orders."
+            title={isFiltered ? "No open orders match these filters." : "You have no open orders."}
           />
         </div>
       )}
