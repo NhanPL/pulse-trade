@@ -13,6 +13,7 @@ import { formatMarketPrice } from "@/lib/format/market-value";
 
 import { useOrderHistory } from "../hooks/useOrderHistory";
 import { hasOrderFilters, type OrderFilters } from "../model/order-filters";
+import { CancelOrderButton } from "./CancelOrderButton";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "2-digit",
@@ -80,7 +81,13 @@ function completionDate(order: OrderListItem): string | null {
   return null;
 }
 
-function HistoryRow({ order }: { order: OrderListItem }) {
+function HistoryRow({
+  order,
+  onCancel,
+}: {
+  order: OrderListItem;
+  onCancel: (order: OrderListItem) => void;
+}) {
   return (
     <tr className="border-b border-border-subtle transition-colors last:border-b-0 hover:bg-surface-hover/45">
       <th className="px-6 py-4 text-left font-normal" scope="row">
@@ -117,14 +124,23 @@ function HistoryRow({ order }: { order: OrderListItem }) {
       <td className="px-6 py-4 text-right text-sm text-foreground-secondary">
         <FormattedDate date={completionDate(order)} />
       </td>
+      <td className="px-6 py-4 text-right">
+        <CancelOrderButton onCancel={onCancel} order={order} />
+      </td>
     </tr>
   );
 }
 
-function HistoryData({ orders }: { orders: readonly OrderListItem[] }) {
+function HistoryData({
+  orders,
+  onCancel,
+}: {
+  orders: readonly OrderListItem[];
+  onCancel: (order: OrderListItem) => void;
+}) {
   return (
     <div className="max-w-full overflow-x-auto">
-      <table aria-label="Order history table" className="w-full min-w-[1120px] border-collapse">
+      <table aria-label="Order history table" className="w-full min-w-[1240px] border-collapse">
         <thead>
           <tr className="border-b border-border-subtle text-xs font-medium text-foreground-secondary">
             <th className="px-6 py-3.5 text-left font-medium" scope="col">
@@ -154,11 +170,14 @@ function HistoryData({ orders }: { orders: readonly OrderListItem[] }) {
             <th className="px-6 py-3.5 text-right font-medium" scope="col">
               Filled / Cancelled
             </th>
+            <th className="px-6 py-3.5 text-right font-medium" scope="col">
+              Action
+            </th>
           </tr>
         </thead>
         <tbody>
           {orders.map((order) => (
-            <HistoryRow key={order.id} order={order} />
+            <HistoryRow key={order.id} onCancel={onCancel} order={order} />
           ))}
         </tbody>
       </table>
@@ -166,7 +185,13 @@ function HistoryData({ orders }: { orders: readonly OrderListItem[] }) {
   );
 }
 
-export function OrderHistoryTable({ filters = {} }: { filters?: OrderFilters }) {
+export function OrderHistoryTable({
+  filters = {},
+  onCancel,
+}: {
+  filters?: OrderFilters;
+  onCancel: (order: OrderListItem) => void;
+}) {
   const [pageCursors, setPageCursors] = useState<(string | undefined)[]>([undefined]);
   const currentCursor = pageCursors.at(-1);
   const currentPage = pageCursors.length;
@@ -226,7 +251,7 @@ export function OrderHistoryTable({ filters = {} }: { filters?: OrderFilters }) 
 
       {orders.length > 0 ? (
         <>
-          <HistoryData orders={orders} />
+          <HistoryData onCancel={onCancel} orders={orders} />
           <footer className="flex items-center justify-between gap-3 border-t border-border-subtle px-5 py-4 sm:px-6">
             <Button
               aria-label="Previous page"

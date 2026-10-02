@@ -35,6 +35,7 @@ export function useOpenOrders(filters: OpenOrderFilters = {}) {
         signal,
       );
     },
-    queryKey: ordersQueryKeys.list(openOrdersQuery),
+    // Infinite and single-page queries cannot share differently shaped cache data.
+    queryKey: [...ordersQueryKeys.list(openOrdersQuery), "infinite"],
   });
 }

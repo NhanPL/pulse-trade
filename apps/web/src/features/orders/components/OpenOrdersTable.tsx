@@ -13,6 +13,7 @@ import { formatMarketPrice } from "@/lib/format/market-value";
 
 import { useOpenOrders } from "../hooks/useOpenOrders";
 import { hasOrderFilters, type OrderFilters } from "../model/order-filters";
+import { CancelOrderButton } from "./CancelOrderButton";
 
 type OpenOrderFilters = Pick<OrderFilters, "side" | "symbol">;
 
@@ -50,7 +51,13 @@ function SideBadge({ side }: Pick<OrderListItem, "side">) {
   return <Badge variant={side === "BUY" ? "positive" : "negative"}>{side}</Badge>;
 }
 
-function OpenOrderRow({ order }: { order: OrderListItem }) {
+function OpenOrderRow({
+  order,
+  onCancel,
+}: {
+  order: OrderListItem;
+  onCancel: (order: OrderListItem) => void;
+}) {
   return (
     <tr className="border-b border-border-subtle transition-colors last:border-b-0 hover:bg-surface-hover/45">
       <th className="px-6 py-4 text-left font-normal" scope="row">
@@ -85,11 +92,20 @@ function OpenOrderRow({ order }: { order: OrderListItem }) {
           {createdAtFormatter.format(new Date(order.createdAt))}
         </time>
       </td>
+      <td className="px-6 py-4 text-right">
+        <CancelOrderButton onCancel={onCancel} order={order} />
+      </td>
     </tr>
   );
 }
 
-function OpenOrdersData({ orders }: { orders: readonly OrderListItem[] }) {
+function OpenOrdersData({
+  orders,
+  onCancel,
+}: {
+  orders: readonly OrderListItem[];
+  onCancel: (order: OrderListItem) => void;
+}) {
   return (
     <div className="max-w-full overflow-x-auto">
       <table aria-label="Open orders table" className="w-full min-w-[860px] border-collapse">
@@ -116,11 +132,14 @@ function OpenOrdersData({ orders }: { orders: readonly OrderListItem[] }) {
             <th className="px-6 py-3.5 text-right font-medium" scope="col">
               Created
             </th>
+            <th className="px-6 py-3.5 text-right font-medium" scope="col">
+              Action
+            </th>
           </tr>
         </thead>
         <tbody>
           {orders.map((order) => (
-            <OpenOrderRow key={order.id} order={order} />
+            <OpenOrderRow key={order.id} onCancel={onCancel} order={order} />
           ))}
         </tbody>
       </table>
@@ -128,7 +147,13 @@ function OpenOrdersData({ orders }: { orders: readonly OrderListItem[] }) {
   );
 }
 
-export function OpenOrdersTable({ filters = {} }: { filters?: OpenOrderFilters }) {
+export function OpenOrdersTable({
+  filters = {},
+  onCancel,
+}: {
+  filters?: OpenOrderFilters;
+  onCancel: (order: OrderListItem) => void;
+}) {
   const query = useOpenOrders(filters);
   const orders = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
   const isFiltered = hasOrderFilters(filters, false);
@@ -166,7 +191,7 @@ export function OpenOrdersTable({ filters = {} }: { filters?: OpenOrderFilters }
 
       {orders.length > 0 ? (
         <>
-          <OpenOrdersData orders={orders} />
+          <OpenOrdersData onCancel={onCancel} orders={orders} />
           {query.hasNextPage || query.isFetchNextPageError ? (
             <footer className="flex flex-col items-center gap-2 border-t border-border-subtle px-5 py-4">
               {query.isFetchNextPageError ? (

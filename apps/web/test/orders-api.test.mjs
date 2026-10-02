@@ -5,8 +5,61 @@ import test from "node:test";
 const require = createRequire(import.meta.url);
 const {
   fetchOrders,
+  cancelOrder,
   OrdersRequestError,
 } = require("../.next/realtime-test/features/orders/api/orders.js");
+
+test("cancels the identified order using the authenticated POST and validates confirmation", async (context) => {
+  const originalFetch = globalThis.fetch;
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  const data = { id: firstOrderId, status: "CANCELLED", cancelledAt: "2026-10-02T00:00:00.000Z" };
+  let request;
+  globalThis.fetch = async (url, init) => {
+    request = { url, init };
+    return Response.json({ data });
+  };
+  assert.deepEqual(await cancelOrder("access-token", firstOrderId), data);
+  assert.equal(new URL(request.url).pathname, `/api/v1/orders/${firstOrderId}/cancel`);
+  assert.equal(request.init.method, "POST");
+  assert.equal(request.init.headers.Authorization, "Bearer access-token");
+  assert.equal(request.init.credentials, "include");
+  await assert.rejects(
+    cancelOrder("access-token", "invalid-id"),
+    (error) => error.code === "INVALID_ORDER",
+  );
+  globalThis.fetch = async () =>
+    Response.json({ data: { ...data, id: "123e4567-e89b-42d3-a456-426614174099" } });
+  await assert.rejects(
+    cancelOrder("access-token", firstOrderId),
+    (error) => error.code === "CANCELLATION_UNAVAILABLE",
+  );
+});
+
+test("cancellation errors remain sanitized and network failures do not claim success", async (context) => {
+  const originalFetch = globalThis.fetch;
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async () =>
+    Response.json(
+      { error: { code: "ORDER_UNAVAILABLE", message: "database secret" } },
+      { status: 503 },
+    );
+  await assert.rejects(
+    cancelOrder("access-token", firstOrderId),
+    (error) => error instanceof OrdersRequestError && !error.message.includes("database secret"),
+  );
+  globalThis.fetch = async () => {
+    throw new Error("network");
+  };
+  await assert.rejects(
+    cancelOrder("access-token", firstOrderId),
+    (error) =>
+      error.code === "CANCELLATION_UNAVAILABLE" && error.message.includes("couldn't confirm"),
+  );
+});
 
 const firstOrderId = "123e4567-e89b-42d3-a456-426614174010";
 const response = {

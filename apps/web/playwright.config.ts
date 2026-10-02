@@ -16,6 +16,7 @@ export default defineConfig({
     "orders-open.spec.ts",
     "orders-history.spec.ts",
     "orders-filters.spec.ts",
+    "orders-cancel.spec.ts",
   ],
   fullyParallel: true,
   use: {
