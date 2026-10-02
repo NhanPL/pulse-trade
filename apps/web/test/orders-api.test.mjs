@@ -37,6 +37,28 @@ test("cancels the identified order using the authenticated POST and validates co
   );
 });
 
+test("cancellation conflicts explain terminal state without exposing server messages", async (context) => {
+  const originalFetch = globalThis.fetch;
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  for (const [code, status, message] of [
+    ["ORDER_NOT_CANCELLABLE", 409, "no longer pending"],
+    ["ORDER_NOT_FOUND", 404, "no longer available"],
+  ]) {
+    globalThis.fetch = async () =>
+      Response.json({ error: { code, message: "database secret" } }, { status });
+    await assert.rejects(
+      cancelOrder("access-token", firstOrderId),
+      (error) =>
+        error instanceof OrdersRequestError &&
+        error.code === code &&
+        error.message.includes(message) &&
+        !error.message.includes("database secret"),
+    );
+  }
+});
+
 test("cancellation errors remain sanitized and network failures do not claim success", async (context) => {
   const originalFetch = globalThis.fetch;
   context.after(() => {

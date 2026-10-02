@@ -58,12 +58,7 @@ export async function cancelOrder(
       : response.status === 401
         ? "UNAUTHENTICATED"
         : "CANCELLATION_UNAVAILABLE";
-    throw new OrdersRequestError(
-      code,
-      code === "UNAUTHENTICATED"
-        ? "Your session has expired. Sign in again to continue."
-        : "We couldn't cancel this order. Refresh your orders before trying again.",
-    );
+    throw new OrdersRequestError(code, cancellationMessageFor(code));
   }
 
   const result = cancelOrderResponseSchema.safeParse(body);
@@ -74,6 +69,17 @@ export async function cancelOrder(
     );
   }
   return result.data.data;
+}
+
+function cancellationMessageFor(code: string): string {
+  if (code === "ORDER_NOT_CANCELLABLE") {
+    return "This order is no longer pending and cannot be cancelled. It may have filled or already been cancelled.";
+  }
+  if (code === "ORDER_NOT_FOUND") {
+    return "This order is no longer available and cannot be cancelled.";
+  }
+  if (code === "UNAUTHENTICATED") return "Your session has expired. Sign in again to continue.";
+  return "We couldn't cancel this order. Refresh your orders before trying again.";
 }
 
 export async function fetchOrders(
