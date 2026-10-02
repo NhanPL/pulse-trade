@@ -4,13 +4,21 @@ import { useState } from "react";
 
 import { Tab, TabList, TabPanel, Tabs } from "@/components/ui/Tabs";
 
+import type { OrderFilters } from "../model/order-filters";
 import { OpenOrdersTable } from "./OpenOrdersTable";
 import { OrderHistoryTable } from "./OrderHistoryTable";
+import { OrdersFilters } from "./OrdersFilters";
 
 type OrdersTab = "open" | "history";
 
 export function OrdersDashboard() {
   const [activeTab, setActiveTab] = useState<OrdersTab>("open");
+  const [filters, setFilters] = useState<OrderFilters>({});
+  const historyFilterKey = [filters.symbol, filters.side, filters.status].join(":");
+
+  function resetVisibleFilters(): void {
+    setFilters((current) => (activeTab === "open" ? { status: current.status } : {}));
+  }
 
   return (
     <Tabs
@@ -24,11 +32,22 @@ export function OrdersDashboard() {
         <Tab value="history">History</Tab>
       </TabList>
 
-      <TabPanel className="pt-5" value="open">
-        {activeTab === "open" ? <OpenOrdersTable /> : null}
+      <OrdersFilters
+        activeTab={activeTab}
+        filters={filters}
+        onChange={setFilters}
+        onReset={resetVisibleFilters}
+      />
+
+      <TabPanel className="pt-4" value="open">
+        {activeTab === "open" ? (
+          <OpenOrdersTable filters={{ side: filters.side, symbol: filters.symbol }} />
+        ) : null}
       </TabPanel>
-      <TabPanel className="pt-5" value="history">
-        {activeTab === "history" ? <OrderHistoryTable /> : null}
+      <TabPanel className="pt-4" value="history">
+        {activeTab === "history" ? (
+          <OrderHistoryTable filters={filters} key={historyFilterKey} />
+        ) : null}
       </TabPanel>
     </Tabs>
   );

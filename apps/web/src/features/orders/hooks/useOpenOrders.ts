@@ -3,13 +3,15 @@ import type { OrdersListResponse } from "@pulse-trade/contracts";
 
 import { useAuthSession } from "../../auth/components/AuthSessionProvider";
 import { fetchOrders, OrdersRequestError } from "../api/orders";
+import type { OrderFilters } from "../model/order-filters";
 import { ordersQueryKeys } from "../model/query-keys";
 
 export const OPEN_ORDERS_PAGE_SIZE = 20;
-const openOrdersQuery = { status: "PENDING" as const };
+type OpenOrderFilters = Pick<OrderFilters, "side" | "symbol">;
 
-export function useOpenOrders() {
+export function useOpenOrders(filters: OpenOrderFilters = {}) {
   const session = useAuthSession();
+  const openOrdersQuery = { ...filters, status: "PENDING" as const };
 
   return useInfiniteQuery<OrdersListResponse["data"], OrdersRequestError>({
     enabled: session.status === "authenticated",
