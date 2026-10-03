@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, type RefObject } from "react";
+import { useEffect, useId, useRef, type RefObject } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { OrderListItem } from "@pulse-trade/contracts";
 
@@ -21,6 +21,13 @@ type CancelOrderDialogProps = {
   returnFocusRef: RefObject<HTMLElement | null>;
 };
 
+function isTerminalCancellationError(error: unknown): error is OrdersRequestError {
+  return (
+    error instanceof OrdersRequestError &&
+    (error.code === "ORDER_NOT_CANCELLABLE" || error.code === "ORDER_NOT_FOUND")
+  );
+}
+
 export function CancelOrderDialog({
   onDismiss,
   onSuccess,
@@ -32,6 +39,15 @@ export function CancelOrderDialog({
   const queryClient = useQueryClient();
   const session = useAuthSession();
   const submitting = useRef(false);
+  const dismissButton = useRef<HTMLButtonElement>(null);
+
+  function refreshTradingState() {
+    return Promise.all([
+      queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all }),
+      queryClient.invalidateQueries({ queryKey: portfolioQueryKeys.all }),
+    ]);
+  }
+
   const cancellation = useMutation({
     retry: false,
     mutationFn: () => {
@@ -45,19 +61,31 @@ export function CancelOrderDialog({
       return cancelOrder(accessToken, order.id);
     },
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ordersQueryKeys.all }),
-        queryClient.invalidateQueries({ queryKey: portfolioQueryKeys.all }),
-      ]);
+      await refreshTradingState();
       onSuccess();
+    },
+    onError: (error) => {
+      if (isTerminalCancellationError(error)) {
+        // A fill or another cancellation won the race; only the server can reconcile balances.
+        // Refresh in the background so REST retries cannot delay the conflict message or dismissal.
+        void refreshTradingState();
+      }
     },
     onSettled: () => {
       submitting.current = false;
     },
   });
+  const terminalError = isTerminalCancellationError(cancellation.error) ? cancellation.error : null;
+  const cannotCancel = terminalError !== null;
+
+  useEffect(() => {
+    // The confirmation action disappears after a conflict, so keep focus inside the dialog.
+    if (cannotCancel) dismissButton.current?.focus();
+  }, [cannotCancel]);
 
   function confirmCancellation(): void {
-    if (submitting.current || order.type !== "LIMIT" || order.status !== "PENDING") return;
+    if (cannotCancel || submitting.current || order.type !== "LIMIT" || order.status !== "PENDING")
+      return;
     submitting.current = true;
     cancellation.mutate();
   }
@@ -86,18 +114,30 @@ export function CancelOrderDialog({
           </Button>
         </div>
         <p className="mt-1 text-sm text-foreground-secondary" id={descriptionId}>
-          Cancel this {order.symbol} limit {order.side}? Reserved{" "}
-          {order.side === "BUY" ? "funds" : "assets"} will be released.
+          {cannotCancel ? (
+            <>
+              Cancellation is no longer available for this {order.symbol} limit {order.side}.
+            </>
+          ) : (
+            <>
+              Cancel this {order.symbol} limit {order.side}? Reserved{" "}
+              {order.side === "BUY" ? "funds" : "assets"} will be released.
+            </>
+          )}
         </p>
       </header>
       <div className="space-y-5 p-5">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="font-semibold">{order.symbol.replace("-", " / ")}</p>
             <p className="mt-1 text-sm text-foreground-muted">{order.side} Limit Order</p>
           </div>
-          <Badge showDot variant="warning">
-            Pending
+          <Badge className="shrink-0" showDot variant="warning">
+            {cannotCancel
+              ? terminalError?.code === "ORDER_NOT_FOUND"
+                ? "Unavailable"
+                : "No longer pending"
+              : "Pending"}
           </Badge>
         </div>
         <dl className="space-y-3 border-t border-border-subtle pt-4 text-sm">
@@ -118,27 +158,36 @@ export function CancelOrderDialog({
             <dd className="break-all font-mono text-xs">{order.id}</dd>
           </div>
         </dl>
-        <p className="rounded-lg border border-warning/30 bg-warning-subtle px-3 py-3 text-sm text-warning">
-          This action cannot be undone.
-        </p>
+        {!cannotCancel ? (
+          <p className="rounded-lg border border-warning/30 bg-warning-subtle px-3 py-3 text-sm text-warning">
+            This action cannot be undone.
+          </p>
+        ) : null}
         {cancellation.isError ? (
-          <p className="text-sm text-negative" role="alert">
+          <p className={`text-sm ${cannotCancel ? "text-warning" : "text-negative"}`} role="alert">
             {cancellation.error instanceof OrdersRequestError
               ? cancellation.error.message
               : "Cancellation is unavailable. Please try again later."}
           </p>
         ) : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <Button disabled={cancellation.isPending} onClick={onDismiss} variant="secondary">
-            No, Keep Order
-          </Button>
           <Button
-            isLoading={cancellation.isPending}
-            onClick={confirmCancellation}
-            variant="destructive"
+            disabled={cancellation.isPending}
+            onClick={onDismiss}
+            ref={dismissButton}
+            variant="secondary"
           >
-            {cancellation.isPending ? "Cancelling…" : "Yes, Cancel Order"}
+            {cannotCancel ? "Close" : "No, Keep Order"}
           </Button>
+          {!cannotCancel ? (
+            <Button
+              isLoading={cancellation.isPending}
+              onClick={confirmCancellation}
+              variant="destructive"
+            >
+              {cancellation.isPending ? "Cancelling…" : "Yes, Cancel Order"}
+            </Button>
+          ) : null}
         </div>
       </div>
     </Modal>

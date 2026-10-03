@@ -184,3 +184,161 @@ test("History offers cancel only for pending limits and keeps API errors inside 
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 });
+
+for (const outcome of ["FILLED", "CANCELLED", "NOT_FOUND"] as const) {
+  test(`cancellation race with ${outcome} refreshes orders and authoritative balances without retrying`, async ({
+    page,
+  }, testInfo) => {
+    await authenticate(page);
+    let raced = false;
+    let posts = 0;
+    let refreshedLists = 0;
+    let portfolioRequests = 0;
+    await page.route("**/api/v1/portfolio**", (route) => {
+      portfolioRequests++;
+      const available = raced && outcome !== "FILLED" ? "10000" : "3500";
+      const locked = raced ? "0" : "6500";
+      const filled = raced && outcome === "FILLED";
+      return route.fulfill({
+        json: {
+          data: {
+            balances: [
+              { asset: "USD", available, locked },
+              ...(filled ? [{ asset: "BTC", available: "0.1", locked: "0" }] : []),
+            ],
+            cash: { available, locked },
+            positions: filled
+              ? [{ asset: "BTC", quantity: "0.1", averageCost: "65000", realizedPnl: "0" }]
+              : [],
+            quoteCurrency: "USD",
+          },
+        },
+      });
+    });
+    await page.route("**/api/v1/orders**", (route) => {
+      if (route.request().method() === "POST") {
+        posts++;
+        raced = true;
+        return route.fulfill({
+          status: outcome === "NOT_FOUND" ? 404 : 409,
+          json: {
+            error: {
+              code: outcome === "NOT_FOUND" ? "ORDER_NOT_FOUND" : "ORDER_NOT_CANCELLABLE",
+              message: "database secret",
+            },
+          },
+        });
+      }
+      if (raced) refreshedLists++;
+      const onlyPending = new URL(route.request().url()).searchParams.get("status") === "PENDING";
+      const order = {
+        ...pendingOrder,
+        status: raced ? outcome : "PENDING",
+        filledQuantity: raced && outcome === "FILLED" ? "0.1" : "0",
+        avgFillPrice: raced && outcome === "FILLED" ? "65000" : null,
+        filledAt: raced && outcome === "FILLED" ? "2026-10-02T01:00:00.000Z" : null,
+        cancelledAt: raced && outcome === "CANCELLED" ? "2026-10-02T01:00:00.000Z" : null,
+      };
+      return route.fulfill({
+        json: {
+          data: {
+            items: raced && (onlyPending || outcome === "NOT_FOUND") ? [] : [order],
+            nextCursor: null,
+          },
+        },
+      });
+    });
+
+    await page.goto("/portfolio");
+    const balances = page.getByRole("region", { name: "Cash balances", exact: true });
+    await expect(balances).toContainText("$6,500.00");
+    const initialPortfolioRequests = portfolioRequests;
+    await page.getByRole("link", { name: "Orders", exact: true }).click();
+    // Cover an already mounted History query as well as the infinite Open Orders query.
+    if (outcome === "FILLED") await page.getByRole("tab", { name: "History" }).click();
+    await page.getByRole("button", { name: "Cancel BTC-USD BUY order" }).click();
+    const dialog = page.getByRole("dialog", { name: "Cancel Order", exact: true });
+    await dialog.getByRole("button", { name: "Yes, Cancel Order" }).click();
+    await expect(dialog.getByRole("alert")).toContainText(
+      outcome === "NOT_FOUND" ? "no longer available" : "no longer pending",
+    );
+    await expect(dialog.getByRole("alert")).not.toContainText("database secret");
+    await expect(dialog).not.toContainText("Reserved funds will be released.");
+    await expect(dialog.getByRole("button", { name: "Yes, Cancel Order" })).toHaveCount(0);
+    const close = dialog.getByRole("button", { name: "Close", exact: true });
+    await expect(close).toBeFocused();
+    expect(posts).toBe(1);
+    await expect.poll(() => refreshedLists).toBeGreaterThan(0);
+    if (outcome === "FILLED") {
+      await expect(page.getByRole("table", { name: "Order history table" })).toContainText(
+        "Filled",
+      );
+    } else {
+      await expect(page.getByRole("heading", { name: "You have no open orders." })).toBeVisible();
+    }
+    if (outcome === "CANCELLED") await page.setViewportSize({ width: 320, height: 800 });
+    await page.screenshot({ path: testInfo.outputPath(`cancel-conflict-${outcome}.png`) });
+    if (outcome === "CANCELLED") {
+      expect((await dialog.boundingBox())?.width).toBeLessThanOrEqual(320);
+    }
+    await page.keyboard.press("Enter");
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      page.getByRole("tab", {
+        name: outcome === "FILLED" ? "History" : "Open Orders",
+        exact: true,
+      }),
+    ).toBeFocused();
+    await expect(
+      page.getByText("BTC-USD BUY order cancelled. Reserved funds released."),
+    ).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Cancel BTC-USD BUY order" })).toHaveCount(0);
+    if (outcome === "CANCELLED") await page.setViewportSize({ width: 1586, height: 992 });
+    if (outcome !== "FILLED") await page.getByRole("tab", { name: "History" }).click();
+    if (outcome !== "NOT_FOUND") {
+      await expect(page.getByRole("table", { name: "Order history table" })).toContainText(
+        outcome === "FILLED" ? "Filled" : "Cancelled",
+      );
+    }
+    await page.getByRole("link", { name: "Portfolio", exact: true }).click();
+    await expect(balances).toContainText(outcome === "FILLED" ? "$3,500.00" : "$10,000.00");
+    await expect(balances).toContainText("$0.00");
+    await expect(balances).not.toContainText("$6,500.00");
+    if (outcome === "FILLED") await expect(balances).not.toContainText("$10,000.00");
+    expect(portfolioRequests).toBeGreaterThan(initialPortfolioRequests);
+    expect(posts).toBe(1);
+  });
+}
+
+test("a conflict stays terminal and dismissible even when the orders refresh fails", async ({
+  page,
+}) => {
+  await authenticate(page);
+  let posts = 0;
+  let failedRefreshes = 0;
+  await page.route("**/api/v1/orders**", (route) => {
+    if (route.request().method() === "POST") {
+      posts++;
+      return route.fulfill({
+        status: 409,
+        json: { error: { code: "ORDER_NOT_CANCELLABLE" } },
+      });
+    }
+    if (posts > 0) {
+      failedRefreshes++;
+      return route.fulfill({ status: 503, json: { error: { code: "ORDERS_UNAVAILABLE" } } });
+    }
+    return route.fulfill({ json: { data: { items: [pendingOrder], nextCursor: null } } });
+  });
+  await page.goto("/orders");
+  await page.getByRole("button", { name: "Cancel BTC-USD BUY order" }).click();
+  const dialog = page.getByRole("dialog", { name: "Cancel Order", exact: true });
+  await dialog.getByRole("button", { name: "Yes, Cancel Order" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("no longer pending");
+  await expect(dialog.getByRole("button", { name: "Yes, Cancel Order" })).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Close", exact: true })).toBeFocused();
+  await expect.poll(() => failedRefreshes).toBeGreaterThan(0);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  expect(posts).toBe(1);
+});

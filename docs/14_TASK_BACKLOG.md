@@ -148,7 +148,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] M03 Build history table.
 - [x] M04 Add filters.
 - [x] M05 Add cancel action confirmation.
-- [ ] M06 Handle cancellation race/conflict gracefully.
+- [x] M06 Handle cancellation race/conflict gracefully.
 - [ ] M07 Responsive mobile order cards.
 
 ## Epic N — Watchlist
