@@ -142,14 +142,14 @@ export function CancelOrderDialog({
         </div>
         <dl className="space-y-3 border-t border-border-subtle pt-4 text-sm">
           <div className="flex justify-between gap-4">
-            <dt className="text-foreground-muted">Quantity</dt>
-            <dd className="font-mono tabular-nums">
+            <dt className="shrink-0 text-foreground-muted">Quantity</dt>
+            <dd className="min-w-0 break-all text-right font-mono tabular-nums">
               {order.quantity} {order.symbol.split("-")[0]}
             </dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-foreground-muted">Limit Price</dt>
-            <dd className="font-mono tabular-nums">
+            <dt className="shrink-0 text-foreground-muted">Limit Price</dt>
+            <dd className="min-w-0 break-all text-right font-mono tabular-nums">
               {order.limitPrice ? formatMarketPrice(order.limitPrice) : "—"}
             </dd>
           </div>

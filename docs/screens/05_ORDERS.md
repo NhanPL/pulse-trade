@@ -21,7 +21,9 @@ Table/Card list
 
 Desktop uses table.
 
-Mobile may use cards or horizontally constrained compact rows.
+Below the `md` breakpoint (768px), Open Orders and History use labelled order cards without horizontal scrolling. Tables remain visible at `md` and above.
+
+Cards share the same query, filters, pagination, status/timestamp presentation, and cancellation flow as desktop. Only pending limit orders show Cancel, with a full-width 44px touch target. Quantities remain complete decimal strings and wrap instead of being truncated.
 
 ## 3. Component tree
 
