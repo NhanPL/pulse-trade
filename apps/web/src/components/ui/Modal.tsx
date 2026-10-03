@@ -33,7 +33,12 @@ export function Modal({
     return () => {
       dialog.close();
       document.body.style.overflow = previousOverflow;
-      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
+      // Responsive layouts can keep the trigger mounted while hiding it at another breakpoint.
+      if (
+        previousFocus instanceof HTMLElement &&
+        previousFocus.isConnected &&
+        previousFocus.getClientRects().length > 0
+      ) {
         previousFocus.focus();
       } else {
         fallbackFocus?.focus();
