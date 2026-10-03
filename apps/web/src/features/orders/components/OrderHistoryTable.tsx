@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { OrderListItem } from "@pulse-trade/contracts";
 
-import { Badge, type BadgeVariant } from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -14,24 +14,9 @@ import { formatMarketPrice } from "@/lib/format/market-value";
 import { useOrderHistory } from "../hooks/useOrderHistory";
 import { hasOrderFilters, type OrderFilters } from "../model/order-filters";
 import { CancelOrderButton } from "./CancelOrderButton";
-
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  month: "short",
-  year: "numeric",
-});
-
-const statusPresentation: Record<
-  OrderListItem["status"],
-  { label: string; variant: BadgeVariant }
-> = {
-  CANCELLED: { label: "Cancelled", variant: "neutral" },
-  FILLED: { label: "Filled", variant: "positive" },
-  PENDING: { label: "Pending", variant: "warning" },
-  REJECTED: { label: "Rejected", variant: "negative" },
-};
+import { OrderSideBadge, OrderStatusBadge } from "./OrderBadges";
+import { OrderCards } from "./OrderCards";
+import { OrderCompletionTimestamp, OrderTimestamp } from "./OrderTimestamp";
 
 function HistoryLoading() {
   return (
@@ -48,37 +33,11 @@ function HistoryLoading() {
       </div>
       <div className="space-y-3 p-5 sm:p-6">
         {[0, 1, 2].map((row) => (
-          <Skeleton className="h-14" key={row} />
+          <Skeleton className="h-64 md:h-14" key={row} />
         ))}
       </div>
     </section>
   );
-}
-
-function SideBadge({ side }: Pick<OrderListItem, "side">) {
-  return <Badge variant={side === "BUY" ? "positive" : "negative"}>{side}</Badge>;
-}
-
-function StatusBadge({ status }: Pick<OrderListItem, "status">) {
-  const presentation = statusPresentation[status];
-
-  return (
-    <Badge showDot variant={presentation.variant}>
-      {presentation.label}
-    </Badge>
-  );
-}
-
-function FormattedDate({ date }: { date: string | null }) {
-  if (!date) return <span aria-label="Not available">—</span>;
-
-  return <time dateTime={date}>{dateFormatter.format(new Date(date))}</time>;
-}
-
-function completionDate(order: OrderListItem): string | null {
-  if (order.status === "FILLED") return order.filledAt;
-  if (order.status === "CANCELLED") return order.cancelledAt;
-  return null;
 }
 
 function HistoryRow({
@@ -101,7 +60,7 @@ function HistoryRow({
         </Link>
       </th>
       <td className="px-3 py-4">
-        <SideBadge side={order.side} />
+        <OrderSideBadge side={order.side} />
       </td>
       <td className="px-3 py-4">
         <Badge>{order.type}</Badge>
@@ -116,13 +75,13 @@ function HistoryRow({
         {order.avgFillPrice ? formatMarketPrice(order.avgFillPrice) : "—"}
       </td>
       <td className="px-3 py-4 text-center">
-        <StatusBadge status={order.status} />
+        <OrderStatusBadge status={order.status} />
       </td>
       <td className="px-3 py-4 text-right text-sm text-foreground-secondary">
-        <FormattedDate date={order.createdAt} />
+        <OrderTimestamp date={order.createdAt} />
       </td>
       <td className="px-6 py-4 text-right text-sm text-foreground-secondary">
-        <FormattedDate date={completionDate(order)} />
+        <OrderCompletionTimestamp order={order} />
       </td>
       <td className="px-6 py-4 text-right">
         <CancelOrderButton onCancel={onCancel} order={order} />
@@ -139,7 +98,7 @@ function HistoryData({
   onCancel: (order: OrderListItem) => void;
 }) {
   return (
-    <div className="max-w-full overflow-x-auto">
+    <div className="hidden max-w-full overflow-x-auto md:block">
       <table aria-label="Order history table" className="w-full min-w-[1240px] border-collapse">
         <thead>
           <tr className="border-b border-border-subtle text-xs font-medium text-foreground-secondary">
@@ -252,9 +211,11 @@ export function OrderHistoryTable({
       {orders.length > 0 ? (
         <>
           <HistoryData onCancel={onCancel} orders={orders} />
+          <OrderCards onCancel={onCancel} orders={orders} view="history" />
           <footer className="flex items-center justify-between gap-3 border-t border-border-subtle px-5 py-4 sm:px-6">
             <Button
               aria-label="Previous page"
+              className="h-11 md:h-8"
               disabled={currentPage === 1}
               onClick={showPreviousPage}
               size="sm"
@@ -265,6 +226,7 @@ export function OrderHistoryTable({
             <span className="text-sm text-foreground-muted">Page {currentPage}</span>
             <Button
               aria-label="Next page"
+              className="h-11 md:h-8"
               disabled={!query.data?.nextCursor}
               onClick={showNextPage}
               size="sm"

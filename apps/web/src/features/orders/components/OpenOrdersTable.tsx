@@ -14,16 +14,11 @@ import { formatMarketPrice } from "@/lib/format/market-value";
 import { useOpenOrders } from "../hooks/useOpenOrders";
 import { hasOrderFilters, type OrderFilters } from "../model/order-filters";
 import { CancelOrderButton } from "./CancelOrderButton";
+import { OrderSideBadge, OrderStatusBadge } from "./OrderBadges";
+import { OrderCards } from "./OrderCards";
+import { OrderTimestamp } from "./OrderTimestamp";
 
 type OpenOrderFilters = Pick<OrderFilters, "side" | "symbol">;
-
-const createdAtFormatter = new Intl.DateTimeFormat("en-US", {
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  month: "short",
-  year: "numeric",
-});
 
 function OpenOrdersLoading() {
   return (
@@ -40,15 +35,11 @@ function OpenOrdersLoading() {
       </div>
       <div className="space-y-3 p-5 sm:p-6">
         {[0, 1, 2].map((row) => (
-          <Skeleton className="h-14" key={row} />
+          <Skeleton className="h-64 md:h-14" key={row} />
         ))}
       </div>
     </section>
   );
-}
-
-function SideBadge({ side }: Pick<OrderListItem, "side">) {
-  return <Badge variant={side === "BUY" ? "positive" : "negative"}>{side}</Badge>;
 }
 
 function OpenOrderRow({
@@ -71,7 +62,7 @@ function OpenOrderRow({
         </Link>
       </th>
       <td className="px-3 py-4">
-        <SideBadge side={order.side} />
+        <OrderSideBadge side={order.side} />
       </td>
       <td className="px-3 py-4">
         <Badge>{order.type}</Badge>
@@ -83,14 +74,10 @@ function OpenOrderRow({
         {order.limitPrice ? formatMarketPrice(order.limitPrice) : "—"}
       </td>
       <td className="px-3 py-4 text-center">
-        <Badge showDot variant="warning">
-          Pending
-        </Badge>
+        <OrderStatusBadge status={order.status} />
       </td>
       <td className="px-6 py-4 text-right text-sm text-foreground-secondary">
-        <time dateTime={order.createdAt}>
-          {createdAtFormatter.format(new Date(order.createdAt))}
-        </time>
+        <OrderTimestamp date={order.createdAt} />
       </td>
       <td className="px-6 py-4 text-right">
         <CancelOrderButton onCancel={onCancel} order={order} />
@@ -107,7 +94,7 @@ function OpenOrdersData({
   onCancel: (order: OrderListItem) => void;
 }) {
   return (
-    <div className="max-w-full overflow-x-auto">
+    <div className="hidden max-w-full overflow-x-auto md:block">
       <table aria-label="Open orders table" className="w-full min-w-[860px] border-collapse">
         <thead>
           <tr className="border-b border-border-subtle text-xs font-medium text-foreground-secondary">
@@ -192,6 +179,7 @@ export function OpenOrdersTable({
       {orders.length > 0 ? (
         <>
           <OpenOrdersData onCancel={onCancel} orders={orders} />
+          <OrderCards onCancel={onCancel} orders={orders} view="open" />
           {query.hasNextPage || query.isFetchNextPageError ? (
             <footer className="flex flex-col items-center gap-2 border-t border-border-subtle px-5 py-4">
               {query.isFetchNextPageError ? (
@@ -200,6 +188,7 @@ export function OpenOrdersTable({
                 </p>
               ) : null}
               <Button
+                className="h-11 md:h-10"
                 isLoading={query.isFetchingNextPage}
                 onClick={() => void query.fetchNextPage()}
                 variant="secondary"

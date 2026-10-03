@@ -30,109 +30,121 @@ async function authenticate(page: Page) {
   await page.route("**/api/v1/me", (route) => route.fulfill({ json: { data: { user } } }));
 }
 
-test("cancel requires confirmation, prevents duplicate submits and refreshes persisted order state", async ({
-  page,
-}, testInfo) => {
-  await authenticate(page);
-  let cancelled = false;
-  let portfolioRequests = 0;
-  let posts = 0;
-  let release: () => void = () => undefined;
-  const pending = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route("**/api/v1/portfolio**", (route) => {
-    portfolioRequests++;
-    const available = cancelled ? "10000" : "3500";
-    const locked = cancelled ? "0" : "6500";
-    return route.fulfill({
-      json: {
-        data: {
-          balances: [{ asset: "USD", available, locked }],
-          cash: { available, locked },
-          positions: [],
-          quoteCurrency: "USD",
-        },
-      },
+for (const layout of ["desktop", "mobile"] as const) {
+  test(`${layout} cancel requires confirmation, prevents duplicate submits and refreshes persisted order state`, async ({
+    page,
+  }, testInfo) => {
+    await authenticate(page);
+    if (layout === "mobile") await page.setViewportSize({ width: 320, height: 800 });
+    async function navigateTo(name: "Orders" | "Portfolio"): Promise<void> {
+      if (layout === "mobile")
+        await page.getByRole("button", { name: "Open navigation menu" }).click();
+      await page.getByRole("link", { name, exact: true }).click();
+    }
+    let cancelled = false;
+    let portfolioRequests = 0;
+    let posts = 0;
+    let release: () => void = () => undefined;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
     });
-  });
-  await page.route("**/api/v1/orders**", async (route) => {
-    if (route.request().method() === "POST") {
-      posts++;
-      expect(route.request().url()).toContain(`/orders/${pendingOrder.id}/cancel`);
-      expect(route.request().headers()["authorization"]).toBe("Bearer synthetic-cancel-token");
-      await pending;
-      cancelled = true;
+    await page.route("**/api/v1/portfolio**", (route) => {
+      portfolioRequests++;
+      const available = cancelled ? "10000" : "3500";
+      const locked = cancelled ? "0" : "6500";
       return route.fulfill({
         json: {
           data: {
-            id: pendingOrder.id,
-            status: "CANCELLED",
-            cancelledAt: "2026-10-02T01:00:00.000Z",
+            balances: [{ asset: "USD", available, locked }],
+            cash: { available, locked },
+            positions: [],
+            quoteCurrency: "USD",
           },
         },
       });
-    }
-    const url = new URL(route.request().url());
-    const order = cancelled
-      ? { ...pendingOrder, status: "CANCELLED", cancelledAt: "2026-10-02T01:00:00.000Z" }
-      : pendingOrder;
-    return route.fulfill({
-      json: {
-        data: {
-          items: cancelled && url.searchParams.get("status") === "PENDING" ? [] : [order],
-          nextCursor: null,
-        },
-      },
     });
+    await page.route("**/api/v1/orders**", async (route) => {
+      if (route.request().method() === "POST") {
+        posts++;
+        expect(route.request().url()).toContain(`/orders/${pendingOrder.id}/cancel`);
+        expect(route.request().headers()["authorization"]).toBe("Bearer synthetic-cancel-token");
+        await pending;
+        cancelled = true;
+        return route.fulfill({
+          json: {
+            data: {
+              id: pendingOrder.id,
+              status: "CANCELLED",
+              cancelledAt: "2026-10-02T01:00:00.000Z",
+            },
+          },
+        });
+      }
+      const url = new URL(route.request().url());
+      const order = cancelled
+        ? { ...pendingOrder, status: "CANCELLED", cancelledAt: "2026-10-02T01:00:00.000Z" }
+        : pendingOrder;
+      return route.fulfill({
+        json: {
+          data: {
+            items: cancelled && url.searchParams.get("status") === "PENDING" ? [] : [order],
+            nextCursor: null,
+          },
+        },
+      });
+    });
+
+    await page.goto("/portfolio");
+    const balances = page.getByRole("region", { name: "Cash balances", exact: true });
+    await expect(balances).toContainText("$6,500.00");
+    await navigateTo("Orders");
+    const cancel = page.getByRole("button", { name: "Cancel BTC-USD BUY order" });
+    await cancel.click();
+    const dialog = page.getByRole("dialog", { name: "Cancel Order", exact: true });
+    await expect(dialog).toContainText("Reserved funds will be released.");
+    await expect(dialog).toContainText("$65,000.00");
+    await dialog.getByRole("button", { name: "No, Keep Order" }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(cancel).toBeFocused();
+    expect(posts).toBe(0);
+    await cancel.click();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    expect(posts).toBe(0);
+
+    await cancel.click();
+    await page.screenshot({ path: testInfo.outputPath(`cancel-dialog-${layout}.png`) });
+    await dialog.getByRole("button", { name: "Yes, Cancel Order" }).dblclick();
+    await expect(dialog.getByRole("button", { name: "Cancelling…" })).toBeDisabled();
+    await expect(dialog.getByRole("button", { name: "No, Keep Order" })).toBeDisabled();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeVisible();
+    expect(posts).toBe(1);
+    release();
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      page.getByText("BTC-USD BUY order cancelled. Reserved funds released."),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "You have no open orders." })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Open Orders" })).toBeFocused();
+    await page.getByRole("tab", { name: "History" }).click();
+    const history =
+      layout === "mobile"
+        ? page.getByRole("list", { name: "Order history cards" })
+        : page.getByRole("table", { name: "Order history table" });
+    await expect(history).toContainText("Cancelled");
+    await expect(page.getByRole("button", { name: "Cancel BTC-USD BUY order" })).toHaveCount(0);
+    await navigateTo("Portfolio");
+    await expect(balances).toContainText("$10,000.00");
+    await expect(balances).toContainText("$0.00");
+    expect(portfolioRequests).toBeGreaterThanOrEqual(2);
+    await navigateTo("Orders");
+    await expect(page.getByRole("heading", { name: "Orders", exact: true })).toBeVisible();
+    await page.reload();
+    await page.getByRole("tab", { name: "History" }).click();
+    await expect(history).toContainText("Cancelled");
   });
-
-  await page.goto("/portfolio");
-  const balances = page.getByRole("region", { name: "Cash balances", exact: true });
-  await expect(balances).toContainText("$6,500.00");
-  await page.getByRole("link", { name: "Orders", exact: true }).click();
-  const cancel = page.getByRole("button", { name: "Cancel BTC-USD BUY order" });
-  await cancel.click();
-  const dialog = page.getByRole("dialog", { name: "Cancel Order", exact: true });
-  await expect(dialog).toContainText("Reserved funds will be released.");
-  await expect(dialog).toContainText("$65,000.00");
-  await dialog.getByRole("button", { name: "No, Keep Order" }).click();
-  await expect(dialog).toHaveCount(0);
-  await expect(cancel).toBeFocused();
-  expect(posts).toBe(0);
-  await cancel.click();
-  await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0);
-  expect(posts).toBe(0);
-
-  await cancel.click();
-  await page.screenshot({ path: testInfo.outputPath("cancel-dialog-desktop.png") });
-  await dialog.getByRole("button", { name: "Yes, Cancel Order" }).dblclick();
-  await expect(dialog.getByRole("button", { name: "Cancelling…" })).toBeDisabled();
-  await expect(dialog.getByRole("button", { name: "No, Keep Order" })).toBeDisabled();
-  await page.keyboard.press("Escape");
-  await expect(dialog).toBeVisible();
-  expect(posts).toBe(1);
-  release();
-  await expect(dialog).toHaveCount(0);
-  await expect(
-    page.getByText("BTC-USD BUY order cancelled. Reserved funds released."),
-  ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "You have no open orders." })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Open Orders" })).toBeFocused();
-  await page.getByRole("tab", { name: "History" }).click();
-  await expect(page.getByRole("table", { name: "Order history table" })).toContainText("Cancelled");
-  await expect(page.getByRole("button", { name: "Cancel BTC-USD BUY order" })).toHaveCount(0);
-  await page.getByRole("link", { name: "Portfolio", exact: true }).click();
-  await expect(balances).toContainText("$10,000.00");
-  await expect(balances).toContainText("$0.00");
-  expect(portfolioRequests).toBeGreaterThanOrEqual(2);
-  await page.getByRole("link", { name: "Orders", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Orders", exact: true })).toBeVisible();
-  await page.reload();
-  await page.getByRole("tab", { name: "History" }).click();
-  await expect(page.getByRole("table", { name: "Order history table" })).toContainText("Cancelled");
-});
+}
 
 test("History offers cancel only for pending limits and keeps API errors inside the mobile dialog", async ({
   page,

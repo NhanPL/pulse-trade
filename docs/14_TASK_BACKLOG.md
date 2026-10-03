@@ -149,7 +149,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] M04 Add filters.
 - [x] M05 Add cancel action confirmation.
 - [x] M06 Handle cancellation race/conflict gracefully.
-- [ ] M07 Responsive mobile order cards.
+- [x] M07 Responsive mobile order cards.
 
 ## Epic N — Watchlist
 

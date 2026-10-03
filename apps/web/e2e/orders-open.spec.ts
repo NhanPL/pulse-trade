@@ -127,6 +127,15 @@ test("open orders render account data and load the next cursor page", async ({
   await page.screenshot({ path: testInfo.outputPath("open-orders-desktop.png"), fullPage: true });
 
   await page.setViewportSize({ width: 320, height: 800 });
+  await expect(table).toBeHidden();
+  const cards = page.getByRole("list", { name: "Open orders cards", exact: true });
+  await expect(cards.getByRole("listitem")).toHaveCount(3);
+  const bitcoinCard = cards.getByRole("listitem", { name: "BTC-USD BUY LIMIT order" });
+  await expect(bitcoinCard).toContainText("0.25 BTC");
+  await expect(bitcoinCard).toContainText("$60,000.00");
+  await expect(bitcoinCard).toContainText("Pending");
+  await expect(bitcoinCard.locator("time")).toHaveAttribute("datetime", orders[0].createdAt);
+  await expect(bitcoinCard.getByRole("button", { name: "Cancel BTC-USD BUY order" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({
     path: testInfo.outputPath("open-orders-small-mobile.png"),

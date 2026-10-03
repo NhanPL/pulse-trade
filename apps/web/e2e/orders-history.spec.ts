@@ -160,6 +160,24 @@ test("history shows complete order details newest first and pages without accumu
   await page.screenshot({ path: testInfo.outputPath("order-history-desktop.png"), fullPage: true });
 
   await page.setViewportSize({ width: 320, height: 800 });
+  await expect(table).toBeHidden();
+  const cards = page.getByRole("list", { name: "Order history cards", exact: true });
+  await expect(cards.getByRole("listitem")).toHaveCount(2);
+  const bitcoinCard = cards.getByRole("listitem", { name: "BTC-USD BUY MARKET order" });
+  await expect(bitcoinCard).toContainText("$67,542.31");
+  await expect(bitcoinCard).toContainText("Filled");
+  await expect(bitcoinCard.locator("time").nth(1)).toHaveAttribute(
+    "datetime",
+    "2026-09-28T04:00:01.000Z",
+  );
+  const ethereumCard = cards.getByRole("listitem", { name: "ETH-USD SELL LIMIT order" });
+  await expect(ethereumCard).toContainText("$4,000.00");
+  await expect(ethereumCard).toContainText("Cancelled");
+  await expect(ethereumCard.locator("time").nth(1)).toHaveAttribute(
+    "datetime",
+    "2026-09-28T03:15:00.000Z",
+  );
+  await expect(cards.getByRole("button", { name: /Cancel .* order/ })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({
     path: testInfo.outputPath("order-history-small-mobile.png"),
