@@ -1,4 +1,7 @@
 import {
+  cancelOrderParamsSchema,
+  cancelOrderResponseSchema,
+  type CancelOrderResponse,
   ordersListQuerySchema,
   ordersListResponseSchema,
   type OrdersListQuery,
@@ -18,6 +21,59 @@ export class OrdersRequestError extends Error {
     super(message);
     this.name = "OrdersRequestError";
   }
+}
+
+export async function cancelOrder(
+  accessToken: string,
+  id: string,
+): Promise<CancelOrderResponse["data"]> {
+  if (!cancelOrderParamsSchema.safeParse({ id }).success) {
+    throw new OrdersRequestError("INVALID_ORDER", "This order could not be identified.");
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(
+      `${webEnvironment.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/orders/${id}/cancel`,
+      {
+        method: "POST",
+        cache: "no-store",
+        credentials: "include",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+  } catch {
+    throw new OrdersRequestError(
+      "CANCELLATION_UNAVAILABLE",
+      "We couldn't confirm cancellation. Refresh your orders before trying again.",
+    );
+  }
+
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = errorResponseSchema.safeParse(body);
+    const code = error.success
+      ? error.data.error.code
+      : response.status === 401
+        ? "UNAUTHENTICATED"
+        : "CANCELLATION_UNAVAILABLE";
+    throw new OrdersRequestError(
+      code,
+      code === "UNAUTHENTICATED"
+        ? "Your session has expired. Sign in again to continue."
+        : "We couldn't cancel this order. Refresh your orders before trying again.",
+    );
+  }
+
+  const result = cancelOrderResponseSchema.safeParse(body);
+  if (!result.success || result.data.data.id !== id) {
+    throw new OrdersRequestError(
+      "CANCELLATION_UNAVAILABLE",
+      "We couldn't verify cancellation. Refresh your orders before trying again.",
+    );
+  }
+  return result.data.data;
 }
 
 export async function fetchOrders(
