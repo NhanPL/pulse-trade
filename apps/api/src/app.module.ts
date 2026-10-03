@@ -5,6 +5,16 @@ import { MarketModule } from "./markets/market.module";
 import { PortfolioModule } from "./portfolio/portfolio.module";
 import { RealtimeModule } from "./realtime/realtime.module";
 import { TradingModule } from "./trading/trading.module";
+import { WatchlistModule } from "./watchlist/watchlist.module";
 
-@Module({ imports: [AuthModule, MarketModule, PortfolioModule, RealtimeModule, TradingModule] })
+@Module({
+  imports: [
+    AuthModule,
+    MarketModule,
+    PortfolioModule,
+    RealtimeModule,
+    TradingModule,
+    WatchlistModule,
+  ],
+})
 export class AppModule {}

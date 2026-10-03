@@ -505,9 +505,30 @@ Returns order and executions/trades.
 
 ## 8. Watchlist
 
+N01 implements all three routes below under `/api/v1`. Every request requires a
+verified bearer token and a live, unrevoked server-side session, using the same
+`CurrentUserService` as `/me`, orders and portfolio. Refresh cookies alone cannot
+authenticate these endpoints. All responses use `Cache-Control: no-store`; no
+credentials or owner IDs are returned. Query-string identity never changes ownership.
+Watchlist mutations do not modify virtual balances, positions, orders or trades.
+
 ### GET `/watchlist`
 
-Authenticated.
+Returns `200` with saved items ordered by `createdAt DESC, id DESC`:
+
+```json
+{
+  "data": {
+    "items": [
+      { "id": "uuid", "symbol": "BTC-USD", "createdAt": "2026-10-03T00:00:00.000Z" }
+    ]
+  }
+}
+```
+
+A new/empty account returns `data.items: []`. This is a complete shortlist limited
+by the small supported-market set, not paginated order history. Prices and other
+live market data are not included; the later frontend uses ticker subscriptions.
 
 ### POST `/watchlist`
 
@@ -519,15 +540,39 @@ Request:
 }
 ```
 
-Duplicate add should be idempotent or return stable duplicate error; choose and document one behavior.
+The body is strict: only `symbol` is accepted. Symbols are uppercase canonical
+`BASE-QUOTE` strings, at most 20 characters per asset, and must appear in the API's
+supported-market configuration. Lowercase/whitespace values are rejected rather
+than silently normalized; client-provided `userId` or other fields are rejected.
 
-Recommended: idempotent success.
+New and duplicate adds both return `200`:
+
+```json
+{
+  "data": { "id": "uuid", "symbol": "BTC-USD", "createdAt": "2026-10-03T00:00:00.000Z" }
+}
+```
+
+Adding is idempotent, including concurrent retries. The database upsert and unique
+`(user_id, symbol)` constraint keep exactly one row without changing its ID or save
+time. A different user can save the same symbol independently.
 
 ### DELETE `/watchlist/:symbol`
 
-Authenticated.
+Validates the path symbol with the same format and supported-market rules as add.
+Deletes only the authenticated user's matching symbol. Returns `204` without a body,
+including when the item was already missing or concurrent removals race.
 
-Removing a missing item can return idempotent success.
+Errors use the standard envelope with `details: null`:
+
+- `401 UNAUTHENTICATED`: missing, invalid, expired or revoked authentication.
+- `503 AUTH_UNAVAILABLE`: authentication verification/storage is unavailable.
+- `400 INVALID_WATCHLIST_REQUEST`: malformed symbol/body or extra body fields.
+- `400 UNSUPPORTED_SYMBOL`: canonical symbol not in the supported-market set.
+- `503 WATCHLIST_UNAVAILABLE`: sanitized watchlist storage failure, safe to retry.
+
+N01 does not add frontend star actions, the watchlist page or realtime UI; those
+remain N02–N05.
 
 ## 9. Health
 

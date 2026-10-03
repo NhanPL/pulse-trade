@@ -19,8 +19,20 @@ model User {
   positions      Position[]
   orders         Order[]
   trades         Trade[]
+  watchlistItems WatchlistItem[]
 
   @@map("users")
+}
+
+model WatchlistItem {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  symbol    String   @db.VarChar(41)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, symbol])
+  @@map("watchlist_items")
 }
 
 model Position {
