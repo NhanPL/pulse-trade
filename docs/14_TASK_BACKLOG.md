@@ -153,7 +153,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 
 ## Epic N — Watchlist
 
-- [ ] N01 Add DB model/API.
+- [x] N01 Add DB model/API.
 - [ ] N02 Add/remove star on market UI.
 - [ ] N03 Build watchlist page.
 - [ ] N04 Persist after reload.

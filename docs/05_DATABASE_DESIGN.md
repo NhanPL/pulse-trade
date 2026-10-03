@@ -196,6 +196,14 @@ Constraint:
 UNIQUE(user_id, symbol)
 ```
 
+N01 implements this as Prisma `WatchlistItem`, mapped to `watchlist_items`, with
+`VARCHAR(41)` canonical symbols and millisecond `TIMESTAMPTZ` save times. The database
+enforces uppercase `BASE-QUOTE` shape and the unique user/symbol pair; the API checks
+symbols against the current supported-market configuration. The unique index's
+leading `user_id` also supports account-scoped reads and deletes. User deletion
+cascades only these saved preferences; financial-record deletion rules stay unchanged.
+Idempotent adds retain the existing item ID and creation time.
+
 ## 10. Optional `order_events` [P2]
 
 If richer audit history is desired:
