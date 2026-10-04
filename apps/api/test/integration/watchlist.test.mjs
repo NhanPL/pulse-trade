@@ -8,6 +8,7 @@ import { URL } from "node:url";
 const require = createRequire(import.meta.url);
 const { NestFactory } = require("@nestjs/core");
 const {
+  refreshResponseSchema,
   watchlistAddResponseSchema,
   watchlistListResponseSchema,
 } = require("@pulse-trade/contracts");
@@ -271,6 +272,63 @@ test("watchlist API persists owner-scoped idempotent mutations on PostgreSQL", a
       for (const symbol of ["ETH-USD", "XRP-USD"])
         assert.equal((await request("DELETE", `/${symbol}`)).status, 204);
       assert.deepEqual(await readItems(), []);
+    },
+  );
+
+  await t.test(
+    "a fresh API instance restores the saved shortlist through cookie refresh, including removals",
+    async (reloadTest) => {
+      const added = await request("POST", "", { symbol: "SOL-USD" });
+      assert.equal(added.status, 200);
+      const saved = watchlistAddResponseSchema.parse(await added.json()).data;
+      assert.equal((await request("POST", "", { symbol: "ADA-USD" })).status, 200);
+      assert.equal((await request("DELETE", "/ADA-USD")).status, 204);
+
+      // A different Nest container/Prisma pool cannot restore the list from service memory.
+      const reloaded = await NestFactory.create(WatchlistModule, { logger: false });
+      reloadTest.after(() => reloaded.close());
+      configureHttpApplication(reloaded, { nodeEnv: "test", port: 3001, webOrigin: origin });
+      await reloaded.listen(0, "127.0.0.1");
+      assert.notEqual(reloaded.get(PrismaService).client, client);
+      const reloadBase = `${await reloaded.getUrl()}/api/v1`;
+      const oldToken = primary.data.accessToken;
+      const oldCookie = primary.cookie;
+      const refresh = await globalThis.fetch(`${reloadBase}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: origin, Cookie: oldCookie },
+        body: "{}",
+      });
+      assert.equal(refresh.status, 200);
+      const restored = refreshResponseSchema.parse(await refresh.json());
+      assert.equal(restored.data.user.id, primaryId);
+      assert.equal(restored.data.session.id, primary.data.session.id);
+      assert.notEqual(restored.data.accessToken, oldToken);
+      primary = { data: restored.data, cookie: refresh.headers.get("set-cookie").split(";")[0] };
+      assert.notEqual(primary.cookie, oldCookie);
+      const restoredRequest = (method = "GET", path = "", body) =>
+        globalThis.fetch(`${reloadBase}/watchlist${path}`, {
+          method,
+          headers: {
+            Authorization: `Bearer ${primary.data.accessToken}`,
+            ...(body ? { "Content-Type": "application/json" } : {}),
+          },
+          ...(body ? { body: JSON.stringify(body) } : {}),
+        });
+      const list = await restoredRequest();
+      assert.equal(list.status, 200);
+      assert.equal(list.headers.get("cache-control"), "no-store");
+      assert.deepEqual(watchlistListResponseSchema.parse(await list.json()).data.items, [saved]);
+      const duplicate = await restoredRequest("POST", "", { symbol: "SOL-USD" });
+      assert.equal(duplicate.status, 200);
+      assert.deepEqual(watchlistAddResponseSchema.parse(await duplicate.json()).data, saved);
+      assert.equal(await client.watchlistItem.count({ where: { userId: primaryId } }), 1);
+
+      assert.equal((await restoredRequest("DELETE", "/SOL-USD")).status, 204);
+      const empty = await restoredRequest();
+      assert.equal(empty.status, 200);
+      assert.deepEqual(watchlistListResponseSchema.parse(await empty.json()).data.items, []);
+      assert.deepEqual(await readItems(), []);
+      assert.equal((await readItems(other.data.accessToken))[0].symbol, "BTC-USD");
     },
   );
 

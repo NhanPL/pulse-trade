@@ -573,8 +573,11 @@ Errors use the standard envelope with `details: null`:
 
 N02 connects the Market Overview stars to these endpoints using account-scoped
 TanStack Query state. N03 uses the same list/removal endpoints for `/watchlist`
-and subscribes only to saved-market tickers. Reload-focused acceptance and the
-complete guided empty-state design remain N04/N05.
+and subscribes only to saved-market tickers. N04 verifies reload persistence using
+the existing refresh-cookie bootstrap, `/me` verification and a fresh authenticated
+GET; it adds no browser-persisted private cache or new endpoint. Confirmed adds and
+removals survive reload and logout/login while remaining account-scoped. The
+complete guided empty-state design remains N05.
 
 ## 9. Health
 
