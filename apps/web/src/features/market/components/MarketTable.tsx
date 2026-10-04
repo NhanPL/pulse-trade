@@ -32,7 +32,10 @@ export function MarketTable({ markets }: MarketTableProps) {
             <th className="px-4 py-3.5 text-right font-medium" scope="col">
               24h volume
             </th>
-            <th className="px-5 py-3.5 text-center font-medium" scope="col">
+            <th
+              className="sticky right-0 bg-surface-elevated px-5 py-3.5 text-center font-medium"
+              scope="col"
+            >
               Watch
             </th>
           </tr>
