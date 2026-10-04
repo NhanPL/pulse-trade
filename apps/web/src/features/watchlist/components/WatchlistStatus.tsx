@@ -6,11 +6,12 @@ import { useMutationState } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/Button";
 import { useAuthSession } from "@/features/auth/components/AuthSessionProvider";
+import { safeReturnTo } from "@/features/auth/model/return-to";
 import { WatchlistRequestError } from "../api/watchlist";
 import { useWatchlist } from "../hooks/useWatchlist";
 import { watchlistQueryKeys } from "../model/query-keys";
 
-export function WatchlistStatus() {
+export function WatchlistStatus({ returnTo = "/" }: { returnTo?: string }) {
   const session = useAuthSession();
   const query = useWatchlist();
   const [dismissedError, setDismissedError] = useState<unknown>(null);
@@ -48,7 +49,7 @@ export function WatchlistStatus() {
       {expired ? (
         <Link
           className="rounded text-brand underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          href="/login?returnTo=%2F"
+          href={`/login?returnTo=${encodeURIComponent(safeReturnTo(returnTo))}`}
         >
           Sign in again
         </Link>

@@ -572,7 +572,9 @@ Errors use the standard envelope with `details: null`:
 - `503 WATCHLIST_UNAVAILABLE`: sanitized watchlist storage failure, safe to retry.
 
 N02 connects the Market Overview stars to these endpoints using account-scoped
-TanStack Query state. The watchlist page and its realtime UI remain N03–N05.
+TanStack Query state. N03 uses the same list/removal endpoints for `/watchlist`
+and subscribes only to saved-market tickers. Reload-focused acceptance and the
+complete guided empty-state design remain N04/N05.
 
 ## 9. Health
 
