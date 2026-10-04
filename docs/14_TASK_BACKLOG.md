@@ -156,7 +156,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] N01 Add DB model/API.
 - [x] N02 Add/remove star on market UI.
 - [x] N03 Build watchlist page.
-- [ ] N04 Persist after reload.
+- [x] N04 Persist after reload.
 - [ ] N05 Add empty state.
 
 ## Epic O — Testing and quality

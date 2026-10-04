@@ -81,7 +81,7 @@ Save markets from the Markets or Trading page.
 - [x] Persisted symbols load.
 - [x] Prices update live.
 - [x] Remove persists.
-- [ ] Reload preserves result.
+- [x] Reload preserves result.
 - [ ] Empty state links to markets.
 
 ## 9. N03 implementation notes
@@ -110,10 +110,42 @@ Save markets from the Markets or Trading page.
   the shared manager. Browser testing uncovered an existing timer-receiver error;
   binding default client timers to `globalThis` fixes reconnect without changing
   the subscription architecture.
-- N04 reload-focused acceptance and N05's complete guided empty-state design remain
-  separate backlog tasks. N03 only supplies a minimal no-saved-markets message and
-  keeps Explore Markets available; an initially empty list opens no market socket.
+- N03 supplies a minimal no-saved-markets message and keeps Explore Markets
+  available; an initially empty list opens no market socket. N05's complete guided
+  empty-state design remains a separate backlog task.
 - Coverage: watchlist presentation/selector and subscription lifecycle unit tests;
   browser tests for session gating, loading, live prices, mutation errors, pending
   removal, REST retry/expiry, stale/reconnect recovery, cleanup, keyboard controls,
   and desktop/tablet/320px mobile layouts.
+
+## 10. N04 persistence acceptance
+
+Persistence is server-owned: N01's PostgreSQL records, N02's confirmed mutations
+and N03's account-scoped REST query already implement the required behavior.
+N04 adds reload-focused regression coverage rather than a second persistence
+store or a new API/schema. Neither the watchlist nor authentication credentials
+are serialized into `localStorage`/`sessionStorage`.
+
+On a fresh document:
+
+1. Restore authentication through the existing HttpOnly refresh cookie.
+2. Verify the current identity with `/me`, keeping private content gated.
+3. Fetch `GET /watchlist` with the restored in-memory bearer token and `no-store`.
+4. Render server-confirmed symbols and subscribe only to their tickers.
+
+`watchlist-persistence.spec.ts` covers confirmed Market Overview saves, removals,
+hard reloads of both routes on desktop/320px mobile, a fresh tab, logout/login and
+account isolation, delayed session/REST recovery, expired sessions, retry after a
+reload-time REST failure, and failed writes not becoming persisted changes.
+Reloads do not replay POST/DELETE requests or reuse the previous document's bearer
+token; restored ticker subscriptions match the newly fetched shortlist.
+
+The PostgreSQL watchlist integration suite also initializes an independent
+Nest/Prisma instance, rotates the existing refresh cookie and reads the same saved
+item identity/time. Previously removed symbols stay absent, duplicate adds still
+return the same item, and later removals are visible from both instances without
+affecting another account or paper-trading balances.
+
+Cross-tab instant synchronization and the guided empty-state UI are not added by
+N04. A fresh/reloaded tab reads the latest server list; an existing mounted tab
+continues using the established query lifecycle.

@@ -20,6 +20,7 @@ export default defineConfig({
     "orders-mobile.spec.ts",
     "market-watchlist.spec.ts",
     "watchlist-page.spec.ts",
+    "watchlist-persistence.spec.ts",
   ],
   fullyParallel: true,
   use: {
