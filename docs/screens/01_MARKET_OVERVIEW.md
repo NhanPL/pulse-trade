@@ -115,6 +115,16 @@ Authenticated:
 
 - Add/remove persisted watchlist item.
 
+N02 implementation:
+
+- Stars load through one shared, account-scoped TanStack Query request to `GET /watchlist`.
+- A filled teal star and `aria-pressed` indicate a saved symbol; the accessible name says Add/Remove.
+- Add/remove calls the N01 API and changes membership only after server confirmation.
+- Loading, logout and an in-flight change disable the relevant action; failures stay within the Markets panel with refresh/sign-in recovery.
+- Guest stars link to `/login?returnTo=%2F`; star clicks do not bubble into navigation.
+- The Watch column stays visible at the edge of horizontally scrolling desktop/tablet tables, while mobile cards retain their corner action.
+- This does not build `/watchlist` or change existing ticker subscriptions (N03 and later tasks remain separate).
+
 ## 7. Realtime behavior
 
 Do not let one price tick cause the entire market table to rerender.
@@ -164,6 +174,6 @@ No markets match "abc".
 - [ ] Search works.
 - [ ] Sort works.
 - [ ] Row navigates to trade route.
-- [ ] Watchlist action works for authenticated user.
+- [x] Watchlist action works for authenticated user.
 - [ ] Disconnected/stale state is visible.
 - [ ] Mobile layout remains usable at narrow width.

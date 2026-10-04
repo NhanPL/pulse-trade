@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Input } from "@/components/ui/Input";
+import { WatchlistStatus } from "@/features/watchlist/components/WatchlistStatus";
 
 import type { MarketTableItem } from "../model/market-table";
 import { filterMarkets } from "../utils/filter-markets";
@@ -143,7 +144,10 @@ export function MarketOverview(props: MarketOverviewProps) {
         />
       ) : null}
       {isReady ? (
-        <MarketListState markets={sortedMarkets} searchTerm={trimmedSearchTerm} status="ready" />
+        <>
+          <WatchlistStatus />
+          <MarketListState markets={sortedMarkets} searchTerm={trimmedSearchTerm} status="ready" />
+        </>
       ) : null}
     </>
   );

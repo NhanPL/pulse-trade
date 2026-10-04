@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { memo } from "react";
 
 import { classNames } from "@/components/ui/class-names";
+import { WatchlistToggle } from "@/features/watchlist/components/WatchlistToggle";
 import {
   formatMarketPrice,
   formatMarketVolume,
@@ -77,22 +77,8 @@ export const MarketRow = memo(function MarketRow({ market }: MarketRowProps) {
         </span>
         {formatMarketVolume(market.volume24h)}
       </td>
-      <td className="absolute right-3 top-3 block p-0 md:static md:table-cell md:px-5 md:py-4 md:text-center">
-        <Link
-          aria-label={`Sign in to add ${market.symbol} to watchlist`}
-          className="inline-grid size-10 place-items-center rounded-lg text-foreground-muted transition-colors hover:bg-surface-selected hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus md:size-9"
-          href="/login"
-          title="Sign in to add to watchlist"
-        >
-          <svg aria-hidden="true" className="size-5" fill="none" viewBox="0 0 24 24">
-            <path
-              d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.92 1.06-6.2L3 9.53l6.22-.9L12 3Z"
-              stroke="currentColor"
-              strokeLinejoin="round"
-              strokeWidth="1.75"
-            />
-          </svg>
-        </Link>
+      <td className="absolute right-3 top-3 block p-0 md:sticky md:right-0 md:top-auto md:table-cell md:bg-surface-elevated md:px-5 md:py-4 md:text-center">
+        <WatchlistToggle symbol={market.symbol} />
       </td>
     </tr>
   );
