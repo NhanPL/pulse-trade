@@ -84,11 +84,12 @@ export class RealtimeClient {
     private readonly socketFactory: RealtimeSocketFactory = createBrowserSocket,
     options: RealtimeClientOptions = {},
   ) {
-    this.cancelTimeout = options.clearTimeout ?? clearTimeout;
+    // Browser timers require the global receiver, not this client instance.
+    this.cancelTimeout = options.clearTimeout ?? globalThis.clearTimeout.bind(globalThis);
     this.random = options.random ?? Math.random;
     this.reconnectDelaysMs = options.reconnectDelaysMs ?? REALTIME_RECONNECT_DELAYS_MS;
     this.reconnectJitterRatio = options.reconnectJitterRatio ?? REALTIME_RECONNECT_JITTER_RATIO;
-    this.scheduleTimeout = options.setTimeout ?? setTimeout;
+    this.scheduleTimeout = options.setTimeout ?? globalThis.setTimeout.bind(globalThis);
     this.stableConnectionMs = options.stableConnectionMs ?? REALTIME_STABLE_CONNECTION_MS;
 
     calculateReconnectDelayMs(0, this.reconnectDelaysMs, this.reconnectJitterRatio, 0.5);
