@@ -71,7 +71,7 @@ Recommended:
 
 ```text
 Your watchlist is empty.
-Save markets from the Markets or Trading page.
+Save markets using the star on the Markets page.
 [Explore Markets]
 ```
 
@@ -82,7 +82,7 @@ Save markets from the Markets or Trading page.
 - [x] Prices update live.
 - [x] Remove persists.
 - [x] Reload preserves result.
-- [ ] Empty state links to markets.
+- [x] Empty state links to markets.
 
 ## 9. N03 implementation notes
 
@@ -110,9 +110,9 @@ Save markets from the Markets or Trading page.
   the shared manager. Browser testing uncovered an existing timer-receiver error;
   binding default client timers to `globalThis` fixes reconnect without changing
   the subscription architecture.
-- N03 supplies a minimal no-saved-markets message and keeps Explore Markets
-  available; an initially empty list opens no market socket. N05's complete guided
-  empty-state design remains a separate backlog task.
+- N03 initially supplied a minimal no-saved-markets message and kept Explore
+  Markets available; N05 replaces the placeholder with the guided empty state
+  described below. An initially empty list opens no market socket.
 - Coverage: watchlist presentation/selector and subscription lifecycle unit tests;
   browser tests for session gating, loading, live prices, mutation errors, pending
   removal, REST retry/expiry, stale/reconnect recovery, cleanup, keyboard controls,
@@ -149,3 +149,22 @@ affecting another account or paper-trading balances.
 Cross-tab instant synchronization and the guided empty-state UI are not added by
 N04. A fresh/reloaded tab reads the latest server list; an existing mounted tab
 continues using the established query lifecycle.
+
+## 11. N05 guided empty state
+
+- A server-confirmed empty list uses the shared `EmptyState` primitive inside the
+  saved-markets panel, with a decorative bookmark, an explicit empty heading,
+  instructions and an `Explore Markets` link to `/`. Its polite status semantics,
+  visible keyboard focus and 44px minimum action height also apply on small mobile.
+- The instructions name the currently implemented Market Overview star action.
+  The earlier suggested Trading-page wording is not used because that add action
+  is not connected yet; N05 does not add a Trading star or an Add Market dialog.
+- Loading, initial REST errors and expired sessions remain distinct states, never
+  masquerading as an empty list. Cached failures retain the existing inline error
+  feedback alongside last-confirmed data.
+- Pending/failed removal of the last market keeps its row. Confirmed removal
+  shows the empty state, resets the saved count/Top Mover and releases the final
+  ticker subscription. Reloading the empty list creates no market connection.
+- Playwright covers desktop/tablet/320px mobile layout and keyboard navigation,
+  loading/error recovery, the last-market pending/failure/success lifecycle,
+  empty persistence after reload and adding again through the Markets CTA.

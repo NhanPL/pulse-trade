@@ -393,15 +393,121 @@ test("no saved symbols means no market connection and a route back to Markets", 
 }) => {
   const runtime = await mockWatchlist(page, []);
   await page.goto("/watchlist");
-  await expect(page.getByText("No saved markets yet.", { exact: true })).toBeVisible();
+  const empty = page.getByRole("status", { name: "Empty watchlist", exact: true });
+  await expect(empty.getByRole("heading", { name: "Your watchlist is empty." })).toBeVisible();
+  await expect(empty).toContainText("Save markets using the star on the Markets page.");
   await expect(page.getByRole("region", { name: "Watchlist summary" })).toContainText("0 symbols");
-  await expect(page.getByRole("link", { name: "Explore Markets", exact: true })).toHaveAttribute(
+  await expect(empty.getByRole("link", { name: "Explore Markets", exact: true })).toHaveAttribute(
     "href",
     "/",
   );
   expect(runtime.state.sockets).toBe(0);
   expect(runtime.commands).toHaveLength(0);
 });
+
+test("empty watchlist waits for REST, distinguishes errors and recovers to confirmed empty data", async ({
+  page,
+}) => {
+  const runtime = await mockWatchlist(page, []);
+  const gate = deferred();
+  runtime.state.readGate = gate.promise;
+  runtime.state.readStatus = 503;
+  await page.goto("/watchlist");
+  const empty = page.getByRole("status", { name: "Empty watchlist", exact: true });
+  await expect(page.getByRole("status", { name: "Watchlist loading", exact: true })).toBeVisible();
+  await expect(empty).toHaveCount(0);
+  gate.resolve();
+  await expect(page.getByRole("heading", { name: "Watchlist unavailable" })).toBeVisible();
+  await expect(empty).toHaveCount(0);
+  expect(runtime.state.sockets).toBe(0);
+  runtime.state.readStatus = 200;
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(empty).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Watchlist unavailable" })).toHaveCount(0);
+  expect(runtime.state.sockets).toBe(0);
+  expect(runtime.commands).toHaveLength(0);
+});
+
+test("only confirmed removal of the last market shows empty state and releases its ticker", async ({
+  page,
+}) => {
+  const runtime = await mockWatchlist(page, saved.slice(0, 1));
+  runtime.state.removeStatus = 503;
+  await page.goto("/watchlist");
+  const empty = page.getByRole("status", { name: "Empty watchlist", exact: true });
+  const remove = page.getByRole("button", { name: "Remove BTC-USD from watchlist", exact: true });
+  await expect(row(page, "BTC-USD")).toContainText("$67,542.31");
+  await remove.click();
+  await expect(
+    page.getByRole("region", { name: "Saved markets" }).getByRole("alert"),
+  ).toBeVisible();
+  await expect(remove).toBeEnabled();
+  await expect(empty).toHaveCount(0);
+  expect(runtime.commands).toHaveLength(1);
+  const gate = deferred();
+  runtime.state.removeStatus = 204;
+  runtime.state.removeGate = gate.promise;
+  await remove.focus();
+  await page.keyboard.press("Enter");
+  await expect(remove).toBeDisabled();
+  await expect(empty).toHaveCount(0);
+  gate.resolve();
+  await expect(empty).toBeVisible();
+  await expect(row(page, "BTC-USD")).toHaveCount(0);
+  const summary = page.getByRole("region", { name: "Watchlist summary" });
+  await expect(summary).toContainText("0 symbols");
+  await expect(summary).not.toContainText("BTC/USD");
+  await expect(page.locator("footer[role=status]")).toContainText("No market subscriptions.");
+  await expect.poll(() => runtime.commands.length).toBe(2);
+  expect(runtime.commands[1]).toMatchObject({
+    action: "unsubscribe",
+    channels: ["ticker"],
+    symbols: ["BTC-USD"],
+  });
+  expect(runtime.state.items).toEqual([]);
+  await page.reload();
+  await expect(empty).toBeVisible();
+  expect(runtime.state.sockets).toBe(1);
+  expect(runtime.commands).toHaveLength(2);
+});
+
+for (const viewport of [
+  { name: "desktop", width: 1586, height: 992 },
+  { name: "tablet", width: 768, height: 1024 },
+  { name: "small-mobile", width: 320, height: 800 },
+]) {
+  test(`guided empty state is readable and keyboard navigates to Markets on ${viewport.name}`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize(viewport);
+    const runtime = await mockWatchlist(page, []);
+    await page.goto("/watchlist");
+    const empty = page.getByRole("status", { name: "Empty watchlist", exact: true });
+    const explore = empty.getByRole("link", { name: "Explore Markets", exact: true });
+    await expect(empty).toBeVisible();
+    await expect(empty).toHaveAttribute("aria-live", "polite");
+    await expect(empty.getByRole("heading", { level: 2 })).toBeVisible();
+    expect(runtime.state.sockets).toBe(0);
+    expect(runtime.commands).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    const rect = await explore.boundingBox();
+    expect(rect!.height).toBeGreaterThanOrEqual(44);
+    expect(rect!.x).toBeGreaterThanOrEqual(0);
+    expect(rect!.x + rect!.width).toBeLessThanOrEqual(viewport.width);
+    await page.getByRole("link", { name: "Explore Markets", exact: true }).first().focus();
+    await page.keyboard.press("Tab");
+    await expect(explore).toBeFocused();
+    await page.screenshot({
+      path: testInfo.outputPath(`watchlist-empty-${viewport.name}.png`),
+      fullPage: true,
+    });
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("region", { name: "Crypto markets", exact: true })).toBeVisible();
+  });
+}
 
 for (const viewport of [
   { name: "desktop", width: 1586, height: 992 },

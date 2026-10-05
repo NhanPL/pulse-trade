@@ -9,6 +9,7 @@ import { WatchlistRequestError } from "../api/watchlist";
 import { useWatchlistItems } from "../hooks/useWatchlist";
 import { useWatchlistRealtime } from "../hooks/useWatchlistRealtime";
 import { watchlistTickerSymbols } from "../model/watchlist-market";
+import { WatchlistEmptyState } from "./WatchlistEmptyState";
 import { WatchlistMarketRow } from "./WatchlistMarketRow";
 import { WatchlistMarketStatus } from "./WatchlistMarketStatus";
 import { WatchlistStatus } from "./WatchlistStatus";
@@ -73,9 +74,7 @@ export function WatchlistDashboard() {
       >
         <WatchlistStatus returnTo="/watchlist" />
         {query.data.length === 0 ? (
-          <p className="px-5 py-12 text-center text-sm text-foreground-secondary" role="status">
-            No saved markets yet.
-          </p>
+          <WatchlistEmptyState />
         ) : (
           <table className="block w-full border-collapse text-left lg:table">
             <caption className="sr-only">
