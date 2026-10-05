@@ -249,3 +249,100 @@ configure a backend database or add the later backlog E2E scenarios.
 Setup references: [Next.js Vitest guide](https://nextjs.org/docs/app/guides/testing/vitest),
 [RTL setup/cleanup](https://testing-library.com/docs/react-testing-library/setup/)
 and [jest-dom's Vitest integration](https://github.com/testing-library/jest-dom#with-vitest).
+
+## 14. O02 — Backend integration test database
+
+Backend integration suites use real PostgreSQL and the checked-in Prisma
+migrations, not an in-memory substitute. O02 adds repeatable local provisioning
+and a guarded command shared with CI; existing business scenarios and fixture
+cleanup remain unchanged.
+
+### Local setup
+
+Requirements: the repository's Node/pnpm versions, installed workspace
+dependencies and Docker with Compose v2. From the repository root:
+
+```sh
+# First setup only: copy the template without overwriting an existing test config.
+cp apps/api/.env.test.example apps/api/.env.test
+docker compose -f compose.test.yml up --wait --wait-timeout 60
+pnpm --filter @pulse-trade/api db:test:check
+pnpm --filter @pulse-trade/api test:integration
+```
+
+PowerShell can use `Copy-Item apps/api/.env.test.example apps/api/.env.test` for
+the copy step. Do not commit the resulting `.env.test` or use production
+credentials. The template's password is for this disposable local service only.
+
+`compose.test.yml` runs PostgreSQL 16 as a separate Compose project. It binds
+only to `127.0.0.1:5433`, uses the `pulse_trade_test` database and a health check,
+and stores data in container tmpfs rather than a development volume. The `--wait`
+step waits for a healthy database before test commands start. To discard this
+test database after a run:
+
+```sh
+docker compose -f compose.test.yml down
+```
+
+The next `up` starts empty; `test:integration` reapplies the checked-in migrations.
+No global database reset or fixture seed is performed. Never put useful data in
+this ephemeral service.
+
+### Configuration and safety
+
+`apps/api/scripts/integration-test-database.mjs` is the common entry point for:
+
+```text
+pnpm --filter @pulse-trade/api db:test:check   # Validate target; no DB connection
+pnpm --filter @pulse-trade/api db:test:prepare # Guard, then deploy migrations only
+pnpm --filter @pulse-trade/api test:integration # Guard, build, migrate, run suites
+```
+
+The target is resolved in this order: shell `TEST_DATABASE_URL`, `.env.test`
+`TEST_DATABASE_URL`, then a legacy shell `DATABASE_URL`. An explicitly empty
+target fails instead of falling back. The runner never reads the development
+`.env`; Prisma also skips that file for these `NODE_ENV=test` child processes.
+Use the guarded preparation command, not the development `db:deploy`, for test
+setup. `db:test:prepare` is optional because `test:integration` already deploys
+migrations; repeated deployment is idempotent.
+
+Preflight rejects production mode, malformed/non-PostgreSQL URLs, database names
+not ending `_test`, multiple path segments, fragments, non-public schemas and
+query parameters that could override the connection target. Supported parameters
+are `schema=public` and `sslmode` (`disable`, `prefer`, `require`, `verify-ca`,
+`verify-full`). Duplicate parameters are rejected. This is an accident guard,
+not permission to point tests at important data just because its name ends
+`_test`: always provision a dedicated database/user.
+
+Every build, migration and suite receives the same guarded `DATABASE_URL` with
+`NODE_ENV=test`. Child commands use argument arrays without a shell, and credentials
+are passed only through the environment, not printed in diagnostics or command
+arguments. A bad target, failed migration or missing database fails the command;
+tests are never skipped or reported as successful in those cases. The runner
+only uses `migrate deploy`, never `migrate reset` or `migrate dev`.
+
+Existing suites create randomized fixture users, clean up only owned rows and
+close their Nest/Prisma instances. Authentication suites generate temporary JWT
+keys, so no production signing secret is needed. Tests use existing deterministic
+market inputs and must not depend on Coinbase availability. This task adds no
+new E2E scenario or realtime-provider abstraction.
+
+### CI and regression coverage
+
+GitHub CI provisions fresh PostgreSQL 16 with `pulse_trade_test`, supplies
+`TEST_DATABASE_URL` and runs guarded migration/integration commands. A separate
+smoke check starts the local Compose service, migrates its database and stops it
+on exit, verifying the disposable setup even on machines without local Docker.
+No development env file or database is required. CI's service container is
+discarded after the job. A custom local/CI PostgreSQL instance can be used
+instead of Docker by supplying a dedicated `TEST_DATABASE_URL`; migrations need
+normal schema creation permissions, not permission to create a shadow database.
+
+`apps/api/test/integration-test-database.test.mjs` runs with the existing API unit
+command and covers URL safety, env precedence/isolation, preflight before child
+execution, command ordering, Windows/Node pnpm launchers, secret-free diagnostics
+and failure/exit-code propagation. These tests require no database; the existing
+PostgreSQL integration suites remain the check for actual migrations and behavior.
+
+Provisioning references: [Compose services, health checks and tmpfs](https://docs.docker.com/reference/compose-file/services/)
+and [Compose up health waiting](https://docs.docker.com/reference/cli/docker/compose/up/).

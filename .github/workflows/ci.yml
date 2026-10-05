@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 15
     env:
       NEXT_TELEMETRY_DISABLED: "1"
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pulse_trade_test
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pulse_trade_test
     services:
       postgres:
         image: postgres:16
@@ -30,7 +30,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres"
+          --health-cmd "pg_isready -h 127.0.0.1 -U postgres -d pulse_trade_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -51,6 +51,11 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Validate integration database configuration
+        run: |
+          docker compose -f compose.test.yml config --quiet
+          pnpm --filter @pulse-trade/api db:test:check
 
       - name: Check formatting
         run: pnpm format:check
@@ -76,8 +81,16 @@ jobs:
       - name: API tests
         run: pnpm --filter @pulse-trade/api test
 
+      - name: Verify disposable Compose database setup
+        env:
+          TEST_DATABASE_URL: postgresql://pulse_trade_test:pulse_trade_test@127.0.0.1:5433/pulse_trade_test?schema=public
+        run: |
+          trap 'docker compose -f compose.test.yml down' EXIT
+          docker compose -f compose.test.yml up --wait --wait-timeout 60
+          pnpm --filter @pulse-trade/api db:test:prepare
+
       - name: Apply test database migrations
-        run: pnpm --filter @pulse-trade/api db:deploy
+        run: pnpm --filter @pulse-trade/api db:test:prepare
 
       - name: PostgreSQL integration tests
         run: pnpm --filter @pulse-trade/api test:integration

@@ -9,12 +9,14 @@
     "db:validate": "prisma validate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
+    "db:test:check": "node scripts/integration-test-database.mjs check",
+    "db:test:prepare": "node scripts/integration-test-database.mjs prepare",
     "dev": "nest start --watch",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
     "test": "pnpm --filter @pulse-trade/contracts build && pnpm build && node --test test/*.test.mjs",
-    "test:integration": "pnpm --filter @pulse-trade/contracts build && pnpm build && node --test test/integration/*.test.mjs",
+    "test:integration": "node scripts/integration-test-database.mjs run",
     "typecheck": "pnpm db:generate && tsc --noEmit"
   },
   "dependencies": {

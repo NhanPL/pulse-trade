@@ -78,23 +78,56 @@ connection/migrations. `403 ORIGIN_NOT_ALLOWED` means `WEB_ORIGIN` differs from
 the browser origin. After login, session restoration uses `POST /api/v1/auth/refresh`
 followed by `GET /api/v1/me` with the returned bearer token.
 
-## Authentication integration tests
+## Backend integration test database
 
-Use an isolated PostgreSQL database whose name ends in `_test`, supply its
-`DATABASE_URL` in the process environment and run:
+Use a dedicated PostgreSQL database whose name ends in `_test`, never the
+development or production database. For disposable local PostgreSQL 16, start
+the root `compose.test.yml` service, then copy `apps/api/.env.test.example` to
+`apps/api/.env.test` (first setup only). The container uses loopback port 5433,
+separate from the usual development port 5432, and keeps its data in tmpfs.
+
+Commands from the repository root:
 
 ```sh
-pnpm --filter @pulse-trade/api db:deploy
+docker compose -f compose.test.yml up --wait --wait-timeout 60
+pnpm --filter @pulse-trade/api db:test:check
+pnpm --filter @pulse-trade/api db:test:prepare
 pnpm --filter @pulse-trade/api test:integration
+docker compose -f compose.test.yml down
 ```
 
-Tests fail rather than skip when a test database is unavailable. They exercise
+`db:test:check` validates configuration only; it does not connect to PostgreSQL.
+`db:test:prepare` validates the target before applying checked-in migrations with
+`prisma migrate deploy`. `test:integration` builds contracts/API, applies the same
+migrations and runs all existing PostgreSQL suites. Separate preparation is
+optional, useful for inspecting the migrated schema; repeated deploys are safe.
+No reset, seed, shadow database or application startup is required. Stopping the
+Compose service discards its disposable data; do not store important data there.
+
+The runner reads only `.env.test`, not the development `.env`. An explicit shell
+`TEST_DATABASE_URL` takes precedence over the file. A legacy shell `DATABASE_URL`
+is accepted only when neither supplies `TEST_DATABASE_URL`, and undergoes the
+same guard. Empty explicit targets and `NODE_ENV=production` fail immediately.
+Children receive `NODE_ENV=test` and the guarded target as `DATABASE_URL`; Prisma
+does not load the development `.env` in that mode. URLs allow only PostgreSQL,
+a single database name ending `_test`, `schema=public` and optional `sslmode`;
+connection override parameters are rejected before any child command runs.
+`.env.test` is ignored by Git and credentials are never printed by the runner.
+
+CI provides a fresh PostgreSQL 16 service and supplies `TEST_DATABASE_URL` without
+a local env file. It also starts/migrates/stops the disposable Compose database,
+then runs the complete integration suite through the guarded commands. For detailed setup
+and isolation rules, see `docs/11_TESTING_QUALITY_PERFORMANCE.md`, section O02.
+
+Tests fail rather than skip when a test database is unavailable. Fixtures have
+unique randomized identities and delete only their own rows, never truncate the
+database. All Prisma/Nest connections are closed on completion. Tests exercise
 the HTTP endpoint, concurrent duplicate registration, exactly-once funding and
 rollback after a real database CHECK violation. Cleanup targets only the test's
 randomly generated emails. Login tests additionally verify persisted session
 hashes, signed access tokens, credential errors, cookie/CORS policy and failure
 without a signing secret. They generate a temporary signing key in their own
-process. CI provisions PostgreSQL 16 and runs the authentication suites.
+process.
 Refresh tests cover rotation/replay, concurrent refresh, concurrent revocation,
 expired/revoked sessions, near-expiry lifetime caps and rollback of a failed
 rotation. They reuse the existing Session model; I05 needs no schema migration.

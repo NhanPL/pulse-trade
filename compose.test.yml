@@ -1,0 +1,21 @@
+name: pulse-trade-integration
+
+services:
+  postgres-test:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: pulse_trade_test
+      POSTGRES_PASSWORD: pulse_trade_test
+      POSTGRES_DB: pulse_trade_test
+    ports:
+      - "127.0.0.1:5433:5432"
+    # Disposable test data must never share the development database's volume.
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "pulse_trade_test", "-d", "pulse_trade_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
