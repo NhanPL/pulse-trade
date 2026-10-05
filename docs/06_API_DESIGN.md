@@ -576,8 +576,9 @@ TanStack Query state. N03 uses the same list/removal endpoints for `/watchlist`
 and subscribes only to saved-market tickers. N04 verifies reload persistence using
 the existing refresh-cookie bootstrap, `/me` verification and a fresh authenticated
 GET; it adds no browser-persisted private cache or new endpoint. Confirmed adds and
-removals survive reload and logout/login while remaining account-scoped. The
-complete guided empty-state design remains N05.
+removals survive reload and logout/login while remaining account-scoped. N05 adds
+the guided empty-state UI for a confirmed empty GET result without changing the
+API or introducing browser-persisted state.
 
 ## 9. Health
 

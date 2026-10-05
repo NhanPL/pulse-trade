@@ -322,6 +322,40 @@ for (const viewport of [
   });
 }
 
+test("guided empty state can repopulate from Markets and returns after the last saved market is removed", async ({
+  page,
+  context,
+}) => {
+  const api = await mockPersistence(context, []);
+  await page.goto("/watchlist");
+  const empty = page.getByRole("status", { name: "Empty watchlist", exact: true });
+  await expect(empty).toBeVisible();
+  expect(api.state.sockets).toBe(0);
+  await empty.getByRole("link", { name: "Explore Markets", exact: true }).click();
+  await expect(star(page, "BTC-USD", false)).toBeEnabled();
+  await star(page, "BTC-USD", false).click();
+  await expect(star(page, "BTC-USD", true)).toBeEnabled();
+  await page.getByRole("link", { name: "Watchlist", exact: true }).click();
+  await expect(rows(page)).toHaveCount(1);
+  await expect(empty).toHaveCount(0);
+  await expectLiveWatchlist(page);
+  await star(page, "BTC-USD", true).click();
+  await expect(empty).toBeVisible();
+  await expect(rows(page)).toHaveCount(0);
+  await expect.poll(() => api.commands.at(-1)?.action).toBe("unsubscribe");
+  expect(api.records.get(firstUser.id)).toEqual([]);
+  expect(api.writes.map(({ method, symbol }) => ({ method, symbol }))).toEqual([
+    { method: "POST", symbol: "BTC-USD" },
+    { method: "DELETE", symbol: "BTC-USD" },
+  ]);
+  const sockets = api.state.sockets;
+  await page.reload();
+  await expect(empty).toBeVisible();
+  expect(api.state.sockets).toBe(sockets);
+  expect(api.writes).toHaveLength(2);
+  await noPersistentPrivateCache(page, context);
+});
+
 test("logout and login preserve server membership without sharing the previous account's list", async ({
   page,
   context,
@@ -428,7 +462,9 @@ test("REST failure after reload offers retry without reviving an old list or ove
     page.getByRole("heading", { name: "Watchlist unavailable", exact: true }),
   ).toBeVisible();
   await expect(star(page, "BTC-USD", true)).toHaveCount(0);
-  await expect(page.getByText("No saved markets yet.", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Your watchlist is empty.", exact: true }),
+  ).toHaveCount(0);
   await expect(page.getByText("private database detail", { exact: true })).toHaveCount(0);
   expect(api.state.sockets).toBe(sockets);
   expect(api.records.get(firstUser.id)).toEqual([eth]);
