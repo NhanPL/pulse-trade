@@ -9,7 +9,10 @@
     "test:register": "pnpm build && playwright test register.spec.ts",
     "test:login": "pnpm build && playwright test login.spec.ts",
     "test:auth": "pnpm build && playwright test",
-    "test": "pnpm --filter @pulse-trade/contracts build && tsc --ignoreConfig src/lib/realtime/RealtimeClient.ts src/lib/realtime/subscription-manager.ts src/lib/realtime/event-router.ts --outDir .next/realtime-test --module commonjs --target es2022 --lib es2022,dom --types node --strict --skipLibCheck && tsc --ignoreConfig --rootDir src src/features/auth/model/private-query-cache.ts src/features/realtime/stores/connection-state-store.ts src/features/realtime/stores/ticker-store.ts src/features/realtime/stores/order-book-store.ts src/features/realtime/stores/recent-trades-store.ts src/features/realtime/realtime-store-bindings.ts src/features/watchlist/api/watchlist.ts src/features/watchlist/model/query-keys.ts src/features/watchlist/model/watchlist-market.ts src/features/watchlist/hooks/useWatchlistRealtime.ts src/features/orders/api/orders.ts src/features/portfolio/api/portfolio.ts src/features/portfolio/hooks/usePortfolioRealtime.ts src/features/portfolio/model/holding.ts src/features/portfolio/model/portfolio-valuation.ts src/features/trading/api/historical-candles.ts src/features/trading/api/market-order.ts src/features/trading/model/order-balance.ts src/features/trading/hooks/useTradingRealtimeSubscription.ts src/features/trading/components/chart/chart-data-state.ts src/features/trading/components/chart/chart-data-sync.ts src/features/trading/components/chart/chart-resize.ts --outDir .next/realtime-test --module commonjs --target es2022 --lib es2022,dom --types node --strict --skipLibCheck && node --test test/*.test.mjs",
+    "test": "pnpm test:legacy && pnpm test:unit",
+    "test:unit": "pnpm --filter @pulse-trade/contracts build && vitest run",
+    "test:watch": "pnpm --filter @pulse-trade/contracts build && vitest --watch",
+    "test:legacy": "pnpm --filter @pulse-trade/contracts build && tsc --ignoreConfig src/lib/realtime/RealtimeClient.ts src/lib/realtime/subscription-manager.ts src/lib/realtime/event-router.ts --outDir .next/realtime-test --module commonjs --target es2022 --lib es2022,dom --types node --strict --skipLibCheck && tsc --ignoreConfig --rootDir src src/features/auth/model/private-query-cache.ts src/features/realtime/stores/connection-state-store.ts src/features/realtime/stores/ticker-store.ts src/features/realtime/stores/order-book-store.ts src/features/realtime/stores/recent-trades-store.ts src/features/realtime/realtime-store-bindings.ts src/features/watchlist/api/watchlist.ts src/features/watchlist/model/query-keys.ts src/features/watchlist/model/watchlist-market.ts src/features/watchlist/hooks/useWatchlistRealtime.ts src/features/orders/api/orders.ts src/features/portfolio/api/portfolio.ts src/features/portfolio/hooks/usePortfolioRealtime.ts src/features/portfolio/model/holding.ts src/features/portfolio/model/portfolio-valuation.ts src/features/trading/api/historical-candles.ts src/features/trading/api/market-order.ts src/features/trading/model/order-balance.ts src/features/trading/hooks/useTradingRealtimeSubscription.ts src/features/trading/components/chart/chart-data-state.ts src/features/trading/components/chart/chart-data-sync.ts src/features/trading/components/chart/chart-resize.ts --outDir .next/realtime-test --module commonjs --target es2022 --lib es2022,dom --types node --strict --skipLibCheck && node --test test/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -27,11 +30,19 @@
   "devDependencies": {
     "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.3.3",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
     "@types/node": "26.4.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
+    "@vitejs/plugin-react": "6.1.1",
+    "jsdom": "29.1.1",
     "postcss": "8.5.26",
     "tailwindcss": "4.3.3",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vite": "8.3.2",
+    "vitest": "5.0.3"
   }
 }

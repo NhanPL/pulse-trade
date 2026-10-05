@@ -204,3 +204,48 @@ Production deployment should not happen from an unverified broken branch.
 - Data tables use headers.
 - Profit/loss includes text signs, not color only.
 - Mobile touch targets are usable.
+
+## 13. O01 — Frontend test setup
+
+`apps/web/vitest.config.mts` configures Vitest with React JSX transformation,
+jsdom and the same `@/` source alias as the Next.js application. The config is
+explicitly ESM and included in the web TypeScript check. Test APIs are imported
+from `vitest`, not injected as globals.
+
+`src/test/setup.ts` registers the Vitest-specific jest-dom matchers, unmounts RTL
+renders after every test and restores real timers. Mock calls, spies, stubbed
+globals and stubbed environment variables are reset by the runner configuration.
+Use `@testing-library/user-event` for user interactions and prefer queries by
+accessible role/name over implementation selectors.
+
+Commands from the repository root:
+
+```text
+pnpm --filter @pulse-trade/web test        # Existing Node suites, then Vitest/RTL
+pnpm --filter @pulse-trade/web test:unit   # One non-interactive Vitest run
+pnpm --filter @pulse-trade/web test:watch  # Interactive Vitest watch mode
+pnpm --filter @pulse-trade/web test:legacy # Existing Node suites only
+```
+
+The Vitest commands build the shared contracts first, so future tests can import
+the workspace package on a fresh checkout without relying on leftover build files.
+New Vitest files are colocated under `src/` as `*.test.ts` or `*.test.tsx`.
+Playwright `e2e/*.spec.ts`, generated `.next/` files and the existing
+`test/*.test.mjs` Node suites are not collected by Vitest. An empty collection
+fails rather than silently passing. The existing 106 Node tests remain unchanged;
+there is no broad runner migration in O01.
+
+The initial smoke coverage verifies TypeScript/alias loading for a pure formatter,
+React rendering and jest-dom assertions, keyboard activation, loading/disabled
+buttons, empty-state semantics and cleanup between renders. GitHub CI runs both
+frontend suites through the default `test` command. Browser tests remain the
+authority for responsive layout and Next.js async Server Components.
+
+Dependencies are pinned as dev dependencies. jsdom 29.1.1 is deliberately used
+because it supports the existing local Node 24.14.1 runtime; jsdom 30.1.2 requires
+a newer Node 24 patch. O01 does not upgrade Node, alter application behavior,
+configure a backend database or add the later backlog E2E scenarios.
+
+Setup references: [Next.js Vitest guide](https://nextjs.org/docs/app/guides/testing/vitest),
+[RTL setup/cleanup](https://testing-library.com/docs/react-testing-library/setup/)
+and [jest-dom's Vitest integration](https://github.com/testing-library/jest-dom#with-vitest).

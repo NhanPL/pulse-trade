@@ -161,7 +161,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 
 ## Epic O — Testing and quality
 
-- [ ] O01 Configure Vitest/RTL.
+- [x] O01 Configure Vitest/RTL.
 - [ ] O02 Configure backend integration test database.
 - [ ] O03 Configure Playwright.
 - [ ] O04 Add critical E2E registration + market BUY.
