@@ -53,7 +53,9 @@ test("register, sign in, buy BTC at market and retain the funded portfolio after
   });
 
   // Registration intentionally does not create a session; exercise the documented login step.
-  await page.getByRole("link", { name: "Continue to sign in", exact: true }).click();
+  const signInLink = page.getByRole("link", { name: "Continue to sign in →", exact: true });
+  await expect(signInLink).toHaveAttribute("href", "/login?registered=1");
+  await signInLink.click();
   await expect(page).toHaveURL(/\/login\?registered=1$/);
   await page.getByLabel("Email", { exact: true }).fill(paperAccount.email);
   await page.getByLabel("Password", { exact: true }).fill(password);
