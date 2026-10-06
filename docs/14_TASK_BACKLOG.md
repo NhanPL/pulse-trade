@@ -164,7 +164,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] O01 Configure Vitest/RTL.
 - [x] O02 Configure backend integration test database.
 - [x] O03 Configure Playwright.
-- [ ] O04 Add critical E2E registration + market BUY.
+- [x] O04 Add critical E2E registration + market BUY.
 - [ ] O05 Add limit cancel E2E.
 - [ ] O06 Add watchlist E2E.
 - [ ] O07 Add mocked realtime provider for deterministic CI.

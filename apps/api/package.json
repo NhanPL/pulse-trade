@@ -17,6 +17,7 @@
     "start:prod": "node dist/main.js",
     "test": "pnpm --filter @pulse-trade/contracts build && pnpm build && node --test test/*.test.mjs",
     "test:integration": "node scripts/integration-test-database.mjs run",
+    "test:e2e:prepare": "node scripts/integration-test-database.mjs prepare-e2e",
     "typecheck": "pnpm db:generate && tsc --noEmit"
   },
   "dependencies": {
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "@nestjs/cli": "12.0.0",
+    "@nestjs/testing": "12.0.1",
     "@types/node": "26.4.0",
     "@types/ws": "8.18.1",
     "prisma": "7.10.0",

@@ -100,8 +100,8 @@ export function runIntegrationDatabase(
     platform = process.platform,
   } = {},
 ) {
-  if (!["check", "prepare", "run"].includes(mode)) {
-    throw new Error("Use an integration database command: check, prepare or run.");
+  if (!["check", "prepare", "prepare-e2e", "run"].includes(mode)) {
+    throw new Error("Use an integration database command: check, prepare, prepare-e2e or run.");
   }
   const childEnvironment = resolveIntegrationEnvironment(
     environment,
@@ -111,7 +111,7 @@ export function runIntegrationDatabase(
 
   const pnpm = pnpmCommand(childEnvironment, platform);
   const commands = [];
-  if (mode === "run") {
+  if (mode === "run" || mode === "prepare-e2e") {
     commands.push([pnpm.command, [...pnpm.prefix, "--filter", "@pulse-trade/contracts", "build"]]);
     commands.push([pnpm.command, [...pnpm.prefix, "build"]]);
   }

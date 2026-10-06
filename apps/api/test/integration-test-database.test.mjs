@@ -200,6 +200,37 @@ test("prepare uses the pnpm executable on Windows and only deploys checked-in mi
   assert.deepEqual(calls[0][1], ["db:deploy"]);
 });
 
+test("O04 preparation guards contracts/API builds and migrations without running integration suites", (t) => {
+  const calls = [];
+  const directory = fixture(t);
+  writeFileSync(join(directory, ".env"), "DATABASE_URL=postgresql://localhost/development\n");
+  assert.equal(
+    runIntegrationDatabase("prepare-e2e", {
+      directory,
+      environment: { TEST_DATABASE_URL: testUrl },
+      execute: (command, args, options) => {
+        calls.push(args);
+        assert.equal(options.env.NODE_ENV, "test");
+        assert.equal(options.env.DATABASE_URL, testUrl);
+        return { status: 0 };
+      },
+    }),
+    0,
+  );
+  assert.deepEqual(calls, [
+    ["--filter", "@pulse-trade/contracts", "build"],
+    ["build"],
+    ["db:deploy"],
+  ]);
+  assert.throws(() =>
+    runIntegrationDatabase("prepare-e2e", {
+      directory,
+      environment: { TEST_DATABASE_URL: "postgresql://localhost/development" },
+      execute: () => assert.fail("unsafe O04 configuration must not start builds/migrations"),
+    }),
+  );
+});
+
 test("a failed build, migration or test stops the run and preserves its exit status", (t) => {
   const directory = fixture(t);
   for (const failureAt of [1, 2, 3, 4]) {

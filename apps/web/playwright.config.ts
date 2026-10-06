@@ -7,6 +7,8 @@ const baseURL = "http://localhost:3100";
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.spec.ts",
+  // Full-stack scenarios own a separate API/database lifecycle and test build.
+  testIgnore: "**/full-stack/**",
   fullyParallel: true,
   forbidOnly: isCI,
   // Keep CI reproducible and local runs bounded instead of using half of every CPU.

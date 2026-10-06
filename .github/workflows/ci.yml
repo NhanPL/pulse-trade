@@ -92,5 +92,8 @@ jobs:
       - name: Apply test database migrations
         run: pnpm --filter @pulse-trade/api db:test:prepare
 
+      - name: Registration and market BUY full-stack E2E
+        run: pnpm --filter @pulse-trade/web test:e2e:full-stack
+
       - name: PostgreSQL integration tests
         run: pnpm --filter @pulse-trade/api test:integration
