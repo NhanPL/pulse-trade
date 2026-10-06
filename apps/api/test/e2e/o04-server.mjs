@@ -31,6 +31,7 @@ export async function startO04Server() {
   let app;
   let client;
   let ownsFixture = false;
+  const provider = createO04MarketFixture();
 
   const restoreEnvironment = () => {
     for (const [key, value] of Object.entries(previous)) {
@@ -40,6 +41,8 @@ export async function startO04Server() {
   };
   const close = async () => {
     try {
+      // Stop incoming ticks before cleanup/disconnect can race a background evaluator query.
+      await provider.close();
       if (ownsFixture) {
         // Exact per-run email only; never truncate/reset a shared test database.
         const where = { user: { email } };
@@ -71,7 +74,7 @@ export async function startO04Server() {
     const { parseRealtimeMessage } = require("../../dist/realtime/realtime-message-parser.js");
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(MARKET_DATA_PROVIDER)
-      .useValue(createO04MarketFixture())
+      .useValue(provider)
       .compile();
     app = module.createNestApplication({ logger: false });
     client = app.get(PrismaService).client;
