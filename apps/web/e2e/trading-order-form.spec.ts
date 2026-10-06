@@ -39,6 +39,18 @@ async function mockAuthenticatedSession(page: Page) {
       status: 200,
     });
   });
+  await page.route("**/api/v1/portfolio", (route) =>
+    route.fulfill({
+      json: {
+        data: {
+          balances: [{ asset: "USD", available: "10000", locked: "0" }],
+          cash: { available: "10000", locked: "0" },
+          positions: [],
+          quoteCurrency: "USD",
+        },
+      },
+    }),
+  );
 }
 
 test("authenticated traders submit one MARKET order and receive filled feedback", async ({
@@ -96,19 +108,22 @@ test("authenticated traders submit one MARKET order and receive filled feedback"
   await expect(page.getByText(user.email, { exact: true })).toBeVisible();
   await page.getByText("MARKET", { exact: true }).click();
   await expect(page.getByRole("button", { name: "Buy BTC", exact: true })).toBeVisible();
-  await page.getByLabel("Quantity", { exact: true }).fill("0.01");
+  const quantity = page.getByRole("spinbutton", { name: /^Quantity/ });
+  await quantity.fill("0.01");
 
   const submit = page.getByRole("button", { name: "Buy BTC", exact: true });
   await submit.click();
-  await expect(page.getByRole("button", { name: "Buying…", exact: true })).toBeDisabled();
-  await page.getByLabel("Quantity", { exact: true }).press("Enter");
+  await expect(page.getByRole("button", { name: "Buying BTC…", exact: true })).toBeDisabled();
+  await expect.poll(() => requests).toBe(1);
+  await quantity.press("Enter");
   expect(requests).toBe(1);
 
   release();
   await expect(
-    page.getByText("Market BUY order filled at $67,542.31 USD.", { exact: true }),
+    page.getByText("Market buy order filled at $67,542.31 USD.", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel("Quantity", { exact: true })).toHaveValue("");
+  await expect(quantity).toHaveValue("");
+  expect(requests).toBe(1);
   expect(
     await page.evaluate(() => ({
       local: Object.keys(localStorage),

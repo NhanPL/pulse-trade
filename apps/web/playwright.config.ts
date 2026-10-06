@@ -1,36 +1,45 @@
 import { defineConfig } from "@playwright/test";
+import process from "node:process";
+
+const isCI = Boolean(process.env.CI);
+const baseURL = "http://localhost:3100";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: [
-    "register.spec.ts",
-    "login.spec.ts",
-    "auth-bootstrap.spec.ts",
-    "logout.spec.ts",
-    "trading-order.spec.ts",
-    "portfolio-summary.spec.ts",
-    "portfolio-balances.spec.ts",
-    "portfolio-holdings.spec.ts",
-    "portfolio-live-tickers.spec.ts",
-    "portfolio-states.spec.ts",
-    "orders-open.spec.ts",
-    "orders-history.spec.ts",
-    "orders-filters.spec.ts",
-    "orders-cancel.spec.ts",
-    "orders-mobile.spec.ts",
-    "market-watchlist.spec.ts",
-    "watchlist-page.spec.ts",
-    "watchlist-persistence.spec.ts",
-  ],
+  testMatch: "**/*.spec.ts",
   fullyParallel: true,
+  forbidOnly: isCI,
+  // Keep CI reproducible and local runs bounded instead of using half of every CPU.
+  workers: isCI ? 1 : 2,
+  retries: 0,
+  timeout: 30_000,
+  expect: { timeout: 5_000 },
+  outputDir: "./test-results",
+  reporter: [
+    [isCI ? "line" : "list"],
+    ["html", { outputFolder: "playwright-report", open: "never" }],
+  ],
+  projects: [{ name: "chromium", use: { browserName: "chromium" } }],
   use: {
-    baseURL: "http://localhost:3100",
+    baseURL,
     viewport: { width: 1586, height: 992 },
+    actionTimeout: 10_000,
     trace: "retain-on-failure",
+    screenshot: "only-on-failure",
   },
   webServer: {
-    command: "pnpm start --port 3100",
-    url: "http://localhost:3100/register",
+    command:
+      "pnpm --filter @pulse-trade/contracts build && pnpm build && pnpm start --hostname 127.0.0.1 --port 3100",
+    // NEXT_PUBLIC values are baked into the build; runtime overrides alone cannot isolate tests.
+    env: {
+      NEXT_PUBLIC_API_URL: `${baseURL}/api/v1`,
+      NEXT_PUBLIC_WS_URL: "ws://localhost:3100/realtime",
+      NEXT_TELEMETRY_DISABLED: "1",
+    },
+    url: `${baseURL}/register`,
+    timeout: 120_000,
+    // Never silently test a developer's existing server or authenticated session.
     reuseExistingServer: false,
+    gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
   },
 });

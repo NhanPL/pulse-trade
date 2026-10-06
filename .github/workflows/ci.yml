@@ -72,11 +72,11 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Install auth test browser
+      - name: Install E2E browser
         run: pnpm --filter @pulse-trade/web exec playwright install --with-deps chromium
 
-      - name: Authentication browser tests
-        run: pnpm --filter @pulse-trade/web exec playwright test
+      - name: Browser E2E tests
+        run: pnpm --filter @pulse-trade/web test:e2e
 
       - name: API tests
         run: pnpm --filter @pulse-trade/api test

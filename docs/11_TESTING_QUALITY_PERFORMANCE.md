@@ -346,3 +346,101 @@ PostgreSQL integration suites remain the check for actual migrations and behavio
 
 Provisioning references: [Compose services, health checks and tmpfs](https://docs.docker.com/reference/compose-file/services/)
 and [Compose up health waiting](https://docs.docker.com/reference/cli/docker/compose/up/).
+
+## 15. O03 — Playwright configuration
+
+`apps/web/playwright.config.ts` owns the browser test runner. The existing pinned
+Playwright dependency is reused; this task adds no library or application change.
+Every `e2e/**/*.spec.ts` file is discovered automatically instead of maintaining
+an explicit list. Vitest and Node unit suites stay on their own runners.
+
+### Commands
+
+After installing workspace dependencies, install the configured browser once:
+
+```sh
+pnpm --filter @pulse-trade/web exec playwright install chromium
+# Linux CI also installs the browser's operating-system dependencies:
+pnpm --filter @pulse-trade/web exec playwright install --with-deps chromium
+```
+
+Commands from the repository root:
+
+```text
+pnpm --filter @pulse-trade/web test:e2e          # Build isolated contracts/web, then run all E2E
+pnpm --filter @pulse-trade/web test:e2e --list   # List discovered tests without starting a server
+pnpm --filter @pulse-trade/web test:e2e register.spec.ts # Target one existing suite
+pnpm --filter @pulse-trade/web test:e2e:ui       # Open interactive Playwright UI
+pnpm --filter @pulse-trade/web test:e2e:report   # Open the last local HTML report
+```
+
+`test:register` and `test:login` remain targeted aliases, while the historically
+named `test:auth` preserves its existing behavior of running the entire suite.
+The Playwright-owned server command builds contracts/web on every invocation
+that starts the server, so a fresh checkout and application changes need no
+manual preparation. `--list` only collects tests and performs no build/startup.
+The normal workspace production build is still checked separately in CI.
+
+### Runtime and isolation
+
+The single `chromium` project is headless by default and keeps the existing
+1586 × 992 desktop viewport. Existing specs explicitly resize their pages for
+mobile cases; no duplicate browser/mobile matrix is introduced. Tests run fully
+parallel with at most two local workers and one CI worker. Automatic retries are
+disabled and focused `test.only` calls fail CI rather than silently narrowing
+coverage. The test/expect timeouts remain 30s/5s; individual actions are capped
+at 10s.
+
+Playwright builds and starts a production `next start` server bound to loopback port 3100,
+waits for `/register` readiness (up to 120s), and uses
+`http://localhost:3100` for relative navigation. It never reuses an existing
+server, including locally: keep port 3100 free instead of accidentally testing
+a development build or someone else's session. Playwright owns shutdown; Unix
+gets SIGTERM with a 5s grace period and Windows uses Playwright's normal process
+cleanup. Tests do not need a separately started frontend server.
+
+The server command pins the build-time `NEXT_PUBLIC_API_URL` and
+`NEXT_PUBLIC_WS_URL` to that same owned localhost:3100 server (`/api/v1` and
+`/realtime`). Browser fixtures intercept those URLs; unhandled requests cannot
+reach a development/production backend or receive unexpected live tickers.
+Next itself does not implement these backend endpoints. The settings apply only
+to this test build, not application defaults or env files. A runtime-only override
+would be insufficient because Next inlines `NEXT_PUBLIC_*` into client bundles.
+This isolation is necessary even when an API is already running locally on 3001;
+no provider mock, backend service or new port is introduced. A normal `pnpm build`
+restores a regular deployment bundle after E2E when needed.
+
+Default Playwright fixtures provide a new browser context per test. The setup
+smoke suite verifies browser/viewport/navigation, the isolated API target and that cookies,
+localStorage and sessionStorage do not carry over between tests, including
+sequential single-worker runs. No shared persisted authentication state is used.
+
+Existing browser specs intercept API responses and selected WebSocket events;
+they do not start the Nest backend, fund real database users or replace backend
+integration tests. O03 brings the previously unlisted `trading-order-form.spec.ts`
+into collection, supplies its missing portfolio fixture and updates stale
+selectors/feedback expectations to the current UI. Its original pending-submit,
+single-request, cleared-input, guest redirect and mobile checks remain intact.
+No registration-to-BUY, limit-cancel or watchlist full-stack scenario, and no new
+mocked realtime-provider abstraction, is implemented here (O04–O07 remain separate).
+
+### Diagnostics and CI
+
+Each run creates `apps/web/playwright-report/index.html`; the report never opens
+automatically. Test attachments go to `apps/web/test-results/`. Failing tests
+retain traces and capture screenshots, while passing-test traces are discarded.
+The existing screenshot captures in feature specs are preserved. Both output
+directories are ignored by Git. Trace inspection is available through
+`pnpm --filter @pulse-trade/web exec playwright show-trace <trace.zip>`.
+
+CI installs Chromium, runs the same E2E command and prints progress to its log.
+Reports/attachments remain on the executing machine: there is no automatic
+artifact upload. Traces and screenshots can include test credentials, cookies
+and request headers; review them and obtain explicit approval before sharing
+them outside that machine. Never record tests against production accounts.
+
+Configuration references: [Playwright configuration](https://playwright.dev/docs/test-configuration),
+[web server lifecycle](https://playwright.dev/docs/test-webserver),
+[browser isolation](https://playwright.dev/docs/browser-contexts)
+and [CI setup](https://playwright.dev/docs/ci). Test-build isolation follows
+[Next.js public environment-variable inlining](https://nextjs.org/docs/app/guides/environment-variables#bundling-environment-variables-for-the-browser).
