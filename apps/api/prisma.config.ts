@@ -2,7 +2,8 @@ import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import { defineConfig } from "prisma/config";
 
-if (existsSync(".env")) loadEnvFile(".env");
+// Integration commands supply an isolated environment, never development secrets.
+if (process.env.NODE_ENV !== "test" && existsSync(".env")) loadEnvFile(".env");
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
