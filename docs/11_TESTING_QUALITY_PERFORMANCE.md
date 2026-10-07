@@ -444,3 +444,81 @@ Configuration references: [Playwright configuration](https://playwright.dev/docs
 [browser isolation](https://playwright.dev/docs/browser-contexts)
 and [CI setup](https://playwright.dev/docs/ci). Test-build isolation follows
 [Next.js public environment-variable inlining](https://nextjs.org/docs/app/guides/environment-variables#bundling-environment-variables-for-the-browser).
+
+## 16. O04 — Registration and market BUY full-stack E2E
+
+`apps/web/e2e/full-stack/registration-market-buy.spec.ts` implements E2E-01
+against the real Nest application and PostgreSQL, without intercepting browser
+REST responses or WebSocket messages. Registration creates the user and initial
+funding through the production service; it does not create a session, so the test
+follows the documented success link and signs in before buying.
+
+The scenario checks:
+
+- Exactly one USD wallet with $10,000 available, nothing locked, and no initial
+  session/order/trade/position, directly in PostgreSQL.
+- Real login, authenticated navigation, and the HttpOnly refresh cookie.
+- A MARKET BUY of 0.01 BTC at $50,000, producing one FILLED order and one $500 trade.
+- Portfolio query invalidation after BUY, $9,500 available USD, 0.01 BTC, $50,000
+  average cost, $500 market value and $10,000 total portfolio value.
+- Reload through real refresh rotation and `/me`, then persistent account data
+  with no duplicate fill/funding and no credentials in browser storage.
+- No browser runtime errors during the flow.
+
+### Run locally
+
+Use the dedicated O02 database setup above, not a development API or database.
+After installing Chromium and starting the test PostgreSQL service:
+
+```text
+pnpm --filter @pulse-trade/web test:e2e:full-stack
+pnpm --filter @pulse-trade/web test:e2e:full-stack --list
+```
+
+The command calls API `test:e2e:prepare` to build contracts/API and deploy checked-in
+migrations using the O02 database guard. The added `prepare-e2e` mode passes the
+same guarded URL and `NODE_ENV=test` to all three child commands, so even Prisma
+generation does not read the development `.env`; it does not run integration suites.
+Then it builds and starts the web app on `127.0.0.1:3110`. Its build-time
+API/WS targets are the owned test API on `127.0.0.1:3111`; keep both ports free.
+The Playwright worker fixture starts that API and waits for a real database query
+before tests run. `--list` only collects the single scenario and needs no database.
+There is one Chromium worker, no retries and no reuse of existing servers.
+The web server startup timeout is 180 seconds and the scenario timeout is 60 seconds.
+
+`TEST_DATABASE_URL`/`.env.test` resolution and the `_test`/production-mode guards
+are reused from O02. The harness never reads the development `.env`, seeds wallets,
+resets a database or needs production JWT keys. Each run generates a signing key
+and unique fixture email. Worker teardown removes only that email's trading rows
+and user (sessions cascade), closes Nest/Prisma and provider timers/listeners, and
+restores the process environment, including after an assertion failure. A forcibly
+killed runner can leave its uniquely named test account; do not use useful data in
+the disposable database. Missing PostgreSQL, unsafe configuration or an occupied
+API port fails instead of skipping the scenario.
+
+### Determinism and scope
+
+The only Nest override is `MARKET_DATA_PROVIDER`, through the matching pinned
+`@nestjs/testing` dev dependency. The existing AppModule, HTTP CORS/prefix, `ws`
+adapter, gateway, cache, freshness checks and all auth/trading/portfolio services
+remain real. A small test-only O04 fixture supplies fixed BTC tickers every second
+and matching bounded candle history. This is a direct prerequisite for authoritative
+market execution and portfolio valuation without Coinbase uptime/price variation;
+it does not disable stale-market validation or add a production test mode.
+
+This fixture is not the general realtime simulation/reconnect/delta infrastructure
+in O07. Limit cancellation and watchlist E2E remain O05/O06. Existing mocked UI
+tests still use `playwright.config.ts` on port 3100; that runner explicitly excludes
+the full-stack directory. Do not run both configs simultaneously: they build the
+same Next output with different public targets. Run a normal `pnpm build` when a
+regular deployment bundle is needed afterwards.
+
+CI runs both suites separately using its disposable PostgreSQL service. The
+full-stack HTML report and failure attachments stay under ignored
+`apps/web/playwright-report/full-stack` and `apps/web/test-results/full-stack`;
+no reports, test credentials or traces are uploaded automatically.
+API unit coverage checks the fixture's valid fixed ticker, idempotent connect,
+listener cleanup, interval-aligned history, production-mode refusal, real gateway
+wiring and safe preparation before builds/migrations.
+
+Harness reference: [Nest testing and provider overrides](https://docs.nestjs.com/fundamentals/testing).
