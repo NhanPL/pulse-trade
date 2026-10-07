@@ -160,7 +160,9 @@ for (const layout of ["desktop", "mobile"] as const) {
     await page.keyboard.press("Enter");
     const removed = await removeResponse;
     expect(removed.status()).toBe(204);
-    expect(await removed.text()).toBe("");
+    // Chromium exposes no body resource for HTTP 204; validate framing and the reconciled GET.
+    expect(removed.headers()["content-length"]).toBeUndefined();
+    expect(removed.headers()["transfer-encoding"]).toBeUndefined();
     const confirmedRemovalList = await confirmedRemovalListResponse;
     expect(confirmedRemovalList.status()).toBe(200);
     expect(watchlistListResponseSchema.parse(await confirmedRemovalList.json()).data).toEqual({
