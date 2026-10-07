@@ -88,6 +88,18 @@ export async function startO04Server() {
     return {
       email,
       close,
+      async readWatchlist() {
+        const items = await client.watchlistItem.findMany({
+          where: { user: { email } },
+          select: { id: true, symbol: true, createdAt: true },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        });
+        return items.map(({ id, symbol, createdAt }) => ({
+          id,
+          symbol,
+          createdAt: createdAt.toISOString(),
+        }));
+      },
       async readReservation(orderId) {
         const order = await client.order.findFirst({
           where: { id: orderId, user: { email } },

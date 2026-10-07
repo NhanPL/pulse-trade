@@ -1,4 +1,4 @@
-import type { PortfolioResponse, OrderListItem } from "@pulse-trade/contracts";
+import type { PortfolioResponse, OrderListItem, WatchlistItem } from "@pulse-trade/contracts";
 
 export type O04DatabaseState = {
   userId: string;
@@ -21,6 +21,7 @@ export type O04DatabaseState = {
 export function startO04Server(): Promise<{
   email: string;
   close: () => Promise<void>;
+  readWatchlist: () => Promise<WatchlistItem[]>;
   readReservation: (orderId: string) => Promise<{
     limitPrice: string | null;
     reservedAsset: string | null;
