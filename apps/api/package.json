@@ -18,7 +18,7 @@
     "test": "pnpm --filter @pulse-trade/contracts build && pnpm build && node --test test/*.test.mjs",
     "test:integration": "node scripts/integration-test-database.mjs run",
     "test:e2e:prepare": "node scripts/integration-test-database.mjs prepare-e2e",
-    "typecheck": "pnpm db:generate && tsc --noEmit"
+    "typecheck": "pnpm db:generate && tsc --noEmit && tsc --project tsconfig.test-fixtures.json"
   },
   "dependencies": {
     "@nestjs/common": "12.0.1",
