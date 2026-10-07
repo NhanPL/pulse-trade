@@ -165,7 +165,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] O02 Configure backend integration test database.
 - [x] O03 Configure Playwright.
 - [x] O04 Add critical E2E registration + market BUY.
-- [ ] O05 Add limit cancel E2E.
+- [x] O05 Add limit cancel E2E.
 - [ ] O06 Add watchlist E2E.
 - [ ] O07 Add mocked realtime provider for deterministic CI.
 - [ ] O08 Accessibility review.

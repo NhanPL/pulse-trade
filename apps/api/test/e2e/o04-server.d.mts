@@ -21,5 +21,12 @@ export type O04DatabaseState = {
 export function startO04Server(): Promise<{
   email: string;
   close: () => Promise<void>;
+  readReservation: (orderId: string) => Promise<{
+    limitPrice: string | null;
+    reservedAsset: string | null;
+    reservedAmount: string;
+    cancelledAt: string | null;
+    filledAt: string | null;
+  } | null>;
   readState: () => Promise<O04DatabaseState>;
 }>;
