@@ -492,9 +492,10 @@ The web server startup timeout is 180 seconds and the scenario timeout is 60 sec
 are reused from O02. The harness never reads the development `.env`, seeds wallets,
 resets a database or needs production JWT keys. Each test generates a signing key
 and unique fixture email. Test teardown removes only that email's trading rows
-and user (sessions cascade), closes Nest/Prisma and provider timers/listeners, and
-restores the process environment, including after an assertion failure. A forcibly
-killed runner can leave its uniquely named test account; do not use useful data in
+and user (sessions/watchlist items cascade), closes Nest/Prisma and provider
+timers/listeners, and restores the process environment, including after an
+assertion failure. A forcibly killed runner can leave its uniquely named test
+account; do not use useful data in
 the disposable database. Missing PostgreSQL, unsafe configuration or an occupied
 API port fails instead of skipping the scenario.
 
@@ -509,7 +510,7 @@ market execution and portfolio valuation without Coinbase uptime/price variation
 it does not disable stale-market validation or add a production test mode.
 
 This fixture is not the general realtime simulation/reconnect/delta infrastructure
-in O07. O05 reuses it for limit cancellation below; watchlist E2E remains O06.
+in O07. O05/O06 reuse it for limit cancellation and watchlist scenarios below.
 Existing mocked UI tests still use `playwright.config.ts` on port 3100; that runner explicitly excludes
 the full-stack directory. Do not run both configs simultaneously: they build the
 same Next output with different public targets. Run a normal `pnpm build` when a
@@ -529,8 +530,9 @@ Harness reference: [Nest testing and provider overrides](https://docs.nestjs.com
 
 `apps/web/e2e/full-stack/limit-cancel.spec.ts` implements E2E-02 on desktop
 (1586 × 992) and small mobile (320 × 800). Run it with the O04 full-stack command
-above; the runner now collects three tests, including the registration/market BUY
-scenario. The same CI step executes all three against disposable PostgreSQL.
+above. O05 added two tests alongside the registration/market BUY scenario; O06
+adds the two watchlist tests below. CI executes the combined suite against
+disposable PostgreSQL.
 
 Each cancellation test registers its own account through the real API, verifies
 exactly one $10,000 USD wallet, then logs in through the UI and follows the intended
@@ -565,3 +567,43 @@ or live Coinbase calls. Existing mocked cancellation/race tests and PostgreSQL
 transaction/concurrency tests remain separate and unchanged. Watchlist E2E (O06)
 and general realtime mocking (O07) are not part of O05. Report/trace sharing follows
 the existing diagnostics restrictions above.
+
+## 18. O06 — Watchlist full-stack E2E
+
+`apps/web/e2e/full-stack/watchlist.spec.ts` implements E2E-03 on desktop
+(1586 × 992) and small mobile (320 × 800). It reuses the existing full-stack
+command, guarded test database, test-scoped API/account lifecycle and fixed BTC
+market provider. The combined O04/O05/O06 runner collects five tests; the same CI
+step runs all of them against real Nest services and disposable PostgreSQL.
+
+Each test creates its own account through the real registration API. It verifies
+that an unauthenticated `/watchlist` visit redirects to login without requesting
+the private list, then signs in through the UI and follows the intended route.
+No browser REST responses, WebSocket messages or database services are intercepted.
+
+The scenario verifies:
+
+- The new account's server-confirmed empty state and keyboard-accessible Explore
+  Markets action, then a keyboard save through the Market Overview BTC star.
+- Exactly one POST containing only `symbol`, one PostgreSQL watchlist row and the
+  same public item ID/save time in the add response and reconciled GET.
+- Real refresh-cookie bootstrap, `/me` identity verification and a fresh `no-store`
+  watchlist GET after reloading both Markets and Watchlist. The star and saved row
+  persist without replaying POST or using a browser-persisted private cache.
+- A $50,000 BTC quote and live status received through the actual gateway after
+  Watchlist reload; the membership REST contract contains no market prices.
+- Keyboard removal through the Watchlist control returns an empty 204, reconciles
+  to an empty GET and deletes the owned PostgreSQL row exactly once.
+- Reload preserves removal, resets Total Watched to zero and renders the guided
+  empty state with no market subscriptions. Desktop/mobile remain within the page width.
+- No browser runtime errors, no private data in browser storage, an HttpOnly
+  refresh cookie and unchanged $10,000 USD funding with no orders/trades/positions.
+
+The harness adds only an account-scoped read-only watchlist lookup, selecting public
+item fields in the API's documented order. Existing cleanup cascades the owned
+user's watchlist items on any test failure; no database-wide deletion is added.
+No production code, new dependency, general realtime simulator (O07) or broader
+accessibility review (O08) is introduced. Existing mocked watchlist loading/error,
+account-isolation and subscription lifecycle tests remain unchanged, alongside
+the real PostgreSQL watchlist integration suite. Report sharing follows the
+existing diagnostics restrictions above.
