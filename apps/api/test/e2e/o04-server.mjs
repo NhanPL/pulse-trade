@@ -88,6 +88,26 @@ export async function startO04Server() {
     return {
       email,
       close,
+      async readReservation(orderId) {
+        const order = await client.order.findFirst({
+          where: { id: orderId, user: { email } },
+          select: {
+            limitPrice: true,
+            reservedAsset: true,
+            reservedAmount: true,
+            cancelledAt: true,
+            filledAt: true,
+          },
+        });
+        if (!order) return null;
+        return {
+          limitPrice: order.limitPrice?.toString() ?? null,
+          reservedAsset: order.reservedAsset,
+          reservedAmount: order.reservedAmount.toString(),
+          cancelledAt: order.cancelledAt?.toISOString() ?? null,
+          filledAt: order.filledAt?.toISOString() ?? null,
+        };
+      },
       async readState() {
         const user = await client.user.findUniqueOrThrow({
           where: { email },

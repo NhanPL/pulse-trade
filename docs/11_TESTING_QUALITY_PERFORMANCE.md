@@ -481,15 +481,17 @@ same guarded URL and `NODE_ENV=test` to all three child commands, so even Prisma
 generation does not read the development `.env`; it does not run integration suites.
 Then it builds and starts the web app on `127.0.0.1:3110`. Its build-time
 API/WS targets are the owned test API on `127.0.0.1:3111`; keep both ports free.
-The Playwright worker fixture starts that API and waits for a real database query
-before tests run. `--list` only collects the single scenario and needs no database.
+The automatic test-scoped Playwright fixture starts a fresh API and waits for a
+real database query before each test. It starts before the browser context and
+closes after context teardown, so active sockets cannot outlive their API owner.
+`--list` only collects scenarios and needs no database.
 There is one Chromium worker, no retries and no reuse of existing servers.
 The web server startup timeout is 180 seconds and the scenario timeout is 60 seconds.
 
 `TEST_DATABASE_URL`/`.env.test` resolution and the `_test`/production-mode guards
 are reused from O02. The harness never reads the development `.env`, seeds wallets,
-resets a database or needs production JWT keys. Each run generates a signing key
-and unique fixture email. Worker teardown removes only that email's trading rows
+resets a database or needs production JWT keys. Each test generates a signing key
+and unique fixture email. Test teardown removes only that email's trading rows
 and user (sessions cascade), closes Nest/Prisma and provider timers/listeners, and
 restores the process environment, including after an assertion failure. A forcibly
 killed runner can leave its uniquely named test account; do not use useful data in
@@ -507,8 +509,8 @@ market execution and portfolio valuation without Coinbase uptime/price variation
 it does not disable stale-market validation or add a production test mode.
 
 This fixture is not the general realtime simulation/reconnect/delta infrastructure
-in O07. Limit cancellation and watchlist E2E remain O05/O06. Existing mocked UI
-tests still use `playwright.config.ts` on port 3100; that runner explicitly excludes
+in O07. O05 reuses it for limit cancellation below; watchlist E2E remains O06.
+Existing mocked UI tests still use `playwright.config.ts` on port 3100; that runner explicitly excludes
 the full-stack directory. Do not run both configs simultaneously: they build the
 same Next output with different public targets. Run a normal `pnpm build` when a
 regular deployment bundle is needed afterwards.
@@ -522,3 +524,44 @@ listener cleanup, interval-aligned history, production-mode refusal, real gatewa
 wiring and safe preparation before builds/migrations.
 
 Harness reference: [Nest testing and provider overrides](https://docs.nestjs.com/fundamentals/testing).
+
+## 17. O05 — Limit cancellation full-stack E2E
+
+`apps/web/e2e/full-stack/limit-cancel.spec.ts` implements E2E-02 on desktop
+(1586 × 992) and small mobile (320 × 800). Run it with the O04 full-stack command
+above; the runner now collects three tests, including the registration/market BUY
+scenario. The same CI step executes all three against disposable PostgreSQL.
+
+Each cancellation test registers its own account through the real API, verifies
+exactly one $10,000 USD wallet, then logs in through the UI and follows the intended
+BTC trading route. The test-only provider keeps BTC at $50,000; a LIMIT BUY of
+0.02 BTC at $40,000 cannot cross that price, while the real pending-order evaluator
+and market freshness checks remain enabled.
+
+The scenario verifies:
+
+- One PENDING LIMIT BUY, $9,200 available USD and $800 locked, with no BTC
+  balance, position or trade. Shared contracts validate the real responses and
+  direct PostgreSQL reads confirm the reservation's asset and exact amount.
+- The portfolio's separately labeled available/locked/total amounts, desktop
+  order table or mobile cards, and confirmation price/quantity.
+- Dismissing confirmation sends no cancellation and leaves balances/order intact.
+  Keyboard confirmation sends exactly one cancellation request.
+- The order disappears from Open Orders and becomes CANCELLED in History;
+  portfolio invalidation restores $10,000 available and zero locked.
+- Real session refresh after reload retains the released balance and cancelled
+  history without duplicate funding, fills, trades or cancellation requests.
+- No browser runtime errors, and no horizontal orders-page overflow at either viewport.
+
+The O04 harness adds only a read-only, account-scoped reservation lookup. Cancelled
+orders retain their reservation metadata for auditing; release is verified from
+the wallet, not by incorrectly expecting that historical amount to become zero.
+Automatic test-scoped API/account fixtures prevent the market BUY and both limit
+scenarios from sharing users, balances, signing keys or listeners. Cleanup remains
+restricted to each unique fixture email, including when a test fails.
+
+There are no browser response intercepts, production code changes, new dependencies
+or live Coinbase calls. Existing mocked cancellation/race tests and PostgreSQL
+transaction/concurrency tests remain separate and unchanged. Watchlist E2E (O06)
+and general realtime mocking (O07) are not part of O05. Report/trace sharing follows
+the existing diagnostics restrictions above.

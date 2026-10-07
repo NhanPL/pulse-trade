@@ -4,20 +4,22 @@ import type { startO04Server } from "../../../api/test/e2e/o04-server.mjs";
 
 type PaperAccount = Awaited<ReturnType<typeof startO04Server>>;
 
-export const test = base.extend<object, { paperAccount: PaperAccount }>({
+export const test = base.extend<{ paperAccount: PaperAccount }>({
   paperAccount: [
     async ({ browserName }, provideAccount) => {
-      if (browserName !== "chromium") throw new Error("O04 config requires the Chromium project.");
+      if (browserName !== "chromium")
+        throw new Error("Full-stack config requires the Chromium project.");
       const { startO04Server } = await import("../../../api/test/e2e/o04-server.mjs");
       const server = await startO04Server();
       try {
         await provideAccount(server);
       } finally {
-        // Worker teardown runs even after a failed browser assertion.
+        // Automatic test fixtures start before browser contexts and close after their teardown.
+        // Every scenario owns its account/API, including after a failed browser assertion.
         await server.close();
       }
     },
-    { scope: "worker" },
+    { auto: true },
   ],
 });
 
