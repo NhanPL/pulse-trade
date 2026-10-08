@@ -147,6 +147,12 @@ Processing:
 
 Do not sort the entire book on every incoming delta if avoidable.
 
+The current P02 implementation keeps the existing 50 ms presentation window for
+both book data and its ticker mid-price. Dirty sides cache sorted top-20 arrays;
+the React selector excludes wire sequence-only changes and memoized display rows
+retain their references. See [the measured P02 review](17_ORDER_BOOK_PRESENTATION.md)
+for bootstrap behavior, listener ownership, cleanup and performance limitations.
+
 ## 7. Recent trades buffer
 
 Store latest 50–100 normalized trades.

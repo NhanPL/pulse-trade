@@ -10,6 +10,7 @@ import { MARKET_TABLE_MOCK } from "@/features/market/model/market-table.mock";
 import { PortfolioDashboard } from "@/features/portfolio/components/PortfolioDashboard";
 import { candleStore } from "@/features/realtime/stores/candle-store";
 import { connectionStateStore } from "@/features/realtime/stores/connection-state-store";
+import { flushOrderBookPresentation } from "@/features/realtime/stores/order-book-store";
 import { tickerStore } from "@/features/realtime/stores/ticker-store";
 import { TradingGrid } from "@/features/trading/components/TradingGrid";
 import { TradingHeaderPrice } from "@/features/trading/components/TradingHeaderPrice";
@@ -293,6 +294,7 @@ describe("P01 ticker render profile", () => {
         feed.emit(tickerEvent(symbol, samePrice ? "50000" : String(50000 + index), 200 + index)),
       );
     }
+    act(() => flushOrderBookPresentation());
     expect(tickerStore.getState().tickers[symbol]?.price).toBe(samePrice ? "50000" : "50100");
   }
 
@@ -323,9 +325,9 @@ describe("P01 ticker render profile", () => {
     expect(quantity).toHaveValue(0.01);
     expect(quantity).toHaveFocus();
     expect(profile.commits("price.BTC-USD")).toBe(100);
-    expect(profile.commits("trading.book")).toBe(100);
+    expect(profile.commits("trading.book")).toBe(1);
     expect(profile.commits("trading.header-tree")).toBe(100);
-    expect(profile.commits("trading.grid-tree")).toBe(100);
+    expect(profile.commits("trading.grid-tree")).toBe(1);
     for (const id of ["shell", "trading.header", "trading.grid", "trading.chart", "trading.form"]) {
       expect(profile.functionCalls(id), id).toBe(0);
     }
@@ -373,7 +375,7 @@ describe("P01 ticker render profile", () => {
     ]);
   });
 
-  it("characterizes same-price metadata updates without applying a production optimization", async () => {
+  it("characterizes same-price metadata updates while P02 isolates the book presentation", async () => {
     await mount(
       <>
         <TradingHeaderPrice symbol="BTC-USD" price="50000" />
@@ -393,7 +395,7 @@ describe("P01 ticker render profile", () => {
     );
     stream("BTC-USD", true);
     expect(profile.commits("price.BTC-USD")).toBe(100);
-    expect(profile.commits("trading.book")).toBe(100);
+    expect(profile.commits("trading.book")).toBe(0);
     expect(profile.commits("primitive.BTC")).toBe(0);
     expect(profile.commits("watchlist.BTC-USD")).toBe(100);
     expect(profile.commits("watchlist.ETH-USD")).toBe(0);
@@ -526,6 +528,7 @@ describe("P01 ticker render profile", () => {
     act(() => {
       connectionStateStore.getState().setConnectionState("CONNECTED");
       feed.emit(tickerEvent("BTC-USD", "50100", 202));
+      flushOrderBookPresentation();
     });
     expect(tickerStore.getState().marketFreshness["BTC-USD"]?.status).toBe("LIVE");
     profile.reset();

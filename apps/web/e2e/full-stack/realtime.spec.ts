@@ -96,6 +96,7 @@ for (const viewport of [
     await expect(header.getByText("$50,000.00", { exact: true }).first()).toBeVisible();
     realtimeServer.provider.ticker("BTC-USD", "50123");
     await expect(header.getByText("$50,123.00", { exact: true })).toBeVisible();
+    await expect(book.getByRole("row", { name: /\$50,123\.00/ })).toBeVisible();
 
     realtimeServer.disconnectClients();
     await expect(header.getByLabel("Market data status: Reconnecting")).toBeVisible();
@@ -119,6 +120,7 @@ for (const viewport of [
     realtimeServer.advanceTime(1);
     realtimeServer.provider.ticker("BTC-USD", "50234");
     await expect(header.getByText("$50,234.00", { exact: true })).toBeVisible();
+    await expect(book.getByRole("row", { name: /\$50,234\.00/ })).toBeVisible();
     await expect(book.getByText("Live", { exact: true })).toBeVisible();
     await page.goto("/login");
     await expect.poll(() => realtimeServer.activeClientCount()).toBe(0);
@@ -167,5 +169,8 @@ test("symbol navigation releases the previous market and does not leak subscript
   realtimeServer.provider.ticker("BTC-USD", "77777");
   realtimeServer.provider.ticker("ETH-USD", "3012");
   await expect(header.getByText("$3,012.00", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Order book" }).getByRole("row", { name: /\$3,012\.00/ }),
+  ).toBeVisible();
   await expect(header.getByText("$77,777.00", { exact: true })).toHaveCount(0);
 });
