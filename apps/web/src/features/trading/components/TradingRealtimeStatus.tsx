@@ -17,6 +17,7 @@ export function TradingRealtimeStatus() {
   return (
     <Badge
       aria-label={`Market data status: ${presentation.label}`}
+      role="status"
       className="order-2 justify-self-end lg:order-4"
       showDot
       variant={presentation.variant}

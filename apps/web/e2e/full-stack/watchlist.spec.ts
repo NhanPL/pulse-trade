@@ -75,9 +75,9 @@ for (const layout of ["desktop", "mobile"] as const) {
       await expect(rows).toHaveCount(1);
       await expect(rows.getByRole("link", { name: "Trade BTC-USD", exact: true })).toBeVisible();
       await expect(rows.getByRole("cell").first()).toContainText("$50,000.00");
-      await expect(page.locator("footer[role=status]")).toContainText(
-        "Prices and data are real-time.",
-      );
+      await expect(
+        page.getByRole("status", { name: "Watchlist market data", exact: true }),
+      ).toContainText("Prices and data are real-time.");
       await expect(remove).toBeEnabled();
       await expect(empty).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
@@ -176,7 +176,9 @@ for (const layout of ["desktop", "mobile"] as const) {
     await reloadMembership([]);
     await expect(empty).toBeVisible();
     await expect(rows).toHaveCount(0);
-    await expect(page.locator("footer[role=status]")).toContainText("No market subscriptions.");
+    await expect(
+      page.getByRole("status", { name: "Watchlist market data", exact: true }),
+    ).toContainText("No market subscriptions.");
     const totalWatched = page
       .getByRole("region", { name: "Watchlist summary", exact: true })
       .locator("dd")

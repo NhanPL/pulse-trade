@@ -23,10 +23,13 @@ export function TradingGrid({ chart, orderBook, orderForm, recentTrades }: Tradi
         <div className="order-1 min-h-0 min-w-0 [&>section]:h-full">{chart}</div>
         <div
           id="mobile-recent-trades-panel"
+          aria-labelledby="mobile-recent-trades-panel-tab"
+          role="tabpanel"
+          tabIndex={0}
           className={
             mobilePanel === "recent-trades"
-              ? "order-3 min-h-0 min-w-0 lg:block [&>section]:h-full"
-              : "order-3 hidden min-h-0 min-w-0 lg:block [&>section]:h-full"
+              ? "order-3 min-h-0 min-w-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus lg:block [&>section]:h-full"
+              : "order-3 hidden min-h-0 min-w-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus lg:block [&>section]:h-full"
           }
         >
           {recentTrades}
@@ -35,10 +38,13 @@ export function TradingGrid({ chart, orderBook, orderForm, recentTrades }: Tradi
       <div className="contents lg:grid lg:min-h-0 lg:grid-rows-2 lg:gap-3">
         <div
           id="mobile-order-book-panel"
+          aria-labelledby="mobile-order-book-panel-tab"
+          role="tabpanel"
+          tabIndex={0}
           className={
             mobilePanel === "order-book"
-              ? "order-3 min-h-0 min-w-0 lg:block [&>section]:h-full"
-              : "order-3 hidden min-h-0 min-w-0 lg:block [&>section]:h-full"
+              ? "order-3 min-h-0 min-w-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus lg:block [&>section]:h-full"
+              : "order-3 hidden min-h-0 min-w-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus lg:block [&>section]:h-full"
           }
         >
           {orderBook}

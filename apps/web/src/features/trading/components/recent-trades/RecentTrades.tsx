@@ -37,7 +37,12 @@ export function RecentTrades({ baseAsset, midPrice, quoteAsset, symbol }: Recent
         <Badge variant={isLive ? "positive" : "neutral"}>{isLive ? "Live" : "Snapshot"}</Badge>
       </header>
 
-      <div className="max-h-96 overflow-auto lg:min-h-0 lg:flex-1">
+      <div
+        aria-label={`${symbol} recent trades scrolling area`}
+        className="max-h-96 overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus lg:min-h-0 lg:flex-1"
+        role="region"
+        tabIndex={0}
+      >
         <table className="w-full min-w-[28rem] table-fixed border-collapse">
           <caption className="sr-only">
             {isLive ? "Live" : "Snapshot"} {symbol} recent trades, newest first; times shown in UTC

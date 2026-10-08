@@ -184,9 +184,29 @@ type BuySellTabsProps = {
 };
 
 function BuySellTabs({ controlsId, disabled = false, idPrefix, onChange, side }: BuySellTabsProps) {
+  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number): void {
+    let nextIndex: number | undefined;
+    if (event.key === "ArrowLeft")
+      nextIndex = (index - 1 + SIDE_OPTIONS.length) % SIDE_OPTIONS.length;
+    if (event.key === "ArrowRight") nextIndex = (index + 1) % SIDE_OPTIONS.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = SIDE_OPTIONS.length - 1;
+    if (nextIndex === undefined) return;
+
+    event.preventDefault();
+    const nextTab = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+      '[role="tab"]:not(:disabled)',
+    )[nextIndex];
+    const nextSide = SIDE_OPTIONS[nextIndex]?.value;
+    if (!nextTab || !nextSide) return;
+
+    onChange(nextSide);
+    nextTab.focus();
+  }
+
   return (
     <div aria-label="Order side" className="grid min-w-60 grid-cols-2 self-stretch" role="tablist">
-      {SIDE_OPTIONS.map((option) => {
+      {SIDE_OPTIONS.map((option, index) => {
         const selected = option.value === side;
 
         return (
@@ -206,8 +226,9 @@ function BuySellTabs({ controlsId, disabled = false, idPrefix, onChange, side }:
             id={`${idPrefix}-${option.value.toLowerCase()}-tab`}
             disabled={disabled}
             onClick={() => onChange(option.value)}
+            onKeyDown={(event) => handleKeyDown(event, index)}
             role="tab"
-            tabIndex={0}
+            tabIndex={selected ? 0 : -1}
             type="button"
           >
             {option.label}
@@ -489,135 +510,140 @@ export function OrderForm({ baseAsset, currentPrice, quoteAsset, symbol }: Order
         />
       </header>
 
-      <form
+      <div
         aria-labelledby={`${formId}-${side.toLowerCase()}-tab`}
-        aria-busy={pending}
-        className="grid min-h-0 gap-5 p-4 sm:p-5 lg:flex-1 lg:content-start lg:gap-3 lg:overflow-y-auto lg:p-4"
+        className="min-h-0 lg:flex-1"
         id={orderFieldsId}
-        noValidate
-        onSubmit={handleFormSubmit}
         role="tabpanel"
       >
-        <OrderTypeTabs
-          controlsId={orderTypePanelId}
-          disabled={pending}
-          idPrefix={formId}
-          onChange={(value) => {
-            setValue("type", value);
-            clearOrderFeedback();
-          }}
-          type={type}
-        />
-
-        <BalancePreview
-          asset={balanceAsset}
-          balance={balance}
-          className="rounded-lg border border-border-subtle bg-surface/65 p-3 sm:hidden"
-          isAuthenticated={isAuthenticated}
-          isError={portfolio.isError}
-          isPending={portfolio.isPending}
-          onRetry={() => void portfolio.refetch()}
-          quoteAsset={quoteAsset}
-          sessionStatus={session.status}
-        />
-
-        <div
-          aria-labelledby={`${formId}-${type.toLowerCase()}-type-tab`}
-          className="grid gap-3 lg:grid-cols-2"
-          id={orderTypePanelId}
-          role="tabpanel"
-          tabIndex={0}
+        <form
+          aria-label={`${side} ${symbol} paper order`}
+          aria-busy={pending}
+          className="grid min-h-0 gap-5 p-4 sm:p-5 lg:h-full lg:content-start lg:gap-3 lg:overflow-y-auto lg:p-4"
+          noValidate
+          onSubmit={handleFormSubmit}
         >
-          {type === "LIMIT" ? (
+          <OrderTypeTabs
+            controlsId={orderTypePanelId}
+            disabled={pending}
+            idPrefix={formId}
+            onChange={(value) => {
+              setValue("type", value);
+              clearOrderFeedback();
+            }}
+            type={type}
+          />
+
+          <BalancePreview
+            asset={balanceAsset}
+            balance={balance}
+            className="rounded-lg border border-border-subtle bg-surface/65 p-3 sm:hidden"
+            isAuthenticated={isAuthenticated}
+            isError={portfolio.isError}
+            isPending={portfolio.isPending}
+            onRetry={() => void portfolio.refetch()}
+            quoteAsset={quoteAsset}
+            sessionStatus={session.status}
+          />
+
+          <div
+            aria-labelledby={`${formId}-${type.toLowerCase()}-type-tab`}
+            className="grid gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus lg:grid-cols-2"
+            id={orderTypePanelId}
+            role="tabpanel"
+            tabIndex={0}
+          >
+            {type === "LIMIT" ? (
+              <Input
+                inputMode="decimal"
+                label="Limit price"
+                min="0.000000000000000001"
+                required
+                step="0.000000000000000001"
+                trailingElement={<span className="text-xs font-semibold">{quoteAsset}</span>}
+                type="number"
+                error={errors.limitPrice?.message}
+                readOnly={pending}
+                {...register("limitPrice", {
+                  onChange: () => {
+                    clearErrors("limitPrice");
+                    setSuccessMessage(null);
+                  },
+                })}
+              />
+            ) : (
+              <div className="grid gap-1.5">
+                <span className="text-sm font-medium text-foreground">Indicative price</span>
+                <div className="flex h-11 items-center rounded-lg border border-border-subtle bg-surface/65 px-3">
+                  <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                    {formatMarketPrice(currentPrice)} {quoteAsset}
+                  </span>
+                </div>
+              </div>
+            )}
+
             <Input
               inputMode="decimal"
-              label="Limit price"
-              min="0.000000000000000001"
+              label="Quantity"
+              min="0.00000001"
+              placeholder="0.00"
               required
-              step="0.000000000000000001"
-              trailingElement={<span className="text-xs font-semibold">{quoteAsset}</span>}
+              step="0.00000001"
+              trailingElement={<span className="text-xs font-semibold">{baseAsset}</span>}
               type="number"
-              error={errors.limitPrice?.message}
+              error={errors.quantity?.message}
               readOnly={pending}
-              {...register("limitPrice", {
+              {...register("quantity", {
                 onChange: () => {
-                  clearErrors("limitPrice");
+                  clearErrors("quantity");
                   setSuccessMessage(null);
                 },
               })}
             />
-          ) : (
-            <div className="grid gap-1.5">
-              <span className="text-sm font-medium text-foreground">Indicative price</span>
-              <div className="flex h-11 items-center rounded-lg border border-border-subtle bg-surface/65 px-3">
-                <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
-                  {formatMarketPrice(currentPrice)} {quoteAsset}
-                </span>
-              </div>
-            </div>
-          )}
+          </div>
 
-          <Input
-            inputMode="decimal"
-            label="Quantity"
-            min="0.00000001"
-            placeholder="0.00"
-            required
-            step="0.00000001"
-            trailingElement={<span className="text-xs font-semibold">{baseAsset}</span>}
-            type="number"
-            error={errors.quantity?.message}
-            readOnly={pending}
-            {...register("quantity", {
-              onChange: () => {
-                clearErrors("quantity");
-                setSuccessMessage(null);
-              },
-            })}
-          />
-        </div>
+          <div className="flex items-center justify-between gap-4 border-t border-border-subtle pt-4 lg:pt-3">
+            <span className="text-sm text-foreground-muted">{estimateLabel}</span>
+            <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+              {estimate}
+            </span>
+          </div>
 
-        <div className="flex items-center justify-between gap-4 border-t border-border-subtle pt-4 lg:pt-3">
-          <span className="text-sm text-foreground-muted">{estimateLabel}</span>
-          <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
-            {estimate}
-          </span>
-        </div>
-
-        <Button
-          className="w-full lg:sticky lg:bottom-0 lg:z-10"
-          disabled={checkingSession}
-          isLoading={pending}
-          size="lg"
-          type="submit"
-          variant={side === "BUY" ? "positive" : "destructive"}
-        >
-          {submitLabel}
-        </Button>
-
-        {errors.root?.message ? (
-          <p
-            className="rounded-lg border border-negative/30 bg-negative-subtle p-3 text-sm text-negative"
-            role="alert"
+          <Button
+            className="w-full lg:sticky lg:bottom-0 lg:z-10"
+            disabled={checkingSession}
+            isLoading={pending}
+            size="lg"
+            type="submit"
+            variant={side === "BUY" ? "positive" : "destructive"}
           >
-            {errors.root.message}
-          </p>
-        ) : null}
+            {submitLabel}
+          </Button>
 
-        {successMessage ? (
-          <p
-            className="rounded-lg border border-positive/30 bg-positive-subtle p-3 text-sm text-positive"
-            role="status"
-          >
-            {successMessage}
-          </p>
-        ) : null}
+          {errors.root?.message ? (
+            <p
+              className="rounded-lg border border-negative/30 bg-negative-subtle p-3 text-sm text-negative"
+              role="alert"
+            >
+              {errors.root.message}
+            </p>
+          ) : null}
 
-        <p className="text-center text-xs leading-5 text-foreground-muted lg:sr-only">
-          Paper trading only. Estimates use the displayed price; execution price and balances are
-          validated by the server.
-        </p>
-      </form>
+          {successMessage ? (
+            <p
+              className="rounded-lg border border-positive/30 bg-positive-subtle p-3 text-sm text-positive"
+              role="status"
+            >
+              {successMessage}
+            </p>
+          ) : null}
+
+          <p className="text-center text-xs leading-5 text-foreground-muted lg:sr-only">
+            Paper trading only. Estimates use the displayed price; execution price and balances are
+            validated by the server.
+          </p>
+        </form>
+      </div>
     </section>
   );
 }

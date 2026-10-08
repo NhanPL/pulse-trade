@@ -51,7 +51,7 @@ export function WatchlistSummary({
       aria-label="Watchlist summary"
       className="rounded-xl border border-border-subtle bg-surface-elevated/70 px-5 py-6 shadow-panel sm:px-7"
     >
-      <dl className="grid gap-5 sm:grid-cols-[minmax(12rem,0.7fr)_minmax(0,2fr)] sm:gap-7">
+      <div className="grid gap-5 sm:grid-cols-[minmax(12rem,0.7fr)_minmax(0,2fr)] sm:gap-7">
         <div className="flex items-center gap-4">
           <span
             aria-hidden="true"
@@ -66,7 +66,7 @@ export function WatchlistSummary({
               />
             </svg>
           </span>
-          <div>
+          <dl>
             <dt className="text-sm text-foreground-secondary">Total Watched</dt>
             <dd className="mt-1 flex items-baseline gap-2">
               <span className="text-2xl font-semibold">{count}</span>{" "}
@@ -74,7 +74,7 @@ export function WatchlistSummary({
                 {count === 1 ? "symbol" : "symbols"}
               </span>
             </dd>
-          </div>
+          </dl>
         </div>
         <div className="flex min-w-0 items-center gap-4 border-t border-border-subtle pt-5 sm:border-l sm:border-t-0 sm:pl-7 sm:pt-0">
           <span
@@ -91,14 +91,14 @@ export function WatchlistSummary({
               />
             </svg>
           </span>
-          <div className="min-w-0">
+          <dl className="min-w-0">
             <dt className="text-sm text-foreground-secondary">Top Mover (24h)</dt>
             <dd className="mt-1">
               <TopMover symbols={symbols} />
             </dd>
-          </div>
+          </dl>
         </div>
-      </dl>
+      </div>
     </section>
   );
 }

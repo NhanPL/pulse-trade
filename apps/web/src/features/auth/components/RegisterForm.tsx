@@ -164,7 +164,7 @@ export function RegisterForm() {
         type="submit"
         size="lg"
         isLoading={isSubmitting}
-        className="w-full border border-brand/50 bg-linear-to-b from-teal-400 to-teal-600 text-white"
+        className="w-full border border-brand/50 bg-linear-to-b from-teal-400 to-teal-600 text-foreground-inverse"
       >
         {isSubmitting ? "Creating account…" : "Create Account"}
       </Button>

@@ -241,7 +241,9 @@ function rows(page: Page) {
 }
 async function expectLiveWatchlist(page: Page) {
   // Each reload must receive a new ticker stream, not merely match the prior document's command.
-  await expect(page.locator("footer[role=status]")).toContainText("Prices and data are real-time.");
+  await expect(
+    page.getByRole("status", { name: "Watchlist market data", exact: true }),
+  ).toContainText("Prices and data are real-time.");
 }
 async function login(page: Page, user: Owner) {
   await page.getByLabel("Email", { exact: true }).fill(user.email);

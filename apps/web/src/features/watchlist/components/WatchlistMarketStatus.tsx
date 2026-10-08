@@ -26,7 +26,8 @@ export function WatchlistMarketStatus({ symbols }: { symbols: readonly string[] 
           ? "Waiting for live market prices."
           : "Prices and data are real-time.";
   return (
-    <footer
+    <div
+      aria-label="Watchlist market data"
       className="flex flex-wrap items-center justify-center gap-3 text-center text-sm text-foreground-muted"
       role="status"
     >
@@ -42,6 +43,6 @@ export function WatchlistMarketStatus({ symbols }: { symbols: readonly string[] 
               : "Live"}
         </Badge>
       ) : null}
-    </footer>
+    </div>
   );
 }
