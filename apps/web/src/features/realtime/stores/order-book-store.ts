@@ -4,7 +4,10 @@ import type {
   RealtimeEvent,
 } from "@pulse-trade/contracts";
 import { useStore } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import { createStore } from "zustand/vanilla";
+
+import { tickerStore } from "./ticker-store";
 
 export const ORDER_BOOK_LEVEL_LIMIT = 20;
 export const ORDER_BOOK_PRESENTATION_INTERVAL_MS = 50;
@@ -19,9 +22,12 @@ export type OrderBookStatus = "READY" | "RESYNC_REQUIRED";
 export type OrderBookView = Readonly<{
   asks: readonly OrderBookLevel[];
   bids: readonly OrderBookLevel[];
+  midPrice?: string;
   sequence: string;
   status: OrderBookStatus;
 }>;
+
+export type OrderBookPresentation = Omit<OrderBookView, "sequence">;
 
 export type OrderBookStore = Readonly<{
   books: Readonly<Record<string, OrderBookView>>;
@@ -43,10 +49,16 @@ class OrderBookModel {
   private hasSnapshot = false;
   private sequence = "0";
   private status: OrderBookStatus = "RESYNC_REQUIRED";
+  private askLevels: readonly OrderBookLevel[] = [];
+  private bidLevels: readonly OrderBookLevel[] = [];
+  private asksDirty = false;
+  private bidsDirty = false;
 
   applySnapshot(event: OrderBookSnapshotEvent): void {
     this.asks = createLevelMap(event.data.asks);
     this.bids = createLevelMap(event.data.bids);
+    this.asksDirty = true;
+    this.bidsDirty = true;
     this.hasSnapshot = true;
     this.sequence = event.data.sequence;
     this.status = "READY";
@@ -64,7 +76,10 @@ class OrderBookModel {
     }
 
     for (const change of event.data.changes) {
-      applyLevelChange(this.getSide(change.side), change);
+      if (applyLevelChange(this.getSide(change.side), change)) {
+        if (change.side === "ASK") this.asksDirty = true;
+        else this.bidsDirty = true;
+      }
     }
 
     this.sequence = event.data.sequence;
@@ -72,9 +87,18 @@ class OrderBookModel {
   }
 
   toView(): OrderBookView {
+    // Price-only publications reuse the derived book; sorting is needed only for dirty sides.
+    if (this.asksDirty) {
+      this.askLevels = reuseUnchangedLevels(this.askLevels, deriveTopLevels(this.asks, "ASK"));
+      this.asksDirty = false;
+    }
+    if (this.bidsDirty) {
+      this.bidLevels = reuseUnchangedLevels(this.bidLevels, deriveTopLevels(this.bids, "BID"));
+      this.bidsDirty = false;
+    }
     return {
-      asks: deriveTopLevels(this.asks, "ASK"),
-      bids: deriveTopLevels(this.bids, "BID"),
+      asks: this.askLevels,
+      bids: this.bidLevels,
       sequence: this.sequence,
       status: this.status,
     };
@@ -119,12 +143,21 @@ export function selectOrderBook(symbol: string) {
   return (state: OrderBookStore): OrderBookView | undefined => state.books[symbol];
 }
 
-export function useOrderBook(symbol: string): OrderBookView | undefined {
-  return useStore(orderBookStore, selectOrderBook(symbol));
+export function useOrderBook(symbol: string): OrderBookPresentation | undefined {
+  // Wire sequence advances remain available in the store, but are not visible row changes.
+  return useStore(
+    orderBookStore,
+    useShallow((state: OrderBookStore) => {
+      const book = state.books[symbol];
+      return book
+        ? { asks: book.asks, bids: book.bids, midPrice: book.midPrice, status: book.status }
+        : undefined;
+    }),
+  );
 }
 
 export function bindOrderBookStore(source: RealtimeEventSource): () => void {
-  return source.onEvent((event) => {
+  const releaseEvents = source.onEvent((event) => {
     if (event.event === "orderbook.snapshot") {
       orderBookStore.getState().applySnapshot(event);
       return;
@@ -134,6 +167,18 @@ export function bindOrderBookStore(source: RealtimeEventSource): () => void {
       orderBookStore.getState().applyUpdate(event);
     }
   });
+  const releaseTicker = tickerStore.subscribe((state, previousState) => {
+    if (state.tickers === previousState.tickers) return;
+    for (const symbol of modelsBySymbol.keys()) {
+      if (state.tickers[symbol]?.price !== previousState.tickers[symbol]?.price) {
+        schedulePresentation(symbol);
+      }
+    }
+  });
+  return () => {
+    releaseTicker();
+    releaseEvents();
+  };
 }
 
 export function flushOrderBookPresentation(): void {
@@ -145,13 +190,14 @@ export function flushOrderBookPresentation(): void {
   publishPendingPresentations();
 }
 
-function applyLevelChange(levels: Map<string, string>, change: OrderBookChange): void {
+function applyLevelChange(levels: Map<string, string>, change: OrderBookChange): boolean {
   if (isZeroDecimal(change.quantity)) {
-    levels.delete(change.price);
-    return;
+    return levels.delete(change.price);
   }
 
+  if (levels.get(change.price) === change.quantity) return false;
   levels.set(change.price, change.quantity);
+  return true;
 }
 
 function cancelPresentationTimerWhenIdle(): void {
@@ -182,6 +228,19 @@ function deriveTopLevels(
     })
     .slice(0, ORDER_BOOK_LEVEL_LIMIT)
     .map(([price, quantity]) => ({ price, quantity }));
+}
+
+function reuseUnchangedLevels(
+  previous: readonly OrderBookLevel[],
+  next: readonly OrderBookLevel[],
+): readonly OrderBookLevel[] {
+  return previous.length === next.length &&
+    previous.every(
+      (level, index) =>
+        level.price === next[index].price && level.quantity === next[index].quantity,
+    )
+    ? previous
+    : next;
 }
 
 function getOrCreateOrderBookModel(symbol: string): OrderBookModel {
@@ -234,7 +293,10 @@ function publishPendingPresentations(): void {
 
     for (const symbol of symbols) {
       const model = modelsBySymbol.get(symbol);
-      if (model) books[symbol] = model.toView();
+      if (model) {
+        const price = tickerStore.getState().tickers[symbol]?.price;
+        books[symbol] = { ...model.toView(), ...(price === undefined ? {} : { midPrice: price }) };
+      }
     }
 
     return { books };
@@ -245,7 +307,7 @@ function schedulePresentation(symbol: string): void {
   pendingPresentationSymbols.add(symbol);
   if (presentationTimer !== undefined) return;
 
-  // Every delta is ingested immediately; only sorted React-facing rows are capped at 20fps.
+  // Ingest every delta/ticker, but coalesce visible book rows and mid-price in one 50ms window.
   presentationTimer = setTimeout(() => {
     presentationTimer = undefined;
     publishPendingPresentations();

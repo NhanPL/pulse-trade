@@ -1,11 +1,12 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { Badge } from "@/components/ui/Badge";
 import { type OrderBookLevel, useOrderBook } from "@/features/realtime/stores/order-book-store";
-import { useTicker } from "@/features/realtime/stores/ticker-store";
-import { formatMarketPrice } from "@/lib/format/market-value";
 
 import { OrderBookLevelRow, type OrderBookDisplayLevel } from "./OrderBookLevelRow";
+import { OrderBookMidPrice } from "./OrderBookMidPrice";
 import { createOrderBookPreview } from "./order-book-preview";
 
 export type OrderBookProps = {
@@ -17,16 +18,18 @@ export type OrderBookProps = {
 
 export function OrderBook({ baseAsset, midPrice, quoteAsset, symbol }: OrderBookProps) {
   const orderBook = useOrderBook(symbol);
-  const ticker = useTicker(symbol);
-  const preview = createOrderBookPreview(midPrice);
-  const asks = orderBook ? createRealtimeLevels(orderBook.asks) : preview.asks;
-  const bids = orderBook ? createRealtimeLevels(orderBook.bids) : preview.bids;
-  const currentMidPrice = ticker?.price ?? midPrice;
-  const bestAsk = Number(asks[0]?.price ?? currentMidPrice);
-  const bestBid = Number(bids[0]?.price ?? currentMidPrice);
-  const spread = bestAsk - bestBid;
-  const numericMidPrice = Number(currentMidPrice);
-  const spreadPercent = numericMidPrice === 0 ? 0 : (spread / numericMidPrice) * 100;
+  const preview = useMemo(() => createOrderBookPreview(midPrice), [midPrice]);
+  const bookAsks = orderBook?.asks;
+  const bookBids = orderBook?.bids;
+  // P01 measured row churn on ticker changes; stable sides keep memoized rows untouched.
+  const asks = useMemo(
+    () => (bookAsks ? createRealtimeLevels(bookAsks).toReversed() : preview.asks.toReversed()),
+    [bookAsks, preview.asks],
+  );
+  const bids = useMemo(
+    () => (bookBids ? createRealtimeLevels(bookBids) : preview.bids),
+    [bookBids, preview.bids],
+  );
   const status =
     orderBook?.status === "RESYNC_REQUIRED" ? "Resyncing" : orderBook ? "Live" : "Snapshot";
 
@@ -69,24 +72,19 @@ export function OrderBook({ baseAsset, midPrice, quoteAsset, symbol }: OrderBook
             </tr>
           </thead>
           <tbody aria-label="Asks, sell orders" className="bg-negative-subtle/40">
-            {asks.toReversed().map((level) => (
+            {asks.map((level) => (
               <OrderBookLevelRow key={level.price} level={level} side="ask" />
             ))}
           </tbody>
           <tbody>
-            <tr className="h-12 border-y border-border bg-surface-interactive lg:h-10">
-              <th className="px-4 text-left" colSpan={2} scope="rowgroup">
-                <span className="font-mono text-lg font-bold tabular-nums text-positive">
-                  {formatMarketPrice(currentMidPrice)} <span aria-hidden="true">↑</span>
-                </span>
-              </th>
-              <td className="px-4 text-right text-[0.6875rem] text-foreground-muted">
-                <span className="mr-1">Spread</span>
-                <span className="font-mono tabular-nums text-foreground-secondary">
-                  {formatMarketPrice(String(spread))} ({spreadPercent.toFixed(2)}%)
-                </span>
-              </td>
-            </tr>
+            <OrderBookMidPrice
+              bestAsk={asks.at(-1)?.price}
+              bestBid={bids[0]?.price}
+              hasBook={orderBook !== undefined}
+              midPrice={midPrice}
+              presentedPrice={orderBook?.midPrice}
+              symbol={symbol}
+            />
           </tbody>
           <tbody aria-label="Bids, buy orders" className="bg-positive-subtle/40">
             {bids.map((level) => (

@@ -73,3 +73,5 @@ The project should be completed and polished before adding scope.
 
 - [P01 ticker render profile](16_TICKER_RENDER_PROFILE.md) — reproducible React
   Profiler counts, broad/narrow selector comparison and current implementation gaps.
+- [P02 order-book presentation](17_ORDER_BOOK_PRESENTATION.md) — full-rate
+  ingestion, coalesced visible updates and measured before/after render counts.

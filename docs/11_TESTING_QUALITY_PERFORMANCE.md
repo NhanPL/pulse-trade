@@ -701,3 +701,13 @@ aggregate measurements; the normal frontend unit command/CI also runs its render
 scope assertions. Test-only forwarding probes distinguish container function
 calls from descendant commits. No production instrumentation, timing threshold,
 order-book cadence change or authenticated diagnostic upload is added.
+
+## 22. P02 — Order-book presentation cadence
+
+The [P02 report](17_ORDER_BOOK_PRESENTATION.md) documents full-rate ingestion with
+one shared 50 ms book/mid-price presentation window, stable top-level arrays and
+visible-field selectors. `pnpm --filter @pulse-trade/web test:profile:order-book`
+verifies burst/100Hz cadence with deterministic timers and real components/stores.
+The existing ticker profiling harness records the post-optimization counts;
+its unrelated-widget assertions stay intact. Normal Vitest/CI discovery and the
+actual-WebSocket E2E suite cover correctness and subscription/timer cleanup.

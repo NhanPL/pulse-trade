@@ -1,5 +1,10 @@
 # P01 — Ticker render profile
 
+This is the historical P01 baseline. [P02](17_ORDER_BOOK_PRESENTATION.md) deploys
+the scoped book presentation optimization; the current ticker harness now flushes
+the coalesced book burst and asserts its improved book/grid counts. The original
+measurements below remain unchanged for comparison.
+
 ## Scope and reproduction
 
 P01 measures the current ticker render boundaries. It does not change production
