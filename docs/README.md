@@ -75,3 +75,5 @@ The project should be completed and polished before adding scope.
   Profiler counts, broad/narrow selector comparison and current implementation gaps.
 - [P02 order-book presentation](17_ORDER_BOOK_PRESENTATION.md) — full-rate
   ingestion, coalesced visible updates and measured before/after render counts.
+- [P03 bounded trade memory](18_BOUNDED_TRADE_MEMORY.md) — long-stream retained
+  counts, cache/dedupe limits, lifecycle cleanup and GC-observation boundaries.

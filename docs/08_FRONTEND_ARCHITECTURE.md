@@ -166,6 +166,11 @@ new + existing
 -> slice max length
 ```
 
+P03 verifies the existing 50-item store with 100,000 validated trades and repeated
+reconnect/route cleanup. The UI keeps six collapsed or at most 50 expanded rows;
+see [bounded trade memory evidence](18_BOUNDED_TRADE_MEMORY.md) for retained-count
+checks, backend bootstrap cache limits and GC-measurement limitations.
+
 ## 8. Realtime client layer
 
 Create an application service such as:

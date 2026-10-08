@@ -127,6 +127,72 @@ for (const viewport of [
     expect(realtimeServer.provider.activeSubscriptions()).toEqual([]);
     expect(errors).toEqual([]);
   });
+
+  test(`${viewport.name} bounds Recent Trades DOM through 10,000 real-socket trades and reconnect replay`, async ({
+    page,
+    realtimeServer,
+  }) => {
+    await page.setViewportSize(viewport);
+    const errors: string[] = [];
+    let receivedSoakTrades = 0;
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("websocket", (socket) => {
+      socket.on("framereceived", ({ payload }) => {
+        const event = realtimeEventSchema.parse(JSON.parse(payload.toString()));
+        if (event.event === "trades.batch")
+          receivedSoakTrades += event.data.trades.filter((trade) =>
+            trade.id.startsWith("p03-"),
+          ).length;
+      });
+    });
+    await page.goto("/trade/BTC-USD");
+    const panel = page.getByRole("region", { name: "Recent trades", exact: true });
+    const header = page.getByRole("region", { name: "BTC/USD", exact: true });
+    if (viewport.name === "mobile")
+      await page.getByRole("tab", { name: "Recent trades", exact: true }).click();
+    await expect(panel.getByText("Live", { exact: true })).toBeVisible();
+    const toggle = panel.getByRole("button", { name: /^(View all trades|Show latest trades)$/ });
+    await toggle.focus();
+    await toggle.press("Enter");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const startTs = Date.now();
+    const makeTrades = (start: number) =>
+      Array.from({ length: 100 }, (_, offset) => ({
+        id: `p03-${start + offset}`,
+        marketTs: startTs + start + offset,
+        price: String(50000 + start + offset),
+        quantity: "0.01250000",
+        side: "BUY" as const,
+      }));
+    for (let start = 0; start < 10_000; start += 100) {
+      realtimeServer.advanceTime(1);
+      realtimeServer.provider.trades("BTC-USD", makeTrades(start));
+    }
+    // Counts exclude the single header row; observers retain no per-frame history in this soak.
+    await expect(panel.getByRole("row")).toHaveCount(51);
+    const dataRows = panel.locator("tbody tr");
+    await expect(dataRows.first()).toContainText("$59,999.00");
+    await expect(dataRows.last()).toContainText("$59,950.00");
+    expect(receivedSoakTrades).toBe(10_000);
+    await expect(panel.getByText("$50,000.00", { exact: true })).toHaveCount(0);
+
+    realtimeServer.disconnectClients();
+    await expect(header.getByLabel("Market data status: Reconnecting")).toBeVisible();
+    await expect(dataRows.first()).toContainText("$59,999.00");
+    await expect
+      .poll(() => realtimeServer.provider.subscriptionStarts("BTC-USD", "trades"))
+      .toBe(2);
+    realtimeServer.provider.trades("BTC-USD", makeTrades(9900));
+    await expect(dataRows).toHaveCount(50);
+    await expect(dataRows.first()).toContainText("$59,999.00");
+    await toggle.press("Enter");
+    await expect(dataRows).toHaveCount(6);
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await page.goto("/login");
+    await expect.poll(() => realtimeServer.activeClientCount()).toBe(0);
+    expect(realtimeServer.provider.activeSubscriptions()).toEqual([]);
+    expect(errors).toEqual([]);
+  });
 }
 
 test("symbol navigation releases the previous market and does not leak subscriptions", async ({

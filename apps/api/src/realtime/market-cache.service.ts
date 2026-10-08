@@ -12,8 +12,11 @@ import {
   type ProviderOrderBookSnapshotEvent,
   type ProviderOrderBookUpdateEvent,
   type ProviderTickerEvent,
+  type ProviderTrade,
   type ProviderTradesBatchEvent,
 } from "../markets/provider/market-data-provider";
+
+export const MAX_CACHED_TRADES_PER_SYMBOL = 50;
 
 type MutableOrderBook = {
   asks: Map<string, string>;
@@ -157,8 +160,21 @@ export class MarketCacheService implements OnModuleInit, OnModuleDestroy {
   private applyTrades(event: ProviderTradesBatchEvent): void {
     const cached = this.trades.get(event.symbol);
     if (cached && !isNewerEvent(event, cached)) return;
-    this.trades.set(event.symbol, cloneTradesEvent(event));
+    // Bound retained bootstrap data only; candle aggregation and live fan-out still receive every trade.
+    this.trades.set(event.symbol, { ...event, trades: latestTrades(event.trades) });
   }
+}
+
+function latestTrades(trades: readonly ProviderTrade[]): readonly ProviderTrade[] {
+  const byId = new Map<string, ProviderTrade>();
+  for (const trade of trades) {
+    const previous = byId.get(trade.id);
+    if (!previous || trade.marketTs >= previous.marketTs) byId.set(trade.id, trade);
+  }
+  return [...byId.values()]
+    .sort((left, right) => right.marketTs - left.marketTs || left.id.localeCompare(right.id))
+    .slice(0, MAX_CACHED_TRADES_PER_SYMBOL)
+    .map((trade) => ({ ...trade }));
 }
 
 function cloneCandleEvent(event: ProviderCandleUpdateEvent): ProviderCandleUpdateEvent {
