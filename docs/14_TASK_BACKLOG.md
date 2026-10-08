@@ -172,7 +172,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 
 ## Epic P — Performance/observability/deployment
 
-- [ ] P01 Profile ticker re-render behavior.
+- [x] P01 Profile ticker re-render behavior.
 - [ ] P02 Optimize order-book presentation cadence.
 - [ ] P03 Verify bounded trade memory.
 - [ ] P04 Add frontend error reporting.
