@@ -11,6 +11,7 @@
     "test:auth": "pnpm test:e2e",
     "test:e2e": "playwright test",
     "test:e2e:full-stack": "playwright test --config playwright.full-stack.config.ts",
+    "test:e2e:realtime": "playwright test --config playwright.realtime.config.ts",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
     "test": "pnpm test:legacy && pnpm test:unit",

@@ -509,8 +509,9 @@ and matching bounded candle history. This is a direct prerequisite for authorita
 market execution and portfolio valuation without Coinbase uptime/price variation;
 it does not disable stale-market validation or add a production test mode.
 
-This fixture is not the general realtime simulation/reconnect/delta infrastructure
-in O07. O05/O06 reuse it for limit cancellation and watchlist scenarios below.
+O05/O06 reuse this fixed-price wrapper for limit cancellation and watchlist scenarios below.
+O07 now supplies its shared normalized provider implementation; the wrapper retains
+the fixed BTC price, one-second heartbeat and BTC-only historical-candle contract.
 Existing mocked UI tests still use `playwright.config.ts` on port 3100; that runner explicitly excludes
 the full-stack directory. Do not run both configs simultaneously: they build the
 same Next output with different public targets. Run a normal `pnpm build` when a
@@ -607,3 +608,70 @@ accessibility review (O08) is introduced. Existing mocked watchlist loading/erro
 account-isolation and subscription lifecycle tests remain unchanged, alongside
 the real PostgreSQL watchlist integration suite. Report sharing follows the
 existing diagnostics restrictions above.
+
+## 19. O07 — Deterministic mocked realtime provider
+
+`apps/api/test/fixtures/mock-market-provider.mts` implements the existing
+`MarketDataProvider` boundary using normalized events, never Coinbase payloads.
+It is test-only and strictly typechecked by `tsconfig.test-fixtures.json`; Node 24
+loads its erasable TypeScript directly. Production `MarketModule` still selects
+Coinbase, with no environment flag or mock endpoint in the deployed application.
+
+The default fixture supplies fixed prices for all five supported markets, bounded
+interval-aligned candle history, book snapshots/deltas and trade batches. Tests
+explicitly publish changes, introduce book sequence gaps, disconnect/reconnect the
+upstream and inject a clock. Book sequences are symbol/channel-local: unrelated
+ticker/trade events cannot accidentally simulate a missing book delta. Reconnect
+replays a rebuilt snapshot, including quantity-zero deletions, instead of replaying
+an orphan delta. Lifecycle calls and duplicate subscriptions are idempotent, and
+listener removers/close release owned listeners and subscriptions.
+
+The existing O04/O05/O06 financial scenarios use a thin fixed-BTC wrapper around
+this provider. Only that wrapper runs a one-second heartbeat, keeping real backend
+stale-price validation active and execution stable at $50,000. Its timer is stopped
+before account cleanup. The general provider has no timer or network connection.
+
+`realtime-server.mjs` hosts the real public `RealtimeModule`, REST candle controller,
+cache, broadcaster, subscription registry, standard `ws` adapter and Nest gateway.
+It does not import auth/Prisma or access a database. The actual freshness service
+uses its existing clock/configuration seam: advancing the test clock beyond the
+unchanged 15-second threshold triggers stale detection on a short check cadence,
+without a 15-second sleep. Test controls remain in-process (no HTTP control route).
+The harness can sever actual browser sockets and closes all owned sockets/services
+on teardown, including after failed assertions.
+
+### Commands and CI
+
+```bash
+# Strict fixture typecheck and backend provider/real-gateway regression tests
+pnpm --filter @pulse-trade/api typecheck
+pnpm --filter @pulse-trade/api test
+
+# Three realtime browser scenarios, no PostgreSQL needed
+pnpm --filter @pulse-trade/web test:e2e:realtime
+
+# CI runs all eight account/trading/watchlist/realtime scenarios together
+pnpm --filter @pulse-trade/web test:e2e:full-stack
+```
+
+The realtime-only config selects the same public scenarios from the full-stack
+suite. It builds the API without running migrations and owns the same isolated
+Next/API ports 3110/3111. Use one Playwright config at a time; they share Next build
+output. Run a normal `pnpm build` afterwards for a deployment-target bundle.
+
+Backend tests cover repeatable event sequences, contract validation, duplicate
+subscriptions (including candles sharing trades), REST history, filtered fan-out,
+upstream recovery, stale/live events and disconnect/unsubscribe cleanup. Browser
+tests use actual sockets without REST/WS interception and cover desktop/mobile
+snapshot-to-delta rendering, quantity-zero deletion, trade deduplication, real candle
+history, timeframe changes without duplicate upstream subscriptions, wire-level
+stale notification with retained prices, forced disconnect/re-subscribe and symbol
+navigation cleanup. The client marks sequence gaps as resyncing and refuses the
+corrupt delta until a new upstream snapshot arrives; no new automatic resync
+mechanism or UI behavior is introduced in O07.
+
+The existing CI full-stack step includes these tests after the guarded PostgreSQL
+setup, so its market paths do not depend on public exchange uptime. Reports/traces
+stay in ignored local directories under the same diagnostics restrictions above.
+No production code, new dependency, O08 accessibility review or Epic P performance
+work is included.

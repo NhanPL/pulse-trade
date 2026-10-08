@@ -92,7 +92,7 @@ jobs:
       - name: Apply test database migrations
         run: pnpm --filter @pulse-trade/api db:test:prepare
 
-      - name: Account, trading and watchlist full-stack E2E
+      - name: Account, trading, watchlist and mocked realtime E2E
         run: pnpm --filter @pulse-trade/web test:e2e:full-stack
 
       - name: PostgreSQL integration tests

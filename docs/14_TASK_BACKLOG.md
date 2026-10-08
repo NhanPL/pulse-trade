@@ -167,7 +167,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] O04 Add critical E2E registration + market BUY.
 - [x] O05 Add limit cancel E2E.
 - [x] O06 Add watchlist E2E.
-- [ ] O07 Add mocked realtime provider for deterministic CI.
+- [x] O07 Add mocked realtime provider for deterministic CI.
 - [ ] O08 Accessibility review.
 
 ## Epic P — Performance/observability/deployment
