@@ -9,7 +9,7 @@ const variantClasses = {
     "border border-border bg-surface-interactive text-foreground hover:border-border-strong hover:bg-surface-hover active:bg-surface-selected",
   ghost: "text-foreground-secondary hover:bg-surface-hover hover:text-foreground",
   positive: "bg-positive text-foreground-inverse hover:brightness-110 active:brightness-95",
-  destructive: "bg-negative text-foreground hover:brightness-110 active:brightness-95",
+  destructive: "bg-negative text-foreground-inverse hover:brightness-110 active:brightness-95",
 } as const;
 
 const sizeClasses = {

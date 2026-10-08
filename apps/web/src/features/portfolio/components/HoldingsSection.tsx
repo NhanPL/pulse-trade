@@ -304,7 +304,9 @@ function HoldingsTable({
           <th className="px-3 py-3.5 text-right font-medium" scope="col">
             Unrealized P&amp;L (USD)
           </th>
-          <th aria-label="Actions" className="px-2 py-3.5" scope="col" />
+          <th className="px-2 py-3.5" scope="col">
+            <span className="sr-only">Actions</span>
+          </th>
         </tr>
       </thead>
       <tbody>

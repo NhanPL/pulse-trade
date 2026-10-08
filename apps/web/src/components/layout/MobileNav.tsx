@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type KeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -25,6 +25,7 @@ export function MobileNav({
 }: MobileNavProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const items = getNavigationItems(isAuthenticated);
   const connection = connectionStatus ? connectionPresentation[connectionStatus] : undefined;
 
@@ -32,10 +33,16 @@ export function MobileNav({
     setIsOpen(false);
   }
 
+  function dismissMenu() {
+    closeMenu();
+    // Closing removes the focused link; return keyboard users to the persistent trigger.
+    triggerRef.current?.focus();
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.key === "Escape" && isOpen) {
       event.preventDefault();
-      closeMenu();
+      dismissMenu();
     }
   }
 
@@ -51,6 +58,7 @@ export function MobileNav({
           {connection ? (
             <Badge
               aria-label={`Market data: ${connection.label}`}
+              role="status"
               className="h-8 px-2"
               showDot
               variant={connection.variant}
@@ -60,9 +68,10 @@ export function MobileNav({
           ) : null}
           <button
             type="button"
-            aria-controls="mobile-primary-navigation"
+            aria-controls={isOpen ? "mobile-primary-navigation" : undefined}
             aria-expanded={isOpen}
             aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
+            ref={triggerRef}
             className="grid size-10 place-items-center rounded-lg border border-border bg-surface-interactive text-foreground transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
             onClick={() => setIsOpen((open) => !open)}
           >
@@ -94,9 +103,10 @@ export function MobileNav({
         <>
           <button
             type="button"
-            aria-label="Close navigation menu"
+            aria-hidden="true"
+            tabIndex={-1}
             className="fixed inset-0 top-14 z-0 bg-backdrop"
-            onClick={closeMenu}
+            onClick={dismissMenu}
           />
           <nav
             id="mobile-primary-navigation"

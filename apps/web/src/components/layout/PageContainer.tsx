@@ -34,9 +34,12 @@ export function PageContainer({
 }: PageContainerProps) {
   return (
     <Component
+      id={Component === "main" ? "main-content" : undefined}
+      tabIndex={Component === "main" ? -1 : undefined}
       {...props}
       className={classNames(
         "mx-auto w-full",
+        Component === "main" && "focus:outline-none",
         widthClasses[width],
         spacingClasses[spacing],
         className,

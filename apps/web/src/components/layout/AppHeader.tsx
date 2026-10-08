@@ -64,6 +64,7 @@ export function AppHeader(props: AppHeaderProps) {
               <>
                 <Badge
                   aria-label={`Market data: ${connectionPresentation[props.connectionStatus].label}`}
+                  role="status"
                   showDot
                   variant={connectionPresentation[props.connectionStatus].variant}
                 >

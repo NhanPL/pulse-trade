@@ -675,3 +675,19 @@ setup, so its market paths do not depend on public exchange uptime. Reports/trac
 stay in ignored local directories under the same diagnostics restrictions above.
 No production code, new dependency, O08 accessibility review or Epic P performance
 work is included.
+
+## 20. O08 — Accessibility review
+
+The scope, findings, fixes, keyboard/state coverage, reproduction commands and
+manual-review limitations are recorded in [the accessibility review](15_ACCESSIBILITY_REVIEW.md).
+`apps/web/e2e/accessibility.spec.ts` scans all MVP routes on desktop/mobile with
+axe-core's default rules and exercises visible interactive states. It also checks
+skip navigation, focus restoration/trapping, trading tabs, scroll access, linked
+form errors and auth gradient contrast. Shared RTL tests cover inputs, tabs and
+mobile navigation. No rule exclusions or violation allowlist are used.
+
+The existing CI UI command discovers this suite automatically. Axe is test-only,
+using the exact version already resolved by the workspace. Incomplete results are
+explicit manual-review annotations, not accessibility certification. Local review
+screenshots/reports remain ignored and follow the existing diagnostics-sharing
+restrictions; no artifact upload or production dependency is added.

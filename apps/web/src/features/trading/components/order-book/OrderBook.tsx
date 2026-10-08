@@ -44,7 +44,12 @@ export function OrderBook({ baseAsset, midPrice, quoteAsset, symbol }: OrderBook
         </div>
       </header>
 
-      <div className="max-h-[32rem] overflow-y-auto lg:min-h-0 lg:flex-1">
+      <div
+        aria-label={`${symbol} order book scrolling area`}
+        className="max-h-[32rem] overflow-y-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus lg:min-h-0 lg:flex-1"
+        role="region"
+        tabIndex={0}
+      >
         <table className="w-full table-fixed border-collapse">
           <caption className="sr-only">
             {orderBook ? "Live" : "Snapshot"} {symbol} order book with sell orders above the

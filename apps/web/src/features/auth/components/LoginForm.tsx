@@ -124,7 +124,7 @@ export function LoginForm({ returnTo }: { returnTo: string }) {
         type="submit"
         size="lg"
         isLoading={pending}
-        className="h-14 w-full border border-brand/50 bg-linear-to-b from-teal-400 to-teal-600 text-white"
+        className="h-14 w-full border border-brand/50 bg-linear-to-b from-teal-400 to-teal-600 text-foreground-inverse"
       >
         <span className="text-lg font-semibold">
           {complete ? "Signed in. Redirecting…" : isSubmitting ? "Signing in…" : "Sign In"}

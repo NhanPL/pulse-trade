@@ -28,7 +28,11 @@ function AuthRoutePanel({
   role?: "alert" | "status";
 }) {
   return (
-    <main className="mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-xl items-center px-4 py-8 sm:px-6">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto flex min-h-[calc(100svh-4rem)] w-full max-w-xl items-center px-4 py-8 focus:outline-none sm:px-6"
+    >
       <section
         role={role}
         aria-live="polite"

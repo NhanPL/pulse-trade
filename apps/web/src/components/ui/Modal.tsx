@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 
 type ModalProps = {
   children: ReactNode;
@@ -28,7 +28,7 @@ export function Modal({
     const fallbackFocus = returnFocusRef?.current;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    // Native modal semantics keep background controls inert and trap keyboard focus.
+    // Native modal semantics keep background controls inert.
     dialog.showModal();
     return () => {
       dialog.close();
@@ -46,6 +46,29 @@ export function Modal({
     };
   }, [returnFocusRef]);
 
+  function handleKeyDown(event: KeyboardEvent<HTMLDialogElement>) {
+    if (event.key !== "Tab" || event.defaultPrevented) return;
+    const controls = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        "a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]",
+      ),
+    ).filter((element) => element.tabIndex >= 0 && element.getClientRects().length > 0);
+    const first = controls[0];
+    const last = controls.at(-1);
+    if (!first || !last) {
+      event.preventDefault();
+      return;
+    }
+    // Native inertness prevents background focus; explicitly wrap the endpoints as well.
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   return (
     <dialog
       aria-describedby={describedBy}
@@ -56,6 +79,7 @@ export function Modal({
         event.preventDefault();
         if (!dismissDisabled) onDismiss();
       }}
+      onKeyDown={handleKeyDown}
       ref={dialogRef}
     >
       {children}

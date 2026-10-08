@@ -14,7 +14,11 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   return (
-    <main className="login-page relative isolate flex min-h-[calc(100svh-4rem)] flex-col items-center justify-center px-4 py-10 sm:px-6">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="login-page relative isolate flex min-h-[calc(100svh-4rem)] flex-col items-center justify-center px-4 py-10 focus:outline-none sm:px-6"
+    >
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(rgba(3,10,22,0.65),rgba(3,10,22,0.75)),url('/images/auth-background.png')] bg-cover bg-center"

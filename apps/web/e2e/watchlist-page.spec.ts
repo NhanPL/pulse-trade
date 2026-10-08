@@ -241,11 +241,13 @@ test("loading and absent quotes have placeholders without fabricated live values
   await expect(row(page, "BTC-USD")).toContainText("Waiting");
   await expect(row(page, "BTC-USD")).not.toContainText("$0");
   await expect(page.getByText("Waiting for fresh prices", { exact: true })).toBeVisible();
-  await expect(page.locator("footer[role=status]")).toContainText(
-    "Waiting for live market prices.",
-  );
+  await expect(
+    page.getByRole("status", { name: "Watchlist market data", exact: true }),
+  ).toContainText("Waiting for live market prices.");
   runtime.sendTicker("BTC-USD", "67542.31", "2.41");
-  await expect(page.locator("footer[role=status]")).toContainText("Prices and data are real-time.");
+  await expect(
+    page.getByRole("status", { name: "Watchlist market data", exact: true }),
+  ).toContainText("Prices and data are real-time.");
 });
 
 test("remove is keyboard accessible, pending-safe and reconciles the ticker subscription", async ({
@@ -359,7 +361,9 @@ test("stale and reconnect states keep last quotes and restore only the current t
   await expect(page.getByText("Waiting for fresh prices", { exact: true })).toBeVisible();
   runtime.disconnect();
   await expect(row(page, "ETH-USD")).toContainText("Delayed");
-  await expect(page.locator("footer[role=status]")).toContainText("Reconnecting");
+  await expect(
+    page.getByRole("status", { name: "Watchlist market data", exact: true }),
+  ).toContainText("Reconnecting");
   await expect.poll(() => runtime.state.sockets).toBe(2);
   await expect.poll(() => runtime.commands.length).toBe(2);
   expect(runtime.commands[1]).toMatchObject({
@@ -367,7 +371,9 @@ test("stale and reconnect states keep last quotes and restore only the current t
     channels: ["ticker"],
     symbols: ["BTC-USD", "ETH-USD"],
   });
-  await expect(page.locator("footer[role=status]")).toContainText("Prices and data are real-time.");
+  await expect(
+    page.getByRole("status", { name: "Watchlist market data", exact: true }),
+  ).toContainText("Prices and data are real-time.");
   expect(runtime.state.reads).toBe(1);
   expect(pageErrors).toEqual([]);
 });
@@ -457,7 +463,9 @@ test("only confirmed removal of the last market shows empty state and releases i
   const summary = page.getByRole("region", { name: "Watchlist summary" });
   await expect(summary).toContainText("0 symbols");
   await expect(summary).not.toContainText("BTC/USD");
-  await expect(page.locator("footer[role=status]")).toContainText("No market subscriptions.");
+  await expect(
+    page.getByRole("status", { name: "Watchlist market data", exact: true }),
+  ).toContainText("No market subscriptions.");
   await expect.poll(() => runtime.commands.length).toBe(2);
   expect(runtime.commands[1]).toMatchObject({
     action: "unsubscribe",

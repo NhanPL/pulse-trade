@@ -53,6 +53,7 @@ export function MobileRealtimeTabs({
           <button
             key={option.value}
             aria-controls={controlsByValue[option.value]}
+            id={`${controlsByValue[option.value]}-tab`}
             aria-selected={selected}
             className={classNames(
               "min-h-10 rounded-md px-3 text-sm font-semibold transition-colors",
