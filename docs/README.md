@@ -68,3 +68,8 @@ Do not add these to MVP:
 - Hundreds of market symbols.
 
 The project should be completed and polished before adding scope.
+
+## Engineering evidence
+
+- [P01 ticker render profile](16_TICKER_RENDER_PROFILE.md) — reproducible React
+  Profiler counts, broad/narrow selector comparison and current implementation gaps.

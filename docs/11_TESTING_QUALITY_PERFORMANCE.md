@@ -691,3 +691,13 @@ using the exact version already resolved by the workspace. Incomplete results ar
 explicit manual-review annotations, not accessibility certification. Local review
 screenshots/reports remain ignored and follow the existing diagnostics-sharing
 restrictions; no artifact upload or production dependency is added.
+
+## 21. P01 — Ticker render profiling
+
+The [ticker render profile](16_TICKER_RENDER_PROFILE.md) records the reproducible
+React Profiler workload, measured baseline, selector controls, discovered gaps and
+limitations. Run `pnpm --filter @pulse-trade/web test:profile:ticker` for synthetic
+aggregate measurements; the normal frontend unit command/CI also runs its render
+scope assertions. Test-only forwarding probes distinguish container function
+calls from descendant commits. No production instrumentation, timing threshold,
+order-book cadence change or authenticated diagnostic upload is added.
