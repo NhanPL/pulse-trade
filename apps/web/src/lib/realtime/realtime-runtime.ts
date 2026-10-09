@@ -1,4 +1,5 @@
 import { webEnvironment } from "../env/server";
+import { reportFrontendError } from "../observability/browser-error-reporting";
 import { RealtimeClient } from "./RealtimeClient";
 import { RealtimeEventRouter } from "./event-router";
 import { RealtimeSubscriptionManager } from "./subscription-manager";
@@ -12,8 +13,12 @@ export type RealtimeRuntime = Readonly<{
 let browserRealtimeRuntime: RealtimeRuntime | undefined;
 
 export function createRealtimeRuntime(webSocketUrl: string): RealtimeRuntime {
-  const client = new RealtimeClient(webSocketUrl);
-  const eventRouter = new RealtimeEventRouter(client);
+  const client = new RealtimeClient(webSocketUrl, undefined, {
+    onDiagnostic: (kind) => reportFrontendError(`realtime_${kind}`),
+  });
+  const eventRouter = new RealtimeEventRouter(client, () =>
+    reportFrontendError("realtime_consumer_error"),
+  );
   const subscriptions = new RealtimeSubscriptionManager(client);
 
   return { client, eventRouter, subscriptions };

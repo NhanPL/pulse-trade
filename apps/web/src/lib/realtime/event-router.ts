@@ -25,7 +25,10 @@ export class RealtimeEventRouter {
   private readonly eventListeners = new Set<RealtimeEventListener>();
   private readonly removeMessageListener: () => void;
 
-  constructor(messageSource: RealtimeMessageSource) {
+  constructor(
+    messageSource: RealtimeMessageSource,
+    private readonly onConsumerError?: () => void,
+  ) {
     this.removeMessageListener = messageSource.onMessage((message) => this.route(message));
   }
 
@@ -49,6 +52,11 @@ export class RealtimeEventRouter {
         listener(event);
       } catch {
         // A store consumer must not prevent other realtime consumers from updating.
+        try {
+          this.onConsumerError?.();
+        } catch {
+          // Diagnostic failures are isolated just like event consumers.
+        }
       }
     }
   }

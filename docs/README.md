@@ -77,3 +77,5 @@ The project should be completed and polished before adding scope.
   ingestion, coalesced visible updates and measured before/after render counts.
 - [P03 bounded trade memory](18_BOUNDED_TRADE_MEMORY.md) — long-stream retained
   counts, cache/dedupe limits, lifecycle cleanup and GC-observation boundaries.
+- [P04 frontend error reporting](19_FRONTEND_ERROR_REPORTING.md) — opt-in
+  production reports, privacy allowlists, bounded diagnostics and error recovery.

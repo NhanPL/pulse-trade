@@ -37,6 +37,9 @@ export default defineConfig({
       NEXT_PUBLIC_API_URL: `${baseURL}/api/v1`,
       NEXT_PUBLIC_WS_URL: "ws://localhost:3100/realtime",
       NEXT_TELEMETRY_DISABLED: "1",
+      // Synthetic local collector only; browser tests never send diagnostics externally.
+      NEXT_PUBLIC_SENTRY_DSN: "https://00000000000000000000000000000001@localhost:3100/1",
+      NEXT_PUBLIC_APP_RELEASE: "e2e-p04",
     },
     url: `${baseURL}/register`,
     timeout: 120_000,
