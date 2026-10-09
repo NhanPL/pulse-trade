@@ -174,7 +174,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 
 - [x] P01 Profile ticker re-render behavior.
 - [x] P02 Optimize order-book presentation cadence.
-- [ ] P03 Verify bounded trade memory.
+- [x] P03 Verify bounded trade memory.
 - [ ] P04 Add frontend error reporting.
 - [ ] P05 Add structured backend logs.
 - [ ] P06 Add health endpoint.

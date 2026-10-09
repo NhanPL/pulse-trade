@@ -711,3 +711,14 @@ verifies burst/100Hz cadence with deterministic timers and real components/store
 The existing ticker profiling harness records the post-optimization counts;
 its unrelated-widget assertions stay intact. Normal Vitest/CI discovery and the
 actual-WebSocket E2E suite cover correctness and subscription/timer cleanup.
+
+## 23. P03 — Bounded trade memory
+
+The [P03 verification report](18_BOUNDED_TRADE_MEMORY.md) records 100,000-trade
+frontend/backend soak tests, bounded candle dedupe containers, route/reconnect
+cleanup and six/fifty-row component/browser assertions. Normal Node/Vitest/E2E
+discovery runs the deterministic checks in CI. The optional
+`pnpm --filter @pulse-trade/web test:memory:trades` command additionally observes
+GC-assisted heap usage; byte measurements have no flaky pass/fail threshold.
+Only bootstrap trade retention is newly capped; live fan-out and candle input
+remain complete, and no diagnostics are uploaded.
