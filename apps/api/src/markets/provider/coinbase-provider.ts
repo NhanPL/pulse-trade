@@ -1,5 +1,7 @@
-import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import WebSocket, { type RawData } from "ws";
+
+import { BackendLogger } from "../../observability/backend-logger";
 
 import {
   normalizeCoinbaseCandleMessage,
@@ -158,7 +160,7 @@ export class CoinbaseProvider implements MarketDataProvider {
   private readonly endpoint: string;
   private readonly eventListeners = new Set<ProviderEventListener>();
   private readonly fetch: CoinbaseFetch;
-  private readonly logger = new Logger(CoinbaseProvider.name);
+  private readonly logger = new BackendLogger("CoinbaseProvider");
   private readonly now: () => number;
   private readonly random: () => number;
   private readonly reconnectDelaysMs: readonly number[];
@@ -315,7 +317,6 @@ export class CoinbaseProvider implements MarketDataProvider {
         cleanup();
         this.startStableConnectionTimer(socket);
         this.setConnectionState("CONNECTED");
-        this.logger.log("Connected to Coinbase market data WebSocket");
         resolve();
       };
       const handleConnectionError = (error: Error): void => {
@@ -356,11 +357,11 @@ export class CoinbaseProvider implements MarketDataProvider {
         this.setConnectionState("DISCONNECTED");
       }
 
-      this.logger.warn(`Coinbase market data WebSocket closed (code ${code})`);
+      this.logger.warn("provider.socket_closed", { closeCode: code });
       if (wasCurrentSocket) this.scheduleReconnect();
     });
     socket.on("error", (error) => {
-      this.logger.error(`Coinbase market data WebSocket error: ${error.message}`);
+      this.logger.error("provider.socket_error", {}, error);
       if (this.socket === socket && socket.readyState === WebSocket.OPEN) socket.terminate();
     });
   }
@@ -381,7 +382,7 @@ export class CoinbaseProvider implements MarketDataProvider {
     try {
       message = JSON.parse(decodeCoinbaseMessage(data)) as unknown;
     } catch {
-      this.logger.warn("Ignored malformed Coinbase WebSocket message");
+      this.logger.warn("provider.invalid_message");
       return;
     }
 
@@ -393,7 +394,10 @@ export class CoinbaseProvider implements MarketDataProvider {
 
       for (const event of events) this.emitEvent(event);
     } catch {
-      this.logger.warn(`Ignored invalid Coinbase ${channel} message`);
+      this.logger.warn("provider.invalid_message", {
+        channel:
+          channel === "l2_data" ? "orderbook" : channel === "market_trades" ? "trades" : channel,
+      });
     }
   }
 
@@ -402,8 +406,7 @@ export class CoinbaseProvider implements MarketDataProvider {
       try {
         listener(event);
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown listener error";
-        this.logger.error(`Market data provider listener failed: ${message}`);
+        this.logger.error("provider.listener_failed", { symbol: event.symbol }, error);
       }
     }
   }
@@ -415,8 +418,7 @@ export class CoinbaseProvider implements MarketDataProvider {
     try {
       listener(event);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown listener error";
-      this.logger.error(`Market data provider state listener failed: ${message}`);
+      this.logger.error("provider.state_listener_failed", { providerState: event.state }, error);
     }
   }
 
@@ -424,6 +426,7 @@ export class CoinbaseProvider implements MarketDataProvider {
     if (this.connectionState === state) return;
 
     this.connectionState = state;
+    this.logger.info("provider.state_changed", { providerState: state });
     const event: ProviderConnectionStateEvent = { state, ts: this.now() };
     for (const listener of this.stateListeners) this.notifyStateListener(listener, event);
   }
@@ -519,17 +522,14 @@ export class CoinbaseProvider implements MarketDataProvider {
     const attemptNumber = this.reconnectAttempt + 1;
     this.reconnectAttempt += 1;
 
-    this.logger.warn(
-      `Reconnecting to Coinbase market data WebSocket in ${delayMs}ms (attempt ${attemptNumber})`,
-    );
+    this.logger.warn("provider.reconnect_scheduled", { attempt: attemptNumber, delayMs });
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = undefined;
       if (!this.shouldReconnect) return;
 
       void this.openConnection().catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : "Unknown connection error";
-        this.logger.warn(`Coinbase market data reconnect attempt failed: ${message}`);
+        this.logger.warn("provider.reconnect_failed", { attempt: attemptNumber }, error);
       });
     }, delayMs);
   }

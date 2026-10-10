@@ -176,8 +176,8 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] P02 Optimize order-book presentation cadence.
 - [x] P03 Verify bounded trade memory.
 - [x] P04 Add frontend error reporting.
-- [ ] P05 Add structured backend logs.
-- [ ] P06 Add health endpoint.
+- [x] P05 Add structured backend logs.
+- [x] P06 Add health endpoint.
 - [ ] P07 Deploy PostgreSQL.
 - [ ] P08 Deploy API with WebSocket support.
 - [ ] P09 Deploy web.

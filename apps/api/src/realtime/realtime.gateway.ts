@@ -11,7 +11,6 @@ import {
   type ErrorEvent,
   type SubscriptionAckEvent,
 } from "@pulse-trade/contracts";
-import { Logger } from "@nestjs/common";
 import {
   ConnectedSocket,
   MessageBody,
@@ -21,6 +20,8 @@ import {
   WebSocketGateway,
 } from "@nestjs/websockets";
 import WebSocket from "ws";
+
+import { BackendLogger } from "../observability/backend-logger";
 
 import { isSupportedMarketSymbol } from "../markets/supported-markets";
 import { MarketEventBroadcaster } from "./market-event-broadcaster.service";
@@ -37,7 +38,8 @@ type SubscriptionCommandResponse = SubscriptionAckEvent | ErrorEvent;
   perMessageDeflate: false,
 })
 export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  private readonly logger = new Logger(RealtimeGateway.name);
+  private readonly logger = new BackendLogger("RealtimeGateway");
+  private readonly connectionIds = new WeakMap<WebSocket, string>();
 
   constructor(
     private readonly marketEventBroadcaster: MarketEventBroadcaster,
@@ -46,9 +48,11 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   handleConnection(client: WebSocket): void {
     this.subscriptionRegistry.registerClient(client);
+    const connectionId = randomUUID();
+    this.connectionIds.set(client, connectionId);
 
     const event: ConnectionReadyEvent = connectionReadyEventSchema.parse({
-      data: { connectionId: randomUUID() },
+      data: { connectionId },
       event: "connection.ready",
       ts: Date.now(),
       v: REALTIME_PROTOCOL_VERSION,
@@ -56,19 +60,31 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
 
     try {
       client.send(JSON.stringify(event));
-    } catch {
-      this.logger.warn("Failed to initialize realtime client connection");
+      this.logger.info("realtime.client_connected", {
+        activeConnections: this.activeConnectionCount,
+        connectionId,
+      });
+    } catch (error) {
+      this.logger.warn("realtime.client_initialization_failed", { connectionId }, error);
+      this.connectionIds.delete(client);
       this.subscriptionRegistry.removeClient(client);
       client.close(1011, "Connection initialization failed");
     }
   }
 
   handleDisconnect(client: WebSocket): void {
+    const connectionId = this.connectionIds.get(client);
+    this.connectionIds.delete(client);
     try {
       this.subscriptionRegistry.removeClient(client);
-    } catch {
-      this.logger.warn("Failed to release upstream subscriptions for disconnected client");
+    } catch (error) {
+      this.logger.warn("realtime.subscription_cleanup_failed", { connectionId }, error);
     }
+    if (connectionId)
+      this.logger.info("realtime.client_disconnected", {
+        activeConnections: this.activeConnectionCount,
+        connectionId,
+      });
   }
 
   @SubscribeMessage("subscribe")
@@ -88,8 +104,12 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     try {
       this.subscriptionRegistry.subscribe(client, result.data);
       this.marketEventBroadcaster.scheduleInitialState(client, result.data);
-    } catch {
-      this.logger.warn("Failed to register realtime subscription");
+    } catch (error) {
+      this.logger.warn(
+        "realtime.subscribe_failed",
+        { connectionId: this.connectionIds.get(client) },
+        error,
+      );
       return this.createErrorResponse(
         result.data.requestId,
         "SUBSCRIPTION_FAILED",
@@ -116,8 +136,12 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
 
     try {
       this.subscriptionRegistry.unsubscribe(client, result.data);
-    } catch {
-      this.logger.warn("Failed to unregister realtime subscription");
+    } catch (error) {
+      this.logger.warn(
+        "realtime.unsubscribe_failed",
+        { connectionId: this.connectionIds.get(client) },
+        error,
+      );
       return this.createErrorResponse(
         result.data.requestId,
         "UNSUBSCRIPTION_FAILED",

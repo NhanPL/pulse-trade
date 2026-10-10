@@ -733,3 +733,24 @@ captures synthetic Sentry envelopes locally on desktop/mobile, checks outgoing
 headers and the ten-report cap, and verifies continued keyboard interaction.
 Full-stack/realtime test builds explicitly disable reporting; no tests send
 diagnostics to a live external collector or upload local artifacts.
+
+## 25. P05 — Structured backend logging
+
+The [P05 guide](20_BACKEND_STRUCTURED_LOGGING.md) documents JSON-line output,
+server-generated request correlation, safe exception stacks and bounded realtime
+failure logs. The normal backend test command discovers privacy, concurrent HTTP,
+error-response compatibility, abort cleanup, provider reconnect/re-subscribe,
+client lifecycle, background order ID and production-entrypoint tests. Existing
+actual-WebSocket E2E and PostgreSQL/full-stack CI suites verify unchanged market
+and financial behavior. Logs and synthetic diagnostics stay local; no collector,
+health endpoint, deployment change or artifact upload is introduced.
+
+## 26. P06 — API process health
+
+The [P06 guide](21_API_HEALTH_ENDPOINT.md) records the public liveness contract and
+its distinction from dependency readiness. Normal backend test discovery includes
+controller and real Nest HTTP tests for the fixed response, API prefix, no-store,
+public access, CORS/HEAD, request correlation and private-data exclusion. The actual
+AppModule is tested with an unusable DB/failing provider to verify probe isolation,
+unchanged private-route authentication and listener cleanup. No external services,
+new testing dependencies or live database are needed for the added health tests.

@@ -165,6 +165,10 @@ Rules:
 
 ## 10. Logging
 
+P05 implements these rules through JSON-line logs and safe correlation; see the
+[backend logging guide](20_BACKEND_STRUCTURED_LOGGING.md) for event fields, privacy
+allowlists, bounded exception stacks and operational limitations.
+
 Log:
 
 - request ID.
@@ -247,6 +251,13 @@ API:
 ```text
 GET /api/v1/health
 ```
+
+P06 provides public process liveness with HTTP 200, a fixed
+`{"data":{"status":"ok"}}` body and `Cache-Control: no-store`. It does not query
+the database or provider and must not be used to infer safe trading readiness.
+See the [health endpoint guide](21_API_HEALTH_ENDPOINT.md) for probe usage, privacy
+boundaries and tests. No hosting, production probe configuration or deployment
+is introduced by P06.
 
 P1:
 

@@ -1,12 +1,8 @@
 import type { CandleInterval, RealtimeChannel, SubscribeCommand } from "@pulse-trade/contracts";
-import {
-  Inject,
-  Injectable,
-  Logger,
-  type OnModuleDestroy,
-  type OnModuleInit,
-} from "@nestjs/common";
+import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import WebSocket from "ws";
+
+import { BackendLogger } from "../observability/backend-logger";
 
 import {
   MARKET_DATA_PROVIDER,
@@ -25,7 +21,7 @@ const CANDLE_INTERVALS: readonly CandleInterval[] = ["1m", "5m", "15m", "1h"];
 export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
   private readonly bootstrappedCandleKeys = new Set<string>();
   private readonly candleBootstrapRequests = new Map<string, Promise<void>>();
-  private readonly logger = new Logger(MarketEventBroadcaster.name);
+  private readonly logger = new BackendLogger("MarketEventBroadcaster");
   private removeFreshnessListener: (() => void) | undefined;
   private removeProviderListener: (() => void) | undefined;
 
@@ -45,8 +41,8 @@ export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
       this.broadcastFreshness(event),
     );
     this.removeProviderListener = this.provider.onEvent((event) => this.handleProviderEvent(event));
-    void this.provider.connect().catch(() => {
-      this.logger.warn("Initial market data connection failed; provider reconnect remains active");
+    void this.provider.connect().catch((error: unknown) => {
+      this.logger.warn("provider.initial_connect_failed", {}, error);
     });
   }
 
@@ -58,8 +54,8 @@ export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
 
     try {
       await this.provider.close();
-    } catch {
-      this.logger.warn("Failed to close market data provider cleanly");
+    } catch (error) {
+      this.logger.warn("provider.close_failed", {}, error);
     }
   }
 
@@ -84,8 +80,8 @@ export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
         this.marketCache.apply(candleEvent);
         this.broadcast(candleEvent);
       }
-    } catch {
-      this.logger.warn("Ignored invalid normalized market event during broadcast");
+    } catch (error) {
+      this.logger.warn("realtime.broadcast_failed", { symbol: event.symbol }, error);
     }
   }
 
@@ -106,8 +102,8 @@ export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
 
       try {
         client.send(payload);
-      } catch {
-        this.logger.warn("Failed to send realtime market event to client");
+      } catch (error) {
+        this.logger.warn("realtime.send_failed", {}, error);
       }
     }
   }
@@ -196,8 +192,8 @@ export class MarketEventBroadcaster implements OnModuleInit, OnModuleDestroy {
         if (!cached || event.candle.time > cached.candle.time) this.marketCache.apply(event);
         this.bootstrappedCandleKeys.add(key);
       })
-      .catch(() => {
-        this.logger.warn(`Unable to bootstrap the ${interval} candle for ${symbol}`);
+      .catch((error: unknown) => {
+        this.logger.warn("realtime.candle_bootstrap_failed", { interval, symbol }, error);
       })
       .finally(() => {
         this.candleBootstrapRequests.delete(key);
