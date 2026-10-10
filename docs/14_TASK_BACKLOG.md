@@ -178,7 +178,7 @@ This backlog is intentionally issue-oriented so tasks can be copied into GitHub 
 - [x] P04 Add frontend error reporting.
 - [x] P05 Add structured backend logs.
 - [x] P06 Add health endpoint.
-- [ ] P07 Deploy PostgreSQL.
+- [x] P07 Deploy PostgreSQL.
 - [ ] P08 Deploy API with WebSocket support.
 - [ ] P09 Deploy web.
 - [ ] P10 Configure production CORS/cookies.

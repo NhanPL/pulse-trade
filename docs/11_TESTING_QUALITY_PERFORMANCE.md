@@ -302,6 +302,10 @@ The target is resolved in this order: shell `TEST_DATABASE_URL`, `.env.test`
 `TEST_DATABASE_URL`, then a legacy shell `DATABASE_URL`. An explicitly empty
 target fails instead of falling back. The runner never reads the development
 `.env`; Prisma also skips that file for these `NODE_ENV=test` child processes.
+Prisma also ignores an inherited `DATABASE_URL_UNPOOLED` in test mode, so a managed
+database's direct migration secret cannot override the guarded test target. P07's
+[Neon validation guide](22_NEON_POSTGRES_DEPLOYMENT.md) records isolated cloud tests
+and file-level scheduling for the small Free compute; normal CI keeps its own DB.
 Use the guarded preparation command, not the development `db:deploy`, for test
 setup. `db:test:prepare` is optional because `test:integration` already deploys
 migrations; repeated deployment is idempotent.

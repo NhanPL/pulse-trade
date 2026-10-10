@@ -9,6 +9,7 @@
     "db:validate": "prisma validate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
+    "db:status": "prisma migrate status",
     "db:test:check": "node scripts/integration-test-database.mjs check",
     "db:test:prepare": "node scripts/integration-test-database.mjs prepare",
     "dev": "nest start --watch",

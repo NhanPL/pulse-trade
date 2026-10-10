@@ -83,3 +83,5 @@ The project should be completed and polished before adding scope.
   safe request/order correlation, provider lifecycle and bounded private diagnostics.
 - [P06 API process health](21_API_HEALTH_ENDPOINT.md) — public liveness, safe
   fixed response, dependency isolation and local probe instructions.
+- [P07 Neon PostgreSQL deployment](22_NEON_POSTGRES_DEPLOYMENT.md) — Free-plan
+  database rollout, pooled/direct secrets, isolated migration tests and recovery limits.

@@ -222,6 +222,14 @@ Managed PostgreSQL with:
 - Connection pooling suitable for deployment.
 - Backups according to provider capability.
 
+P07 uses the owner's existing Neon Free project, retaining PostgreSQL 18 in
+Singapore. Runtime uses pooled `DATABASE_URL`; Prisma migrations use direct
+`DATABASE_URL_UNPOOLED` (local fallback remains supported). Test migrations ignore
+the production direct variable. TLS, branch-first deployment, verified rollout,
+Free-plan quota and the 6-hour recovery window are documented in
+[22_NEON_POSTGRES_DEPLOYMENT.md](22_NEON_POSTGRES_DEPLOYMENT.md). API/web hosting and
+production CORS/cookies remain later tasks.
+
 ## 13. CI/CD
 
 Suggested branches:
