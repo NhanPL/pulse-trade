@@ -744,3 +744,13 @@ client lifecycle, background order ID and production-entrypoint tests. Existing
 actual-WebSocket E2E and PostgreSQL/full-stack CI suites verify unchanged market
 and financial behavior. Logs and synthetic diagnostics stay local; no collector,
 health endpoint, deployment change or artifact upload is introduced.
+
+## 26. P06 — API process health
+
+The [P06 guide](21_API_HEALTH_ENDPOINT.md) records the public liveness contract and
+its distinction from dependency readiness. Normal backend test discovery includes
+controller and real Nest HTTP tests for the fixed response, API prefix, no-store,
+public access, CORS/HEAD, request correlation and private-data exclusion. The actual
+AppModule is tested with an unusable DB/failing provider to verify probe isolation,
+unchanged private-route authentication and listener cleanup. No external services,
+new testing dependencies or live database are needed for the added health tests.

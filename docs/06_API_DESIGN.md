@@ -586,6 +586,22 @@ API or introducing browser-persisted state.
 
 Returns process/API health.
 
+P06 implements this public liveness endpoint at `/api/v1/health`:
+
+```json
+{ "data": { "status": "ok" } }
+```
+
+A running API returns HTTP 200 with `Cache-Control: no-store`. No login or cookie
+is required/created. The response deliberately omits infrastructure, environment,
+version, account and financial details. Existing HTTP request correlation and CORS
+apply normally. The endpoint does not query PostgreSQL, call the market provider,
+create subscriptions or mutate application state.
+
+This is **liveness**, not dependency/trading readiness: a DB outage, disconnected
+provider or stale ticker does not change this process-health response. P1 dependency
+diagnostics below and in the deployment document are not implemented by P06.
+
 ### GET `/health/market-data` [P1]
 
 Expose high-level market provider connection health, not secrets.

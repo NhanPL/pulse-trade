@@ -81,3 +81,5 @@ The project should be completed and polished before adding scope.
   production reports, privacy allowlists, bounded diagnostics and error recovery.
 - [P05 structured backend logs](20_BACKEND_STRUCTURED_LOGGING.md) — JSON events,
   safe request/order correlation, provider lifecycle and bounded private diagnostics.
+- [P06 API process health](21_API_HEALTH_ENDPOINT.md) — public liveness, safe
+  fixed response, dependency isolation and local probe instructions.
