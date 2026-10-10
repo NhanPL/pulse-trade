@@ -79,3 +79,5 @@ The project should be completed and polished before adding scope.
   counts, cache/dedupe limits, lifecycle cleanup and GC-observation boundaries.
 - [P04 frontend error reporting](19_FRONTEND_ERROR_REPORTING.md) — opt-in
   production reports, privacy allowlists, bounded diagnostics and error recovery.
+- [P05 structured backend logs](20_BACKEND_STRUCTURED_LOGGING.md) — JSON events,
+  safe request/order correlation, provider lifecycle and bounded private diagnostics.

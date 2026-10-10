@@ -8,7 +8,6 @@ import {
 import {
   Inject,
   Injectable,
-  Logger,
   Optional,
   type OnModuleDestroy,
   type OnModuleInit,
@@ -21,6 +20,7 @@ import {
   type ProviderMarketEvent,
 } from "../markets/provider/market-data-provider";
 import { SubscriptionRegistry } from "./subscription-registry.service";
+import { BackendLogger } from "../observability/backend-logger";
 
 export const MARKET_FRESHNESS_OPTIONS = Symbol("MARKET_FRESHNESS_OPTIONS");
 export const MARKET_STALE_AFTER_MS = 15_000;
@@ -46,7 +46,7 @@ export class MarketFreshnessService implements OnModuleInit, OnModuleDestroy {
   private readonly checkIntervalMs: number;
   private readonly freshnessBySymbol = new Map<string, SymbolFreshness>();
   private readonly listeners = new Set<FreshnessListener>();
-  private readonly logger = new Logger(MarketFreshnessService.name);
+  private readonly logger = new BackendLogger("MarketFreshnessService");
   private readonly now: () => number;
   private readonly staleAfterMs: number;
   private connectedAtTs = 0;
@@ -150,8 +150,7 @@ export class MarketFreshnessService implements OnModuleInit, OnModuleDestroy {
       try {
         listener(event);
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown listener error";
-        this.logger.error(`Market freshness listener failed: ${message}`);
+        this.logger.error("realtime.freshness_listener_failed", { symbol: event.symbol }, error);
       }
     }
   }

@@ -1,7 +1,6 @@
 import {
   Inject,
   Injectable,
-  Logger,
   Optional,
   type OnModuleDestroy,
   type OnModuleInit,
@@ -16,6 +15,7 @@ import {
 } from "../markets/provider/market-data-provider";
 import { SUPPORTED_MARKET_SYMBOLS } from "../markets/supported-markets";
 import { SubscriptionRegistry } from "../realtime/subscription-registry.service";
+import { BackendLogger } from "../observability/backend-logger";
 import { TradingDomainError, compareDecimals, requirePositiveDecimal } from "./domain/decimal";
 
 export const PENDING_ORDER_EVALUATION_BATCH_SIZE = 100;
@@ -52,7 +52,7 @@ export class PendingOrderEvaluator implements OnModuleInit, OnModuleDestroy {
   private readonly lastEvaluationStartedAt = new Map<string, number>();
   private readonly latestTickerVersions = new Map<string, TickerVersion>();
   private readonly listeners = new Set<EligibleLimitOrderListener>();
-  private readonly logger = new Logger(PendingOrderEvaluator.name);
+  private readonly logger = new BackendLogger("PendingOrderEvaluator");
   private readonly now: () => number;
   private readonly pendingTickers = new Map<string, ProviderTickerEvent>();
   private releaseTickerSubscription: (() => void) | undefined;
@@ -100,8 +100,8 @@ export class PendingOrderEvaluator implements OnModuleInit, OnModuleDestroy {
 
     try {
       this.releaseTickerSubscription?.();
-    } catch {
-      this.logger.warn("Failed to release the pending-order ticker subscription cleanly");
+    } catch (error) {
+      this.logger.warn("orders.subscription_cleanup_failed", {}, error);
     }
     this.releaseTickerSubscription = undefined;
     for (const timer of this.evaluationTimers.values()) clearTimeout(timer);
@@ -173,8 +173,8 @@ export class PendingOrderEvaluator implements OnModuleInit, OnModuleDestroy {
 
         try {
           await this.evaluateTicker(ticker);
-        } catch {
-          this.logger.warn(`Unable to evaluate pending orders for ${symbol}`);
+        } catch (error) {
+          this.logger.warn("orders.evaluation_failed", { symbol }, error);
         }
       }
     } finally {
@@ -187,8 +187,17 @@ export class PendingOrderEvaluator implements OnModuleInit, OnModuleDestroy {
     for (const listener of this.listeners) {
       try {
         await listener(order);
-      } catch {
-        this.logger.warn(`Eligible order listener failed for order ${order.orderId}`);
+      } catch (error) {
+        this.logger.error(
+          "orders.fill_failed",
+          {
+            orderId: order.orderId,
+            orderSide: order.side,
+            orderType: "LIMIT",
+            symbol: order.symbol,
+          },
+          error,
+        );
       }
     }
   }

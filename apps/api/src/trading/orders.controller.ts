@@ -36,6 +36,7 @@ import {
 } from "@pulse-trade/contracts";
 
 import { CurrentUserService } from "../auth/current-user.service";
+import { BackendLogger } from "../observability/backend-logger";
 import { LimitBuyService } from "./limit-buy.service";
 import { LimitSellService } from "./limit-sell.service";
 import { MarketBuyService } from "./market-buy.service";
@@ -48,6 +49,8 @@ import { OrdersQueryService } from "./orders-query.service";
 
 @Controller("orders")
 export class OrdersController {
+  private readonly logger = new BackendLogger("OrdersController");
+
   constructor(
     private readonly currentUser: CurrentUserService,
     private readonly marketBuy: MarketBuyService,
@@ -115,6 +118,13 @@ export class OrdersController {
         },
       });
     } catch (error) {
+      const metadata = {
+        orderId: params.data.id,
+        errorCode: error instanceof OrderCancellationError ? error.code : "ORDER_UNAVAILABLE",
+      };
+      if (error instanceof OrderCancellationError)
+        this.logger.warn("orders.cancel_failed", metadata);
+      else this.logger.error("orders.cancel_failed", metadata, error);
       throwCancellationError(error);
     }
   }
@@ -186,6 +196,14 @@ export class OrdersController {
         },
       });
     } catch (error) {
+      const metadata = {
+        orderSide: order.side,
+        orderType: order.type,
+        symbol: order.symbol,
+        errorCode: error instanceof MarketOrderError ? error.code : "ORDER_UNAVAILABLE",
+      };
+      if (error instanceof MarketOrderError) this.logger.warn("orders.create_failed", metadata);
+      else this.logger.error("orders.create_failed", metadata, error);
       throwOrderError(error);
     }
   }

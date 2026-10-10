@@ -1,4 +1,6 @@
-import { BadGatewayException, Inject, Injectable, Logger } from "@nestjs/common";
+import { BadGatewayException, Inject, Injectable } from "@nestjs/common";
+
+import { BackendLogger } from "../observability/backend-logger";
 
 import {
   MARKET_DATA_PROVIDER,
@@ -18,7 +20,7 @@ export type HistoricalCandlesResponse = Readonly<{
 
 @Injectable()
 export class MarketService {
-  private readonly logger = new Logger(MarketService.name);
+  private readonly logger = new BackendLogger("MarketService");
 
   constructor(
     @Inject(MARKET_DATA_PROVIDER)
@@ -34,8 +36,7 @@ export class MarketService {
       const candles = await this.provider.getHistoricalCandles({ interval, limit, symbol });
       return { data: { candles, interval, symbol } };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown provider error";
-      this.logger.warn(`Historical candles unavailable for ${symbol}: ${message}`);
+      this.logger.warn("market.history_failed", { interval, symbol }, error);
 
       throw new BadGatewayException({
         error: {

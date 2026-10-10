@@ -165,6 +165,10 @@ Rules:
 
 ## 10. Logging
 
+P05 implements these rules through JSON-line logs and safe correlation; see the
+[backend logging guide](20_BACKEND_STRUCTURED_LOGGING.md) for event fields, privacy
+allowlists, bounded exception stacks and operational limitations.
+
 Log:
 
 - request ID.
