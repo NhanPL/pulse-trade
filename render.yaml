@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: pulse-trade-api
+    runtime: node
+    plan: free
+    region: singapore
+    autoDeployTrigger: checksPass
+    buildCommand: >-
+      npx --yes pnpm@11.24.0 install --frozen-lockfile --prod=false &&
+      npx --yes pnpm@11.24.0 build:api
+    startCommand: cd apps/api && exec node dist/main.js
+    healthCheckPath: /api/v1/health
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: WEB_ORIGIN
+        sync: false

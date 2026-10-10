@@ -85,3 +85,5 @@ The project should be completed and polished before adding scope.
   fixed response, dependency isolation and local probe instructions.
 - [P07 Neon PostgreSQL deployment](22_NEON_POSTGRES_DEPLOYMENT.md) — Free-plan
   database rollout, pooled/direct secrets, isolated migration tests and recovery limits.
+- [P08 Render API deployment](23_RENDER_API_DEPLOYMENT.md) — native Node/WS
+  deployment preparation, private configuration and pending hosted verification.

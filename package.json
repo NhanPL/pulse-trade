@@ -8,6 +8,7 @@
     "dev:web": "pnpm --filter @pulse-trade/web dev",
     "dev:api": "pnpm --filter @pulse-trade/api dev",
     "build": "pnpm --recursive build",
+    "build:api": "pnpm --filter @pulse-trade/contracts build && pnpm --filter @pulse-trade/api build",
     "typecheck": "pnpm --recursive typecheck",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm build",
     "lint": "eslint .",

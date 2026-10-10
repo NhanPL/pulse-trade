@@ -20,7 +20,7 @@ async function bootstrap(): Promise<void> {
     app.enableShutdownHooks();
     configureHttpApplication(app, environment);
     app.useWebSocketAdapter(new WsAdapter(app, { messageParser: parseRealtimeMessage }));
-    await app.listen(environment.port);
+    await app.listen(environment.port, "0.0.0.0");
     new BackendLogger("bootstrap").info("application.ready", { port: environment.port });
   } catch (error) {
     await app.close().catch(() => undefined);

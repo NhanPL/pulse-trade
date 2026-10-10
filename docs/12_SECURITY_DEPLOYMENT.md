@@ -214,6 +214,13 @@ Must support:
 
 Avoid a platform/runtime that only supports short-lived serverless request functions for the realtime gateway.
 
+P08 prepares a single native Node service on Render Free, with the owner's
+explicit acceptance of idle suspension and cold starts. HTTP and WebSocket share
+one port; TLS is terminated by Render. The root Blueprint, private configuration,
+verification gates and current blocked deployment status are documented in
+[23_RENDER_API_DEPLOYMENT.md](23_RENDER_API_DEPLOYMENT.md). This does not replace
+the production login protection or P10 cookie/CORS requirements.
+
 ### Database
 
 Managed PostgreSQL with:
