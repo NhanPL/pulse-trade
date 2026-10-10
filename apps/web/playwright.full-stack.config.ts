@@ -26,6 +26,8 @@ export default defineConfig({
       NEXT_PUBLIC_API_URL: "http://127.0.0.1:3111/api/v1",
       NEXT_PUBLIC_WS_URL: "ws://127.0.0.1:3111/realtime",
       NEXT_TELEMETRY_DISABLED: "1",
+      NEXT_PUBLIC_SENTRY_DSN: "",
+      NEXT_PUBLIC_APP_RELEASE: "",
     },
     url: `${baseURL}/register`,
     timeout: 180_000,

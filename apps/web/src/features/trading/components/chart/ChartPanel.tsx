@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 
 import type { CandleInterval } from "@pulse-trade/contracts";
 
+import { FeatureErrorBoundary } from "@/components/ui/FeatureErrorBoundary";
+
 import { CandlestickChart } from "./CandlestickChart";
 import { ChartTimeframeTabs } from "./ChartTimeframeTabs";
 
@@ -36,7 +38,16 @@ export function ChartPanel({ children, onTimeframeChange, symbol, timeframe }: C
         className="relative h-80 min-w-0 overflow-hidden sm:h-[26rem] lg:h-auto lg:min-h-0 lg:flex-1"
         data-chart-container={symbol}
       >
-        {children ?? <CandlestickChart symbol={symbol} timeframe={timeframe} />}
+        <FeatureErrorBoundary
+          className="absolute inset-0 rounded-none border-0 bg-surface-elevated"
+          description="This panel could not be displayed. Other trading tools remain available."
+          reportKind="chart_error"
+          resetKey={`${symbol}:${timeframe}`}
+          retryLabel="Retry chart"
+          title="Chart could not be displayed"
+        >
+          {children ?? <CandlestickChart symbol={symbol} timeframe={timeframe} />}
+        </FeatureErrorBoundary>
       </div>
     </section>
   );

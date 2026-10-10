@@ -364,7 +364,8 @@ for (const resource of ["portfolio", "orders", "watchlist"] as const) {
       await audit(page);
       state = "error";
       await page.reload();
-      await expect(page.getByRole("alert")).toBeVisible({ timeout: 10000 });
+      // Fatal route errors and Next's route announcer are separate from this handled API error.
+      await expect(page.getByRole("main").getByRole("alert")).toBeVisible({ timeout: 10000 });
       await audit(page);
     } finally {
       release();

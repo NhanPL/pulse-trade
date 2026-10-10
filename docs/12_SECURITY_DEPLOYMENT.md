@@ -255,3 +255,12 @@ P1:
 - Last market update timestamp.
 
 Do not expose sensitive infrastructure details in public health responses.
+
+## 15. P04 frontend reporting
+
+Production browser reporting is optional and uses the public
+`NEXT_PUBLIC_SENTRY_DSN` plus an optional `NEXT_PUBLIC_APP_RELEASE`, not a secret
+Sentry auth token. See [Frontend error reporting](19_FRONTEND_ERROR_REPORTING.md)
+for activation, payload allowlisting, bounds, receiver privacy review and
+rollback. No live project, source-map upload or backend logging is configured by
+this task.

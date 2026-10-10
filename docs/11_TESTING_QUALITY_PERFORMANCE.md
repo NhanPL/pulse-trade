@@ -722,3 +722,14 @@ discovery runs the deterministic checks in CI. The optional
 GC-assisted heap usage; byte measurements have no flaky pass/fail threshold.
 Only bootstrap trade retention is newly capped; live fan-out and candle input
 remain complete, and no diagnostics are uploaded.
+
+## 24. P04 — Frontend error reporting
+
+The [P04 guide](19_FRONTEND_ERROR_REPORTING.md) describes opt-in browser reporting,
+fixed-label/private payloads, bounded deduplication and local error recovery.
+Normal Vitest discovery tests privacy, SDK configuration, listener cleanup,
+transport failure and realtime diagnostic isolation. The production UI E2E suite
+captures synthetic Sentry envelopes locally on desktop/mobile, checks outgoing
+headers and the ten-report cap, and verifies continued keyboard interaction.
+Full-stack/realtime test builds explicitly disable reporting; no tests send
+diagnostics to a live external collector or upload local artifacts.

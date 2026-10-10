@@ -10,6 +10,9 @@ export type RealtimeSocket = Pick<
 
 export type RealtimeSocketFactory = (url: string) => RealtimeSocket;
 
+export type RealtimeDiagnostic =
+  "connection_error" | "reconnect_loop" | "consumer_error" | "send_error";
+
 export type RealtimeClientOptions = Readonly<{
   clearTimeout?: typeof clearTimeout;
   random?: () => number;
@@ -17,6 +20,7 @@ export type RealtimeClientOptions = Readonly<{
   reconnectJitterRatio?: number;
   setTimeout?: typeof setTimeout;
   stableConnectionMs?: number;
+  onDiagnostic?: (diagnostic: RealtimeDiagnostic) => void;
 }>;
 
 type SocketListeners = Readonly<{
@@ -71,6 +75,7 @@ export class RealtimeClient {
   private readonly reconnectJitterRatio: number;
   private readonly scheduleTimeout: typeof setTimeout;
   private readonly stableConnectionMs: number;
+  private readonly onDiagnostic: RealtimeClientOptions["onDiagnostic"];
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   private shouldReconnect = false;
@@ -91,6 +96,7 @@ export class RealtimeClient {
     this.reconnectJitterRatio = options.reconnectJitterRatio ?? REALTIME_RECONNECT_JITTER_RATIO;
     this.scheduleTimeout = options.setTimeout ?? globalThis.setTimeout.bind(globalThis);
     this.stableConnectionMs = options.stableConnectionMs ?? REALTIME_STABLE_CONNECTION_MS;
+    this.onDiagnostic = options.onDiagnostic;
 
     calculateReconnectDelayMs(0, this.reconnectDelaysMs, this.reconnectJitterRatio, 0.5);
     if (!Number.isFinite(this.stableConnectionMs) || this.stableConnectionMs < 0) {
@@ -115,6 +121,7 @@ export class RealtimeClient {
     } catch (error) {
       this.shouldReconnect = false;
       this.setConnectionState("DISCONNECTED");
+      this.diagnose("connection_error");
       throw error;
     }
   }
@@ -163,6 +170,7 @@ export class RealtimeClient {
       socket.send(payload);
       return true;
     } catch {
+      this.diagnose("send_error");
       return false;
     }
   }
@@ -218,6 +226,8 @@ export class RealtimeClient {
   private handleUnexpectedDisconnect(socket: RealtimeSocket): void {
     if (this.socket !== socket) return;
 
+    this.diagnose("connection_error");
+
     this.releaseSocket(socket, this.shouldReconnect ? "RECONNECTING" : "DISCONNECTED");
     this.clearStableConnectionTimer();
 
@@ -251,6 +261,7 @@ export class RealtimeClient {
       this.random(),
     );
     this.reconnectAttempt += 1;
+    if (this.reconnectAttempt === 5) this.diagnose("reconnect_loop");
     this.setConnectionState("RECONNECTING");
 
     this.reconnectTimer = this.scheduleTimeout(() => {
@@ -260,6 +271,7 @@ export class RealtimeClient {
       try {
         this.openSocket();
       } catch {
+        this.diagnose("connection_error");
         this.scheduleReconnect();
       }
     }, delayMs);
@@ -308,6 +320,7 @@ export class RealtimeClient {
       listener(state);
     } catch {
       // One consumer must not interrupt socket cleanup or other state listeners.
+      this.diagnose("consumer_error");
     }
   }
 
@@ -317,7 +330,16 @@ export class RealtimeClient {
         listener(message);
       } catch {
         // An event consumer must not block other consumers from receiving market data.
+        this.diagnose("consumer_error");
       }
+    }
+  }
+
+  private diagnose(diagnostic: RealtimeDiagnostic): void {
+    try {
+      this.onDiagnostic?.(diagnostic);
+    } catch {
+      // Optional monitoring must not affect socket lifecycle or event delivery.
     }
   }
 }
