@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import test from "node:test";
 import { clearTimeout, setTimeout } from "node:timers";
+import { URL } from "node:url";
 
 import { MockMarketDataProvider } from "./fixtures/mock-market-provider.mts";
 
@@ -19,6 +21,12 @@ const { SubscriptionRegistry } = require("../dist/realtime/subscription-registry
 const { loadEnvironment } = require("../dist/config/configuration.js");
 const { configureHttpApplication } = require("../dist/config/http-application.js");
 const { parseRealtimeMessage } = require("../dist/realtime/realtime-message-parser.js");
+
+test("Render Free Blueprint omits the unsupported custom shutdown delay", () => {
+  const blueprint = readFileSync(new URL("../../../render.yaml", import.meta.url), "utf8");
+  assert.match(blueprint, /^\s*plan:\s*free\s*$/m);
+  assert.doesNotMatch(blueprint, /^\s*maxShutdownDelaySeconds\s*:/m);
+});
 
 function receive(socket, predicate) {
   // Attach before sending a command so an immediate acknowledgement/snapshot cannot be missed.
