@@ -1,6 +1,7 @@
 node_modules/
 apps/api/src/generated/prisma/
 .next/
+.vercel/
 test-results/
 playwright-report/
 dist/

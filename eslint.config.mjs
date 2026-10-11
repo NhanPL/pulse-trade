@@ -15,6 +15,7 @@ function scopeConfigs(configs, files) {
 export default defineConfig([
   globalIgnores([
     "**/.next/**",
+    "**/.vercel/**",
     "**/test-results/**",
     "**/playwright-report/**",
     "**/dist/**",

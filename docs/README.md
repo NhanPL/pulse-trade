@@ -87,3 +87,5 @@ The project should be completed and polished before adding scope.
   database rollout, pooled/direct secrets, isolated migration tests and recovery limits.
 - [P08 Render API deployment](23_RENDER_API_DEPLOYMENT.md) — native Node/WS
   deployment preparation, private configuration and pending hosted verification.
+- [P09 Vercel web deployment](24_VERCEL_WEB_DEPLOYMENT.md) — focused Next.js
+  workspace build, secure public endpoints and pending hosted verification.

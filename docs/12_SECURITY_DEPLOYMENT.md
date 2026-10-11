@@ -203,6 +203,15 @@ Browser
 
 Must support stable Next.js deployment.
 
+P09 prepares native Next.js hosting on Vercel, without moving the NestJS API or
+WebSocket gateway into serverless functions. Hosted builds require explicit
+HTTPS/WSS public endpoints; local development and isolated E2E retain loopback
+defaults. Build configuration, external project settings, verification and the
+pending deployment status are documented in
+[24_VERCEL_WEB_DEPLOYMENT.md](24_VERCEL_WEB_DEPLOYMENT.md). P10 remains responsible
+for production cookie/CORS policy; a successful web build does not prove login
+works across unrelated provider domains.
+
 ### API host
 
 Must support:
