@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "cd ../.. && npx --yes pnpm@11.24.0 --filter @pulse-trade/web... install --frozen-lockfile --prod=false",
+  "buildCommand": "cd ../.. && VERCEL=1 NEXT_TELEMETRY_DISABLED=1 npx --yes pnpm@11.24.0 build:web"
+}
