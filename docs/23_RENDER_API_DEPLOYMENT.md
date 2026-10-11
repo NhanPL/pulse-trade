@@ -40,7 +40,9 @@ service in Singapore, near the existing Neon database:
 The existing Nest shutdown hooks stop the provider, evaluator and freshness timers.
 The existing `WsAdapter` closes active upgraded sockets; clients reconnect and
 re-subscribe using the existing frontend lifecycle. No new socket ownership,
-protocol or heartbeat policy is introduced. Render's shutdown grace is 30 seconds.
+protocol or heartbeat policy is introduced. Free services use Render's default
+shutdown policy: the Blueprint must omit `maxShutdownDelaySeconds`, even when its
+value equals the platform default, because Render rejects that field on Free.
 
 ## Private configuration
 

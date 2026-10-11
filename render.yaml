@@ -10,7 +10,6 @@ services:
       npx --yes pnpm@11.24.0 build:api
     startCommand: cd apps/api && exec node dist/main.js
     healthCheckPath: /api/v1/health
-    maxShutdownDelaySeconds: 30
     envVars:
       - key: NODE_VERSION
         value: "24"
