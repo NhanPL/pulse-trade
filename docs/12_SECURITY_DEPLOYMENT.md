@@ -214,6 +214,13 @@ Must support:
 
 Avoid a platform/runtime that only supports short-lived serverless request functions for the realtime gateway.
 
+P08 prepares a single native Node service on Render Free, with the owner's
+explicit acceptance of idle suspension and cold starts. HTTP and WebSocket share
+one port; TLS is terminated by Render. The root Blueprint, private configuration,
+verification gates and current blocked deployment status are documented in
+[23_RENDER_API_DEPLOYMENT.md](23_RENDER_API_DEPLOYMENT.md). This does not replace
+the production login protection or P10 cookie/CORS requirements.
+
 ### Database
 
 Managed PostgreSQL with:
@@ -221,6 +228,14 @@ Managed PostgreSQL with:
 - SSL connection.
 - Connection pooling suitable for deployment.
 - Backups according to provider capability.
+
+P07 uses the owner's existing Neon Free project, retaining PostgreSQL 18 in
+Singapore. Runtime uses pooled `DATABASE_URL`; Prisma migrations use direct
+`DATABASE_URL_UNPOOLED` (local fallback remains supported). Test migrations ignore
+the production direct variable. TLS, branch-first deployment, verified rollout,
+Free-plan quota and the 6-hour recovery window are documented in
+[22_NEON_POSTGRES_DEPLOYMENT.md](22_NEON_POSTGRES_DEPLOYMENT.md). API/web hosting and
+production CORS/cookies remain later tasks.
 
 ## 13. CI/CD
 

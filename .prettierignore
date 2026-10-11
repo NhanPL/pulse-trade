@@ -3,6 +3,7 @@ test-results/
 playwright-report/
 dist/
 node_modules/
+.agents/
 apps/api/src/generated/prisma/
 *.tsbuildinfo
 pnpm-lock.yaml
