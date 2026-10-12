@@ -105,6 +105,13 @@ Navigates to:
 
 Nested watchlist button must not accidentally trigger row navigation.
 
+Each row/card uses a native market link, named `Trade <symbol>`, with a visible
+arrow and keyboard focus indicator. Its click target spans the row/card, while
+the watchlist action remains above that target and separate from the link.
+Opening a market never requires a session, even while session verification is
+pending or unavailable. Sign-in is required only for private account actions
+such as placing an order or saving a watchlist symbol.
+
 ### Watchlist star
 
 Guest:
